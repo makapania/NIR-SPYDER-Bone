@@ -27,12 +27,18 @@ result". If one spot says Unlikely and another says Borderline, that is normal a
 
 ## 2. Installing and starting
 
-**Windows.** Run the installer. It installs for your user account only and includes the web component it needs. The
-first time, Windows may show a "Windows protected your PC" warning: choose **More info → Run anyway**.
+**Download** the installer for your computer from https://github.com/makapania/NIR-SPYDER-Bone/releases/latest: the
+`.exe` for Windows, the `.dmg` for a Mac (one file for both Apple Silicon and Intel Macs).
 
-**macOS.** Open the disk image and drag SPYDER Bone to Applications. It needs macOS 13 or newer. The first launch may be
-blocked by macOS: Control-click the app and choose **Open**, or use **Open Anyway**
-in System Settings → Privacy & Security.
+**Windows.** Run the installer. It installs for your user account only and includes the web component it needs. The
+installer is not yet signed, so the first time Windows shows "Windows protected your PC": choose **More info → Run
+anyway**.
+
+**macOS.** Open the disk image and drag SPYDER Bone to Applications. It needs macOS 13 or newer. The app is not yet
+signed, so macOS refuses the first open: click **Done**, then go to **System Settings → Privacy & Security**, scroll
+down and click **Open Anyway** next to SPYDER Bone. (On macOS 14 or older, Control-click the app and choose **Open**
+also works.) If macOS says the app "is damaged and can't be opened", run `xattr -cr "/Applications/SPYDER Bone.app"`
+in Terminal and open it again. After the first time it opens normally.
 
 **Starting.** The window opens ready to work, in a dark theme by default, with a light-theme button and a
 **Colour-blind safe** button in the toolbar. There are no set-up screens. On macOS there is a small File menu (Open
@@ -273,8 +279,12 @@ instrument.
 **The verdict says Can't tell, or the bands are too noisy.**
 Rescan with more averages (100–200), or pick a lighter or cleaner spot.
 
-**A note says my switch setting disagrees with the file's serial.**
+**A note says my switch setting disagrees with the file's serial or detector settings.**
 Flip the Standard / High-res switch to match your instrument. It is remembered for the folder.
+
+**The switch was set for me. Can I trust it?**
+A known serial number is reliable; a preset "from the detector settings" is a good guess. If you know your instrument,
+set the switch yourself.
 
 **A row says "Changed".**
 The file changed on disk after it was scored (it was saved again). The app now shows the new version.
