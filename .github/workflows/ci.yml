@@ -40,7 +40,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Tauri Linux dependencies
         if: runner.os == 'Linux'
@@ -80,8 +80,8 @@ jobs:
       run:
         working-directory: app/ui
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -99,7 +99,7 @@ jobs:
       - name: Playwright smoke (Chromium + WebKit, mocked api.ts)
         if: runner.os == 'Linux'
         run: npx playwright test --project=chromium --project=webkit
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: failure() && runner.os == 'Linux'
         with:
           name: playwright-report
@@ -112,8 +112,8 @@ jobs:
     needs: [rust, ui]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -124,7 +124,7 @@ jobs:
       - name: tauri build --debug --no-bundle
         working-directory: app/src-tauri
         run: ../ui/node_modules/.bin/tauri build --debug --no-bundle
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: spyder-bone-windows-debug
           path: target/debug/spyder-bone-app.exe
@@ -135,11 +135,11 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.macos
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Rust toolchain (from rust-toolchain.toml)
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm

@@ -32,7 +32,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: tag
         run: |
           if [ "${{ github.ref_type }}" = tag ]; then tag="${{ github.ref_name }}"
@@ -74,7 +74,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Rust toolchain (from rust-toolchain.toml)
         run: rustup show active-toolchain || rustup toolchain install
@@ -85,7 +85,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
