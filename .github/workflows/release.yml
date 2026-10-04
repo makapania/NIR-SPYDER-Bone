@@ -48,9 +48,13 @@ jobs:
           **Windows:** download the `.exe` and run it.
           **macOS (Apple Silicon or Intel):** download the `.dmg`, open it and drag SPYDER Bone to Applications.
 
-          These test builds are not yet signed. Windows shows "Windows protected your PC": click **More info**, then
-          **Run anyway**. macOS blocks the first open: right-click the app and choose **Open** (or System Settings >
-          Privacy & Security > **Open Anyway**).
+          These test builds are not yet signed, so both systems warn the first time:
+
+          - **Windows** shows "Windows protected your PC": click **More info**, then **Run anyway**.
+          - **macOS** refuses the first open. Click **Done**, then open **System Settings > Privacy & Security**, scroll
+            down and click **Open Anyway** next to SPYDER Bone. (On macOS 14 or older, right-click the app and choose
+            **Open** also works.) If macOS says the app "is damaged", run
+            `xattr -cr "/Applications/SPYDER Bone.app"` in Terminal and open it again.
           EOF
           gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "SPYDER Bone $TAG" --notes-file notes.md
 
