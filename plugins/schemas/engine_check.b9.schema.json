@@ -1,0 +1,211 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://spyder-bone.org/schemas/engine_check.b9.schema.json",
+ "title": "SPYDER Bone engine-check parameter file: b9",
+ "type": "object",
+ "required": [
+  "format",
+  "format_version",
+  "check",
+  "id",
+  "version",
+  "engine_min",
+  "status",
+  "title",
+  "licence",
+  "provenance",
+  "parameters",
+  "golden"
+ ],
+ "properties": {
+  "format": {
+   "const": "spyder-bone/engine_check"
+  },
+  "format_version": {
+   "const": 1
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[a-z0-9_.]+$"
+  },
+  "version": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "engine_min": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+$"
+  },
+  "status": {
+   "enum": [
+    "active",
+    "experimental",
+    "demo",
+    "withdrawn"
+   ]
+  },
+  "title": {
+   "type": "string"
+  },
+  "description": {
+   "type": "string"
+  },
+  "licence": {
+   "type": "string"
+  },
+  "created": {
+   "type": "string"
+  },
+  "provenance": {
+   "type": "object"
+  },
+  "check": {
+   "const": "b9"
+  },
+  "parameters": {
+   "type": "object",
+   "required": [
+    "kernel",
+    "windows_nm",
+    "std_epsilon",
+    "prototypes",
+    "fail_if_score_below"
+   ],
+   "properties": {
+    "kernel": {
+     "type": "object",
+     "required": [
+      "absorbance_clip",
+      "savgol",
+      "scale"
+     ],
+     "properties": {
+      "absorbance_clip": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "savgol": {
+       "type": "object",
+       "required": [
+        "window",
+        "polyorder",
+        "deriv",
+        "delta",
+        "mode"
+       ],
+       "properties": {
+        "window": {
+         "type": "integer"
+        },
+        "polyorder": {
+         "type": "integer"
+        },
+        "deriv": {
+         "type": "integer"
+        },
+        "delta": {
+         "type": "number"
+        },
+        "mode": {
+         "enum": [
+          "interp",
+          "mirror",
+          "nearest",
+          "constant",
+          "wrap",
+          "zero_edges",
+          "valid"
+         ],
+         "description": "stated per PLAN section 7; the engine checks read interior points only, so the edge mode never enters a reading"
+        }
+       }
+      },
+      "scale": {
+       "type": "number"
+      }
+     }
+    },
+    "windows_nm": {
+     "type": "array",
+     "items": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+     }
+    },
+    "prototypes": {
+     "type": "object",
+     "required": [
+      "sidecar",
+      "sha256",
+      "shape"
+     ],
+     "properties": {
+      "sidecar": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9_.-]+\\.npy$"
+      },
+      "sha256": {
+       "type": "string",
+       "pattern": "^[0-9a-f]{64}$"
+      }
+     }
+    },
+    "fail_if_score_below": {
+     "type": "number"
+    }
+   }
+  },
+  "golden": {
+   "type": "object",
+   "required": [
+    "cases"
+   ],
+   "properties": {
+    "spectra_file": {
+     "type": "string"
+    },
+    "tolerance": {
+     "type": "object",
+     "required": [
+      "abs",
+      "rel"
+     ],
+     "properties": {
+      "abs": {
+       "type": "number",
+       "maximum": 1e-09
+      },
+      "rel": {
+       "type": "number",
+       "maximum": 1e-09
+      }
+     }
+    },
+    "cases": {
+     "type": "array",
+     "minItems": 3,
+     "items": {
+      "type": "object",
+      "required": [
+       "name",
+       "expected"
+      ],
+      "properties": {
+       "name": {
+        "type": "string"
+       },
+       "expected": {
+        "type": "object",
+        "minProperties": 1
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

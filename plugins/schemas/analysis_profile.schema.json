@@ -1,0 +1,311 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://spyder-bone.org/schemas/analysis_profile.schema.json",
+ "title": "SPYDER Bone analysis profile (radiocarbon / isotopes / zooms)",
+ "type": "object",
+ "required": [
+  "format",
+  "format_version",
+  "analysis",
+  "id",
+  "version",
+  "engine_min",
+  "status",
+  "licence",
+  "provenance",
+  "parameters",
+  "golden"
+ ],
+ "properties": {
+  "format_version": {
+   "const": 1
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[a-z0-9_.]+$"
+  },
+  "version": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "engine_min": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+$"
+  },
+  "status": {
+   "enum": [
+    "active",
+    "experimental",
+    "demo",
+    "withdrawn"
+   ]
+  },
+  "title": {
+   "type": "string"
+  },
+  "description": {
+   "type": "string"
+  },
+  "licence": {
+   "type": "string"
+  },
+  "created": {
+   "type": "string"
+  },
+  "provenance": {
+   "type": "object"
+  },
+  "format": {
+   "const": "spyder-bone/analysis_profile"
+  },
+  "analysis": {
+   "enum": [
+    "radiocarbon",
+    "isotopes",
+    "zooms"
+   ]
+  },
+  "golden": {
+   "type": "object",
+   "required": [
+    "cases"
+   ],
+   "properties": {
+    "spectra_file": {
+     "type": "string"
+    },
+    "tolerance": {
+     "type": "object",
+     "required": [
+      "abs",
+      "rel"
+     ],
+     "properties": {
+      "abs": {
+       "type": "number",
+       "maximum": 1e-09
+      },
+      "rel": {
+       "type": "number",
+       "maximum": 1e-09
+      }
+     }
+    },
+    "cases": {
+     "type": "array",
+     "minItems": 3,
+     "items": {
+      "type": "object",
+      "required": [
+       "name",
+       "expected"
+      ],
+      "properties": {
+       "name": {
+        "type": "string"
+       },
+       "expected": {
+        "type": "object",
+        "minProperties": 1
+       }
+      }
+     }
+    }
+   }
+  },
+  "parameters": {
+   "oneOf": [
+    {
+     "type": "object",
+     "required": [
+      "kind",
+      "models",
+      "cuts",
+      "flat_bands_lead",
+      "plus_d",
+      "lift",
+      "flags",
+      "notes",
+      "sort"
+     ],
+     "properties": {
+      "kind": {
+       "const": "collagen_rule_L2"
+      },
+      "cuts": {
+       "type": "object",
+       "required": [
+        "unlikely_below",
+        "good_from"
+       ],
+       "properties": {
+        "unlikely_below": {
+         "type": "number"
+        },
+        "good_from": {
+         "type": "number"
+        }
+       }
+      },
+      "lift": {
+       "type": "object",
+       "required": [
+        "requires_zooms_verdict",
+        "to_good_levels",
+        "to_at_least_borderline_levels",
+        "blocked_by_signs",
+        "requires_contaminants_checked"
+       ],
+       "properties": {
+        "blocked_by_signs": {
+         "type": "array",
+         "items": {
+          "enum": [
+           "plaster",
+           "wax",
+           "ester",
+           "C1"
+          ]
+         }
+        }
+       }
+      },
+      "notes": {
+       "type": "object",
+       "required": [
+        "precedence_rule",
+        "precedence_supporting",
+        "max_shown",
+        "models_disagree_when",
+        "models_disagree_min_span",
+        "positive_signs"
+       ],
+       "properties": {
+        "models_disagree_when": {
+         "const": "components_in_different_verdict_bands"
+        },
+        "models_disagree_min_span": {
+         "type": "number"
+        },
+        "above_bone_range_m_above": {
+         "type": "number"
+        },
+        "precedence_zooms": {
+         "type": "array",
+         "items": {
+          "const": "zooms_better"
+         }
+        },
+        "zooms_better": {
+         "type": "object",
+         "required": [
+          "enabled"
+         ],
+         "properties": {
+          "enabled": {
+           "type": "boolean"
+          },
+          "suppressed_by_signs": {
+           "type": "array",
+           "items": {
+            "enum": [
+             "plaster",
+             "wax",
+             "ester",
+             "C1"
+            ]
+           }
+          },
+          "protein": {
+           "type": "object",
+           "required": [
+            "m_at_least",
+            "n_type_lit_at_least",
+            "n_type_bands"
+           ],
+           "properties": {
+            "m_at_least": {
+             "type": "number"
+            },
+            "n_type_lit_at_least": {
+             "type": "integer"
+            },
+            "n_type_bands": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             },
+             "minItems": 1
+            }
+           }
+          },
+          "ryder_2045_model_key": {
+           "type": "string"
+          },
+          "ryder_2045_at_least": {
+           "type": "number"
+          }
+         }
+        },
+        "precedence_last": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "details_only": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     }
+    },
+    {
+     "type": "object",
+     "required": [
+      "kind",
+      "verdict_from_check",
+      "models",
+      "flags",
+      "sort"
+     ],
+     "properties": {
+      "kind": {
+       "const": "zooms_pattern"
+      },
+      "notes": {
+       "type": "object",
+       "required": [
+        "precedence_supporting",
+        "max_shown"
+       ],
+       "properties": {
+        "precedence_supporting": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "max_shown": {
+         "type": "integer"
+        },
+        "above_bone_range_m_above": {
+         "type": "number"
+        },
+        "details_only": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     }
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,98 @@
+{
+ "format": "spyder-bone/engine_check",
+ "format_version": 1,
+ "check": "longwave",
+ "id": "check.longwave",
+ "version": "1.0.0",
+ "engine_min": "1.0",
+ "status": "active",
+ "title": "Long-wave (> 2300 nm) eligibility",
+ "description": "White-reference signal falls to about 25% at 2300-2400 nm, and high-res units are 5-10x noisier than standard units at equal brightness, so the tail is noise on dark high-res scans (PLAN v3.2 Step 2c). A high-res scan whose as-measured N2(2300-2400) exceeds the cut is 'tail-unreliable': B9 and C1 then run their validated truncated variants (no data above 2300 nm; each check file's 'truncated' block), or return 'not assessed: long-wave region too noisy' if the mode says so. The cut is per check: B9 uses tail_unreliable_if_n2_above, C1 (the contaminant check only) uses c1_tail_unreliable_if_n2_above. Nothing else in v1 reads above 2300 nm.",
+ "licence": "CC-BY-4.0",
+ "created": "2026-10-03",
+ "provenance": {
+  "basis": "Phase 0a; Phase 0b item 10. Cut 150 on the as-measured N2(2300-2400) of high-res scans (a high-resolution variation set: median 100, 90th percentile 133; a noisy high-resolution session runs 166-1,695; standard-resolution reference bone median 11-30). Truncated variants validated in item 10: B9 clean-pool minimum 0.457 (0 of 1,201 fail); C1 out-of-fold false alarms 0.50% (full 0.58%); under added tail noise the truncated variants vary 2-3x less than the full ones.",
+  "provisional": true,
+  "c1_cut": "Phase 0c (DECISIONS 76): full C1 keeps clean false alarms at 0.5-1.0% up to a high-resolution N2(2300-2400) of about 250 (1.4% at 250-300, 3.4% at 300-400; C1 gate at its limit), so C1 runs full up to 250 for the contaminant check only; B9 keeps 150. The truncated C1 drops the 2350 nm band and is blind to cellulose-nitrate glues and animal glue."
+ },
+ "parameters": {
+  "applies_to_classes": [
+   "asd.labspec4.hires"
+  ],
+  "n2_window_nm": [
+   2300,
+   2400
+  ],
+  "tail_unreliable_if_n2_above": 150.0,
+  "c1_tail_unreliable_if_n2_above": 250.0,
+  "when_unreliable": {
+   "b9": "truncated",
+   "c1": "truncated"
+  },
+  "modes": {
+   "truncated": "run the check's validated variant without data above 2300 nm (its 'truncated' block)",
+   "not_assessed": "return 'not assessed: long-wave region too noisy'"
+  }
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_checks_v1.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "rc_good_positive_all_six",
+    "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
+    "inputs": {
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "status": "not assessed: standard-resolution class",
+     "n2": 44.810031315685684,
+     "tail_unreliable": false,
+     "tail_unreliable_c1": false
+    }
+   },
+   {
+    "name": "hires_longwave_not_assessed",
+    "spectrum_sha256": "cfd4daa220dafc7f24cc645b8467ab2fe836c0e8a128022fdf4aa7331001bbb9",
+    "inputs": {
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "status": "assessed",
+     "n2": 200.00000000000742,
+     "tail_unreliable": true,
+     "tail_unreliable_c1": false
+    }
+   },
+   {
+    "name": "pair22_hires",
+    "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
+    "inputs": {
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "status": "assessed",
+     "n2": 1273.7549985464364,
+     "tail_unreliable": true,
+     "tail_unreliable_c1": true
+    }
+   },
+   {
+    "name": "hires_longwave_300_c1_truncated",
+    "spectrum_sha256": "6592bb6dde72a183f97afeb35a0751ec73251cdaace8a0fedc9c1db0053f5ad3",
+    "inputs": {
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "status": "assessed",
+     "n2": 300.0000000000029,
+     "tail_unreliable": true,
+     "tail_unreliable_c1": true
+    }
+   }
+  ]
+ }
+}

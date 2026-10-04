@@ -1,0 +1,186 @@
+{
+ "format": "spyder-bone/engine_check",
+ "format_version": 1,
+ "check": "b9",
+ "id": "check.b9",
+ "version": "1.0.0",
+ "engine_min": "1.1",
+ "status": "active",
+ "title": "B9: does this look like bone?",
+ "description": "Highest Pearson correlation of the scan's SG31 second-derivative profile (1350-1560 + 1850-2400 nm, standardised with the population SD) with five bone prototypes. Below the cut the verdict is replaced by \"Doesn't look like bone: check the target\". Standard-resolution stream (high-res transferred first); not assessed when the long-wave tail is unreliable.",
+ "licence": "CC-BY-4.0",
+ "created": "2026-10-03",
+ "provenance": {
+  "basis": "Phase 0a A7. Prototypes = mean standardised profiles of five clean bone groups (statistics only; unreleased spectra, no site named). Clean pool (1,201 scans) out-of-fold minimum 0.457, 0.1th percentile 0.482; cut = 0.1th percentile - 0.08 chosen margin, rounded; 0 of 1,201 clean scans fail.",
+  "prototype_order": [
+   "clean bone A",
+   "clean fauna B",
+   "uncoated bone C",
+   "charred bone",
+   "calcined bone"
+  ]
+ },
+ "parameters": {
+  "kernel": {
+   "absorbance_clip": 1e-06,
+   "savgol": {
+    "window": 31,
+    "polyorder": 3,
+    "deriv": 2,
+    "delta": 1.0,
+    "mode": "interp"
+   },
+   "scale": -100000.0
+  },
+  "windows_nm": [
+   [
+    1350,
+    1560
+   ],
+   [
+    1850,
+    2400
+   ]
+  ],
+  "std_epsilon": 1e-12,
+  "prototypes": {
+   "sidecar": "b9_prototypes_v1.npy",
+   "sha256": "89a0a43e0655bab8becec64213940e62380f528b3df69ce0ec82abe2aaa19172",
+   "shape": [
+    5,
+    762
+   ],
+   "dtype": "float64"
+  },
+  "score": "max over prototypes of mean(z * p), z = (v - mean v) / (sd v + std_epsilon), v = -E over the windows",
+  "fail_if_score_below": 0.4,
+  "truncated": {
+   "windows_nm": [
+    [
+     1350,
+     1560
+    ],
+    [
+     1850,
+     2300
+    ]
+   ],
+   "prototypes": {
+    "sidecar": "b9_prototypes_trunc_v1.npy",
+    "sha256": "2983d0f43cddf3a99bb9131a0ae995824d0dc780a9e5723f68ae694286e69425",
+    "shape": [
+     5,
+     662
+    ],
+    "dtype": "float64"
+   },
+   "fail_if_score_below": 0.4,
+   "derivation": "the full prototypes restricted to the truncated points and re-standardised (population SD)"
+  }
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_checks_v1.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "rc_good_positive_all_six",
+    "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
+    "inputs": {
+     "truncated": false
+    },
+    "expected": {
+     "status": "assessed",
+     "score": 0.9633391106794285,
+     "outcome": "pass"
+    }
+   },
+   {
+    "name": "zooms_pattern_C_bison",
+    "spectrum_sha256": "6eec034385d09bd8b741a2acb157d8a43b7ac62318864f2f52209484f9a8955c",
+    "inputs": {
+     "truncated": false
+    },
+    "expected": {
+     "status": "assessed",
+     "score": 0.8532987614103714,
+     "outcome": "pass"
+    }
+   },
+   {
+    "name": "hires_longwave_not_assessed",
+    "spectrum_sha256": "4b41f6f40c740d17d3e5d796fae5babb1d0a8c01c6e9da38552f25ad4924636f",
+    "inputs": {
+     "truncated": true
+    },
+    "expected": {
+     "status": "assessed: truncated (long-wave region too noisy)",
+     "score": 0.9651594798726878,
+     "outcome": "pass"
+    }
+   },
+   {
+    "name": "hires_longwave_not_assessed [full windows]",
+    "spectrum_sha256": "4b41f6f40c740d17d3e5d796fae5babb1d0a8c01c6e9da38552f25ad4924636f",
+    "inputs": {
+     "truncated": false
+    },
+    "expected": {
+     "status": "assessed",
+     "score": 0.9652867035007253,
+     "outcome": "pass"
+    }
+   },
+   {
+    "name": "pair22_std",
+    "spectrum_sha256": "28431d2a7330915c7d70dcfab578247421b37bf7f056f57d081d3b7a83c478fd",
+    "inputs": {
+     "truncated": false
+    },
+    "expected": {
+     "status": "assessed",
+     "score": 0.8630983688817946,
+     "outcome": "pass"
+    }
+   },
+   {
+    "name": "not_bone_sine",
+    "spectrum_sha256": "73295509b71028df620a3cf02de4797510fb25a9f6213150f640720dd7c593e0",
+    "inputs": {
+     "truncated": false
+    },
+    "expected": {
+     "status": "assessed",
+     "score": -0.02649299387624791,
+     "outcome": "fail"
+    }
+   },
+   {
+    "name": "hires_longwave_300_c1_truncated",
+    "spectrum_sha256": "27fafdc3918d78f06150f70f55453f722ca25d4590a9b62ff400b54b742fd3dd",
+    "inputs": {
+     "truncated": true
+    },
+    "expected": {
+     "status": "assessed: truncated (long-wave region too noisy)",
+     "score": 0.9651514834433551,
+     "outcome": "pass"
+    }
+   },
+   {
+    "name": "hires_longwave_300_c1_truncated [full windows]",
+    "spectrum_sha256": "27fafdc3918d78f06150f70f55453f722ca25d4590a9b62ff400b54b742fd3dd",
+    "inputs": {
+     "truncated": false
+    },
+    "expected": {
+     "status": "assessed",
+     "score": 0.9652070310687346,
+     "outcome": "pass"
+    }
+   }
+  ]
+ }
+}

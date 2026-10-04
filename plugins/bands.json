@@ -1,0 +1,966 @@
+{
+ "format": "spyder-bone/bands",
+ "format_version": 1,
+ "id": "bands.core",
+ "version": "1.0.0",
+ "engine_min": "1.0",
+ "status": "active",
+ "licence": "CC-BY-4.0",
+ "created": "2026-10-03",
+ "title": "Shared band table: centres, weights, faint thresholds, kernels, readability windows and gains",
+ "description": "One table for every consumer of band readings (organic-evidence levels, ZooMS pattern, C1, close-ups). A reading r_b = mean of E over centre +- half_width_nm, E = scale x Savitzky-Golay derivative of absorbance (kernel 'e31'). u_b = r_b / weight. Band readability is ONE gate per band, shared by the evidence levels and the ZooMS pattern (so a close-up always matches the call): readable unless SD_E > 0.25 x weight and r_b < 1.5 x weight (thresholds owned by the rule files); SD_E from the band's readability block. A band with a 'projection' is read on that projection's corrected E (see 'projections'); u_b = u_sign x r_b / weight (u_sign -1: a trough, more collagen = more negative E; default +1).",
+ "kernels": {
+  "e31": {
+   "absorbance_clip_min": 1e-06,
+   "savgol": {
+    "window": 31,
+    "polyorder": 3,
+    "deriv": 2,
+    "delta": 1.0,
+    "mode": "zero_edges"
+   },
+   "scale": -100000.0,
+   "consumers": [
+    "evidence levels",
+    "ZooMS pattern",
+    "C1",
+    "B9 (profile)",
+    "close-ups"
+   ]
+  },
+  "warn17": {
+   "absorbance_clip_min": 0.001,
+   "savgol": {
+    "window": 17,
+    "polyorder": 2,
+    "deriv": 2,
+    "delta": 1.0,
+    "mode": "interp"
+   },
+   "scale": -100000.0,
+   "consumers": [
+    "plaster, wax, ester and heat signs (their own parameter files)"
+   ]
+  }
+ },
+ "n2": {
+  "definition": "canonical N2 (reference/spyder_ref/n2.py): A = log10(1/max(R, 1e-4)) on the full as-measured grid; second difference centred on each channel; centres lo <= lambda < hi; 1.4826 x MAD; units 1e-5",
+  "measured_on": "the AS-MEASURED scan, never the transferred stream"
+ },
+ "transfer_keys": {
+  "none": {
+   "label": "no transfer (the output is computed on the scan as measured)"
+  },
+  "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": {
+   "id": "transfer.labspec4.hires_to_std",
+   "version": "0.2.0",
+   "file": "hires_to_std_v0_2.spyder-transfer.json"
+  },
+  "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": {
+   "id": "transfer.labspec4.hires_to_std",
+   "version": "0.1.0",
+   "file": "hires_to_std_v0_1.spyder-transfer.json"
+  }
+ },
+ "projections": {
+  "oh1500": {
+   "description": "x = E / kernel scale over window_nm (the SG31 cubic second derivative of absorbance, model units); x' = x - v (v . (x - c)); E' = kernel scale x x'. A band naming this projection is read as the mean of E' over centre +- half_width_nm.",
+   "window_nm": [
+    1500,
+    1550
+   ],
+   "kernel": "e31",
+   "direction": [
+    0.034264171825867634,
+    0.044576735641075046,
+    0.05447535094410149,
+    0.06394707105881073,
+    0.07316807386783357,
+    0.08195375981078203,
+    0.09045239910684541,
+    0.09865829074944829,
+    0.10645858633671972,
+    0.11366673145981666,
+    0.12035388241931817,
+    0.1265457612473995,
+    0.13216377963295872,
+    0.13707358648451243,
+    0.14141656581770645,
+    0.14520197969278748,
+    0.1484018215590111,
+    0.15098156031366275,
+    0.1531403849990644,
+    0.15496162602186844,
+    0.15650959110443172,
+    0.15765365485460034,
+    0.15855353683406342,
+    0.15917136970340412,
+    0.15954592436870885,
+    0.15964203532126395,
+    0.1593914772031414,
+    0.1591144617796371,
+    0.15876866239317305,
+    0.15824063399272825,
+    0.15757584558739535,
+    0.1569044222986692,
+    0.1562377833414483,
+    0.15547539199524688,
+    0.15470745375616496,
+    0.15405843543628558,
+    0.15351504112182135,
+    0.15298654097418837,
+    0.15244149802212545,
+    0.15200744865939442,
+    0.15173482383509795,
+    0.15146039037184203,
+    0.15107745953878185,
+    0.15070070988846498,
+    0.1502641636582173,
+    0.14960590766162282,
+    0.14882182618673687,
+    0.14801572475975175,
+    0.1471456980038108,
+    0.14622660430022222,
+    0.14532352405688712
+   ],
+   "centre": [
+    -8.74024212561309e-06,
+    -7.491525716064354e-06,
+    -6.2389032557137025e-06,
+    -5.003700215654603e-06,
+    -3.8111420073054645e-06,
+    -2.698308545291324e-06,
+    -1.6720351609979163e-06,
+    -7.577661686090895e-07,
+    3.0875193391835154e-08,
+    6.609553967213031e-07,
+    1.1432101440831927e-06,
+    1.4597374098127055e-06,
+    1.6141844047739803e-06,
+    1.5798519328033276e-06,
+    1.3695621544178607e-06,
+    1.002477705926417e-06,
+    4.95275212104442e-07,
+    -1.3912273054530715e-07,
+    -8.73671655578982e-07,
+    -1.6531014731106772e-06,
+    -2.457720547701174e-06,
+    -3.246405774668618e-06,
+    -3.979634528989462e-06,
+    -4.587691689475364e-06,
+    -5.061124767294441e-06,
+    -5.338538395364683e-06,
+    -5.407593563234572e-06,
+    -5.204713338032258e-06,
+    -4.728796183344152e-06,
+    -3.959791980595734e-06,
+    -2.8947736411010474e-06,
+    -1.5198569377449784e-06,
+    1.4465550509511407e-07,
+    2.0576500594487458e-06,
+    4.201258082667064e-06,
+    6.51949466642904e-06,
+    8.983146296791147e-06,
+    1.1493366829042592e-05,
+    1.4019373404297316e-05,
+    1.646176764958246e-05,
+    1.8780873207827165e-05,
+    2.0865426605383195e-05,
+    2.268162546977512e-05,
+    2.4151361139854624e-05,
+    2.525671971307566e-05,
+    2.5942522780682615e-05,
+    2.6185783579595714e-05,
+    2.59981951324748e-05,
+    2.5384333232185755e-05,
+    2.4368468508885524e-05,
+    2.2960866394686477e-05
+   ],
+   "source": {
+    "direction": "the altered OH / bound-water direction of the OH-corrected 1500 nm model (recovered from public data; unit length)",
+    "model_id": "collagen.spyder.1500_oh_corrected",
+    "model_version": "1.0.0",
+    "model_sha256": "07b4709f825b89c1f56cad44d22f35d47a55183ab9554f540f484712154b5541",
+    "centre": "the model's regression.x_center"
+   }
+  }
+ },
+ "bands": {
+  "CH1689": {
+   "centre_nm": 1689,
+   "half_width_nm": 2,
+   "kernel": "e31",
+   "detector": "SWIR1",
+   "roles": [
+    "evidence_core",
+    "zooms_ch"
+   ],
+   "weight": 0.85,
+   "faint_u": 0.0,
+   "noise_window_nm": [
+    1500,
+    1600
+   ],
+   "readability": {
+    "noise_window_nm": [
+     1500,
+     1600
+    ],
+    "gain_E_per_N2": {
+     "none": 0.026948,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 0.014259,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 0.01283
+    },
+    "n2_cut_equivalent": {
+     "none": 7.89,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 14.9,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 16.56
+    },
+    "note": "SD_E = gain_E_per_N2[transfer key] x N2(noise_window_nm) on the AS-MEASURED scan; transfer key = 'none' or the sha256 of the transfer file actually applied to the stream the band is read on. n2_cut_equivalent = the N2 at which SD_E reaches 0.25 w (the shipped 0.25 u rule), for reference.",
+    "provisional": true,
+    "gain_correction": {
+     "factor": 1.52,
+     "provenance": "phase 0c h05/h14: within-detector noise envelope (Monte Carlo with the real high-resolution wavelength envelope / the shipped gain; nearly identical for every transfer key); same-bone scatter of a high-resolution variation set consistent (C-H 1.8-2.4x the uncorrected prediction, an upper bound)"
+    }
+   }
+  },
+  "CH1728": {
+   "centre_nm": 1728,
+   "half_width_nm": 2,
+   "kernel": "e31",
+   "detector": "SWIR1",
+   "roles": [
+    "evidence_core",
+    "zooms_ch",
+    "c1_ch"
+   ],
+   "weight": 1.0,
+   "faint_u": 0.5,
+   "noise_window_nm": [
+    1500,
+    1600
+   ],
+   "readability": {
+    "noise_window_nm": [
+     1500,
+     1600
+    ],
+    "gain_E_per_N2": {
+     "none": 0.030494,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 0.016135,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 0.014519
+    },
+    "n2_cut_equivalent": {
+     "none": 8.2,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 15.49,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 17.22
+    },
+    "note": "SD_E = gain_E_per_N2[transfer key] x N2(noise_window_nm) on the AS-MEASURED scan; transfer key = 'none' or the sha256 of the transfer file actually applied to the stream the band is read on. n2_cut_equivalent = the N2 at which SD_E reaches 0.25 w (the shipped 0.25 u rule), for reference.",
+    "provisional": true,
+    "gain_correction": {
+     "factor": 1.72,
+     "provenance": "phase 0c h05/h14: within-detector noise envelope (Monte Carlo with the real high-resolution wavelength envelope / the shipped gain; nearly identical for every transfer key); same-bone scatter of a high-resolution variation set consistent (C-H 1.8-2.4x the uncorrected prediction, an upper bound)"
+    }
+   }
+  },
+  "NH2044": {
+   "centre_nm": 2044,
+   "half_width_nm": 2,
+   "kernel": "e31",
+   "detector": "SWIR2",
+   "roles": [
+    "evidence_extra",
+    "evidence_nh_type",
+    "zooms_protein",
+    "c1_nh"
+   ],
+   "weight": 1.6,
+   "noise_window_nm": [
+    2000,
+    2100
+   ],
+   "readability": {
+    "noise_window_nm": [
+     2000,
+     2100
+    ],
+    "gain_E_per_N2": {
+     "none": 0.017729,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 0.008327,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 0.008441
+    },
+    "n2_cut_equivalent": {
+     "none": 22.56,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 48.04,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 47.39
+    },
+    "note": "SD_E = gain_E_per_N2[transfer key] x N2(noise_window_nm) on the AS-MEASURED scan; transfer key = 'none' or the sha256 of the transfer file actually applied to the stream the band is read on. n2_cut_equivalent = the N2 at which SD_E reaches 0.25 w (the shipped 0.25 u rule), for reference."
+   }
+  },
+  "AM2175": {
+   "centre_nm": 2175,
+   "half_width_nm": 2,
+   "kernel": "e31",
+   "detector": "SWIR2",
+   "roles": [
+    "evidence_core",
+    "evidence_nh_type",
+    "zooms_protein",
+    "c1_nh"
+   ],
+   "weight": 1.1,
+   "faint_u": 0.0,
+   "noise_window_nm": [
+    2000,
+    2100
+   ],
+   "readability": {
+    "noise_window_nm": [
+     2000,
+     2100
+    ],
+    "gain_E_per_N2": {
+     "none": 0.017729,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 0.008327,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 0.008441
+    },
+    "n2_cut_equivalent": {
+     "none": 15.51,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 33.03,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 32.58
+    },
+    "note": "SD_E = gain_E_per_N2[transfer key] x N2(noise_window_nm) on the AS-MEASURED scan; transfer key = 'none' or the sha256 of the transfer file actually applied to the stream the band is read on. n2_cut_equivalent = the N2 at which SD_E reaches 0.25 w (the shipped 0.25 u rule), for reference."
+   }
+  },
+  "CH2262": {
+   "centre_nm": 2262,
+   "half_width_nm": 2,
+   "kernel": "e31",
+   "detector": "SWIR2",
+   "roles": [
+    "evidence_core",
+    "zooms_ch",
+    "c1_ch"
+   ],
+   "weight": 1.6,
+   "faint_u": 1.0,
+   "noise_window_nm": [
+    2220,
+    2245
+   ],
+   "readability": {
+    "noise_window_nm": [
+     2220,
+     2245
+    ],
+    "gain_E_per_N2": {
+     "none": 0.020743,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 0.009743,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 0.009876
+    },
+    "n2_cut_equivalent": {
+     "none": 19.28,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 41.06,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 40.5
+    },
+    "note": "SD_E = gain_E_per_N2[transfer key] x N2(noise_window_nm) on the AS-MEASURED scan; transfer key = 'none' or the sha256 of the transfer file actually applied to the stream the band is read on. n2_cut_equivalent = the N2 at which SD_E reaches 0.25 w (the shipped 0.25 u rule), for reference.",
+    "provisional": true,
+    "gain_correction": {
+     "factor": 1.17,
+     "provenance": "phase 0c h05/h14: within-detector noise envelope (Monte Carlo with the real high-resolution wavelength envelope / the shipped gain; nearly identical for every transfer key); same-bone scatter of a high-resolution variation set consistent (C-H 1.8-2.4x the uncorrected prediction, an upper bound)"
+    },
+    "window_choice": "Phase 0b item 17: 2220-2245 nm (band-free, between the 2206 clay and 2254 ester regions, nearer 2262/2284 than 2000-2100). Every candidate (2000-2100, 2100-2150, 2215-2245, 2220-2245, 2225-2250, each with and without a noise-shape factor) gave identical ZooMS verdicts on the 36 high-res scans of concordant pairs (agreement with the standard-res partner 30/36 for all; kappa undefined-low because every partner reads Good), identical can't-tell rates on the noisy high-res session (22.5%) and the variation set (19.3%), and identical results under 2-4x added noise; the tie goes to the band-free window nearest the bands (its noise is 1.26-1.36x lower than at 2262/2284, against 1.5-1.67x for 2000-2100). Zero verdict or evidence-level changes on any cohort."
+   }
+  },
+  "CH2284": {
+   "centre_nm": 2284,
+   "half_width_nm": 2,
+   "kernel": "e31",
+   "detector": "SWIR2",
+   "roles": [
+    "zooms_ch"
+   ],
+   "weight": 1.14,
+   "noise_window_nm": [
+    2220,
+    2245
+   ],
+   "readability": {
+    "noise_window_nm": [
+     2220,
+     2245
+    ],
+    "gain_E_per_N2": {
+     "none": 0.025175,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 0.011824,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 0.011986
+    },
+    "n2_cut_equivalent": {
+     "none": 11.32,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 24.1,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 23.78
+    },
+    "note": "SD_E = gain_E_per_N2[transfer key] x N2(noise_window_nm) on the AS-MEASURED scan; transfer key = 'none' or the sha256 of the transfer file actually applied to the stream the band is read on. n2_cut_equivalent = the N2 at which SD_E reaches 0.25 w (the shipped 0.25 u rule), for reference.",
+    "provisional": true,
+    "gain_correction": {
+     "factor": 1.42,
+     "provenance": "phase 0c h05/h14: within-detector noise envelope (Monte Carlo with the real high-resolution wavelength envelope / the shipped gain; nearly identical for every transfer key); same-bone scatter of a high-resolution variation set consistent (C-H 1.8-2.4x the uncorrected prediction, an upper bound)"
+    },
+    "window_choice": "Phase 0b item 17: 2220-2245 nm (band-free, between the 2206 clay and 2254 ester regions, nearer 2262/2284 than 2000-2100). Every candidate (2000-2100, 2100-2150, 2215-2245, 2220-2245, 2225-2250, each with and without a noise-shape factor) gave identical ZooMS verdicts on the 36 high-res scans of concordant pairs (agreement with the standard-res partner 30/36 for all; kappa undefined-low because every partner reads Good), identical can't-tell rates on the noisy high-res session (22.5%) and the variation set (19.3%), and identical results under 2-4x added noise; the tie goes to the band-free window nearest the bands (its noise is 1.26-1.36x lower than at 2262/2284, against 1.5-1.67x for 2000-2100). Zero verdict or evidence-level changes on any cohort."
+   }
+  },
+  "NH1510": {
+   "centre_nm": 1510,
+   "half_width_nm": 2,
+   "kernel": "e31",
+   "detector": "SWIR1",
+   "roles": [
+    "c1_nh"
+   ]
+  },
+  "CH1762": {
+   "centre_nm": 1762,
+   "half_width_nm": 2,
+   "kernel": "e31",
+   "detector": "SWIR1",
+   "roles": [
+    "c1_ch"
+   ]
+  },
+  "CH2350": {
+   "centre_nm": 2350,
+   "half_width_nm": 2,
+   "kernel": "e31",
+   "detector": "SWIR2",
+   "roles": [
+    "c1_ch",
+    "long_wave"
+   ]
+  },
+  "NH1545c": {
+   "centre_nm": 1545,
+   "half_width_nm": 2,
+   "kernel": "e31",
+   "detector": "SWIR1",
+   "roles": [
+    "evidence_core",
+    "zooms_vote"
+   ],
+   "weight": 0.6,
+   "faint_u": 1.5,
+   "projection": "oh1500",
+   "u_sign": -1,
+   "noise_window_nm": [
+    1500,
+    1600
+   ],
+   "readability": {
+    "noise_window_nm": [
+     1500,
+     1600
+    ],
+    "gain_E_per_N2": {
+     "none": 0.017729,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 0.009381,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 0.008441
+    },
+    "n2_cut_equivalent": {
+     "none": 8.46,
+     "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": 15.99,
+     "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": 17.77
+    },
+    "note": "SD_E = gain_E_per_N2[transfer key] x N2(noise_window_nm) on the AS-MEASURED scan; transfer key = 'none' or the sha256 of the transfer file actually applied to the stream the band is read on. n2_cut_equivalent = the N2 at which SD_E reaches 0.25 w (the shipped 0.25 u rule), for reference.",
+    "gain_source": "the SWIR1 gains (the band is read inside its 1500-1600 nm noise window; the simulated SD of the projected reading is about 10% below them)"
+   }
+  }
+ },
+ "provenance": {
+  "weights_and_faint": "weights = median band ratios over the reference bones with >= 1% yield (public calibration data); faint thresholds = rounded 99th percentiles of collagen-free archaeological fauna (statistics only, unreleased collection, anonymised)",
+  "gains": "detector-local correlated noise (white noise in absorbance smoothed by a 1.25 nm Gaussian) propagated exactly through the band kernel and the transfer (blur x detector gain), linearised; Monte Carlo through the engine agrees to 0.2%",
+  "gate_reconciliation": "Phase 0b item 11. The gate's gains are the correlated-noise gains (0.017729 E per N2 standard; 0.008441 after v0.1), not white-noise values. The ~2x excess found by an earlier Monte Carlo is real non-stationary noise: on noisy high-res scans, N2 near 1689/1728 is 1.6-2.2x N2(1500-1600) and near 2262/2284 1.5-2.2x N2(2000-2100) (detector response falls toward the detector ends; a curvature-free high-pass estimate agrees). Scaling the SWIR1 C-H gates by that shape (x1.64 / x1.76) made the high-res evidence level agree LESS with the standard-res partner (kappa 0.78 -> 0.55; 2.5% more can't tell on the noisy session), so the gate keeps window N2 with the analytic gains: SD_E is a calibrated noise index, about half the true local SD at the far C-H bands on noisy high-res scans. Gains refreshed for transfer v0.2 (SWIR1 x 0.7050/0.6343, SWIR2 x 0.6258/0.6343)."
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_public_v2.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "mmc2_Reference_Sample_1 [none]",
+    "spectrum_sha256": "ef8ddf9e2c7d95bc6ca3d426aca0859ecb56e566fc930cb047d336251ebf75ea",
+    "transfer_key": "none",
+    "expected": {
+     "E:CH1689": -0.318030735883012,
+     "SD_E:CH1689": 0.019345506199095877,
+     "E:CH1728": -0.36117454542031185,
+     "SD_E:CH1728": 0.021891118674307174,
+     "E:NH2044": -1.646356044750514,
+     "SD_E:NH2044": 0.03420185584992439,
+     "E:AM2175": -0.7595546498980182,
+     "SD_E:AM2175": 0.03420185584992439,
+     "E:CH2262": -0.7967160578173587,
+     "SD_E:CH2262": 0.03322667720171559,
+     "E:CH2284": -1.295948171198603,
+     "SD_E:CH2284": 0.04032597013706744,
+     "E:NH1510": -1.1713468707639088,
+     "E:CH1762": 0.6533846253434987,
+     "E:CH2350": -1.916753522332271,
+     "E:NH1545c": -0.5734856555938992,
+     "SD_E:NH1545c": 0.012727344493237749
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_79 [none]",
+    "spectrum_sha256": "2b0379847078cea3a05aa8c409bf74dbafdfe68f7bd676cb7c67ce13fd4922bb",
+    "transfer_key": "none",
+    "expected": {
+     "E:CH1689": 2.5454094910034164,
+     "SD_E:CH1689": 0.03143628394830772,
+     "E:CH1728": 2.9870869574991987,
+     "SD_E:CH1728": 0.035572882689613165,
+     "E:NH2044": 3.466627332858684,
+     "SD_E:NH2044": 0.07520555143182682,
+     "E:AM2175": 3.657418226786688,
+     "SD_E:AM2175": 0.07520555143182682,
+     "E:CH2262": 4.377655530166109,
+     "SD_E:CH2262": 0.13952162161330633,
+     "E:CH2284": 2.977900230039369,
+     "SD_E:CH2284": 0.16933215176758362,
+     "E:NH1510": -0.35192005315295594,
+     "E:CH1762": 0.7797268247364373,
+     "E:CH2350": -1.588422031971676,
+     "E:NH1545c": -1.8712765261162403,
+     "SD_E:NH1545c": 0.020681827153018688
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Zafarraya_30 [none]",
+    "spectrum_sha256": "510d5bca138e112c8bd55869901c9c60e7f06c05601557701a1bd18fa3f2dce4",
+    "transfer_key": "none",
+    "expected": {
+     "E:CH1689": 9.26324364431268,
+     "SD_E:CH1689": 0.09105430938136445,
+     "E:CH1728": 11.580359703578628,
+     "SD_E:CH1728": 0.10303585090824283,
+     "E:NH2044": 19.166073042140717,
+     "SD_E:NH2044": 0.19147745036282882,
+     "E:AM2175": 13.076290113633721,
+     "SD_E:AM2175": 0.19147745036282882,
+     "E:CH2262": 21.83206712450062,
+     "SD_E:CH2262": 0.23636130019850848,
+     "E:CH2284": 12.159161109907652,
+     "SD_E:CH2284": 0.2868628324011691,
+     "E:NH1510": 0.7643700177687048,
+     "E:CH1762": 1.2282685257103647,
+     "E:CH2350": -0.12479854467391945,
+     "E:NH1545c": -5.738084693529046,
+     "SD_E:NH1545c": 0.059904328745072385
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_above60 [none]",
+    "spectrum_sha256": "48924bd678ca86c006f8f12c2b4c1ae19e7cad75a5e088721b273cbaee800bdd",
+    "transfer_key": "none",
+    "expected": {
+     "E:CH1689": 2.736271087419597,
+     "SD_E:CH1689": 1.7869973783937418,
+     "E:CH1728": 3.0336534428127893,
+     "SD_E:CH1728": 2.022142572982736,
+     "E:NH2044": 5.351875503610622,
+     "SD_E:NH2044": 1.1085943700000374,
+     "E:AM2175": 3.8306026305275944,
+     "SD_E:AM2175": 1.1085943700000374,
+     "E:CH2262": 4.4375751672448995,
+     "SD_E:CH2262": 1.648010541684615,
+     "E:CH2284": 3.111350353873013,
+     "SD_E:CH2284": 2.0001284957291703,
+     "E:NH1510": -0.09718244567010663,
+     "E:CH1762": 0.5599524018696741,
+     "E:CH2350": -2.2431356319399347,
+     "E:NH1545c": -2.429471210166922,
+     "SD_E:NH1545c": 1.1756596601433373
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_15p6 [none]",
+    "spectrum_sha256": "7ada546edaee373a0b6833e7d87b221bb483d96faef4ab7b4bee43d1a0d1c24b",
+    "transfer_key": "none",
+    "expected": {
+     "E:CH1689": 2.7850704000966062,
+     "SD_E:CH1689": 0.49700897571037966,
+     "E:CH1728": 3.118300729464405,
+     "SD_E:CH1728": 0.5624087763586284,
+     "E:NH2044": 5.35697510058187,
+     "SD_E:NH2044": 0.27657240000025834,
+     "E:AM2175": 3.892139916861553,
+     "SD_E:AM2175": 0.27657240000025834,
+     "E:CH2262": 4.406354009674337,
+     "SD_E:CH2262": 0.4485908291434211,
+     "E:CH2284": 3.1593687560061863,
+     "SD_E:CH2284": 0.5444378404129405,
+     "E:NH1510": -0.039859630897034426,
+     "E:CH1762": 0.572999694773038,
+     "E:CH2350": -2.2383501848121954,
+     "E:NH1545c": -2.489647771929431,
+     "SD_E:NH1545c": 0.3269805599810495
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_std [none]",
+    "spectrum_sha256": "59e894856873cf0808e936c7439573263e474c3b21381f840f6fc60547edb1c2",
+    "transfer_key": "none",
+    "expected": {
+     "E:CH1689": 8.774826935004656,
+     "SD_E:CH1689": 0.07103432734425745,
+     "E:CH1728": 9.842126299573346,
+     "SD_E:CH1728": 0.0803815043059146,
+     "E:NH2044": 15.857643310228095,
+     "SD_E:NH2044": 0.15882468022557328,
+     "E:AM2175": 12.938819283658152,
+     "SD_E:AM2175": 0.15882468022557328,
+     "E:CH2262": 13.401493090147909,
+     "SD_E:CH2262": 0.13983171017827628,
+     "E:CH2284": 13.25161256522992,
+     "SD_E:CH2284": 0.16970849461206697,
+     "E:NH1510": 1.5916586019942964,
+     "E:CH1762": -0.11550419638920328,
+     "E:CH2350": 0.4904157105659837,
+     "E:NH1545c": -4.770207593278355,
+     "SD_E:NH1545c": 0.046733248830575204
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_std [none]",
+    "spectrum_sha256": "28431d2a7330915c7d70dcfab578247421b37bf7f056f57d081d3b7a83c478fd",
+    "transfer_key": "none",
+    "expected": {
+     "E:CH1689": 8.21867592786837,
+     "SD_E:CH1689": 0.07014445759967976,
+     "E:CH1728": 9.575978618254457,
+     "SD_E:CH1728": 0.07937453948510592,
+     "E:NH2044": 16.81243962956841,
+     "SD_E:NH2044": 0.2196599293396437,
+     "E:AM2175": 13.78307310673851,
+     "SD_E:AM2175": 0.2196599293396437,
+     "E:CH2262": 13.466268492938463,
+     "SD_E:CH2262": 0.12079408129984417,
+     "E:CH2284": 14.484046722050376,
+     "SD_E:CH2284": 0.14660323948915668,
+     "E:NH1510": 1.781630864194426,
+     "E:CH1762": -0.1886403784319467,
+     "E:CH2350": 0.37827238471480235,
+     "E:NH1545c": -4.791214429592375,
+     "SD_E:NH1545c": 0.0461478064711564
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_hires [none]",
+    "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
+    "transfer_key": "none",
+    "expected": {
+     "E:CH1689": 14.743357403232656,
+     "SD_E:CH1689": 0.23260127288088242,
+     "E:CH1728": 17.136594432870343,
+     "SD_E:CH1728": 0.26320852067795864,
+     "E:NH2044": 33.32021357075754,
+     "SD_E:NH2044": 1.755492082005084,
+     "E:AM2175": 19.35297448903011,
+     "SD_E:AM2175": 1.755492082005084,
+     "E:CH2262": 31.75362684513492,
+     "SD_E:CH2262": 4.260075146251688,
+     "E:CH2284": 22.78019275683325,
+     "SD_E:CH2284": 5.170293198037228,
+     "E:NH1510": 1.6784396293488655,
+     "E:CH1762": 0.5845506864657584,
+     "E:CH2350": 9.092423984642348,
+     "E:NH1545c": -8.843633478976143,
+     "SD_E:NH1545c": 0.15302760749982058
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_hires [0.2.0]",
+    "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
+    "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f",
+    "expected": {
+     "E:CH1689": 9.354257123942078,
+     "SD_E:CH1689": 0.12307635260533259,
+     "E:CH1728": 10.88684193746367,
+     "SD_E:CH1728": 0.1392690195165889,
+     "E:NH2044": 19.202374406356977,
+     "SD_E:NH2044": 0.8245238065799725,
+     "E:AM2175": 12.440500241390177,
+     "SD_E:AM2175": 0.8245238065799725,
+     "E:CH2262": 17.261122666780253,
+     "SD_E:CH2262": 2.000959945520426,
+     "E:CH2284": 13.15361610991307,
+     "SD_E:CH2284": 2.428343466676949,
+     "E:NH1510": 1.4276834143964146,
+     "E:CH1762": 0.11890979520904135,
+     "E:CH2350": 3.899233085223565,
+     "E:NH1545c": -5.794032081003311,
+     "SD_E:NH1545c": 0.080971966041842
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_hires [0.1.0]",
+    "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
+    "transfer_key": "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff",
+    "expected": {
+     "E:CH1689": 8.41617772158191,
+     "SD_E:CH1689": 0.11074195973956216,
+     "E:CH1728": 9.795069277917651,
+     "SD_E:CH1728": 0.1253205388510291,
+     "E:NH2044": 19.46319285067538,
+     "SD_E:NH2044": 0.8358118711830851,
+     "E:AM2175": 12.60947475729353,
+     "SD_E:AM2175": 0.8358118711830851,
+     "E:CH2262": 17.49557383755054,
+     "SD_E:CH2262": 2.0282747020383582,
+     "E:CH2284": 13.332276603576428,
+     "SD_E:CH2284": 2.461614072360446,
+     "E:NH1510": 1.2845100563835514,
+     "E:CH1762": 0.1069850824111495,
+     "E:CH2350": 3.9521948641063096,
+     "E:NH1545c": -5.273008042481444,
+     "SD_E:NH1545c": 0.0728583696150931
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_hires [none]",
+    "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
+    "transfer_key": "none",
+    "expected": {
+     "E:CH1689": 14.316787378761223,
+     "SD_E:CH1689": 0.8428366752013512,
+     "E:CH1728": 17.083876381695635,
+     "SD_E:CH1728": 0.9537428222350455,
+     "E:NH2044": 33.15079257104236,
+     "SD_E:NH2044": 8.992203337275864,
+     "E:AM2175": 24.63428924106016,
+     "SD_E:AM2175": 8.992203337275864,
+     "E:CH2262": 28.816001738061004,
+     "SD_E:CH2262": 12.586688442355351,
+     "E:CH2284": 55.24895956588328,
+     "SD_E:CH2284": 15.275991010764882,
+     "E:NH1510": 2.678321773510184,
+     "E:CH1762": 0.9702995658219388,
+     "E:CH2350": 2.7002092750367206,
+     "E:NH1545c": -9.521989542296254,
+     "SD_E:NH1545c": 0.5544994587592681
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_hires [0.2.0]",
+    "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
+    "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f",
+    "expected": {
+     "E:CH1689": 9.020550330536,
+     "SD_E:CH1689": 0.4459703188249988,
+     "E:CH1728": 10.812880722997818,
+     "SD_E:CH1728": 0.5046448624897507,
+     "E:NH2044": 19.55391361800807,
+     "SD_E:NH2044": 4.223480015200863,
+     "E:AM2175": 13.558017081195459,
+     "SD_E:AM2175": 4.223480015200863,
+     "E:CH2262": 15.963762978221386,
+     "SD_E:CH2262": 5.911975388992343,
+     "E:CH2284": 28.273890309875707,
+     "SD_E:CH2284": 7.1747097402694715,
+     "E:NH1510": 1.9986238306071886,
+     "E:CH1762": 0.37859144101559145,
+     "E:CH2350": 1.3902812669502627,
+     "E:NH1545c": -6.195297779156611,
+     "SD_E:NH1545c": 0.29340399473296264
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_hires [0.1.0]",
+    "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
+    "transfer_key": "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff",
+    "expected": {
+     "E:CH1689": 8.115936276110288,
+     "SD_E:CH1689": 0.40127633007396973,
+     "E:CH1728": 9.728525166803315,
+     "SD_E:CH1728": 0.45410218521776824,
+     "E:NH2044": 19.81950688383316,
+     "SD_E:NH2044": 4.28130116588333,
+     "E:AM2175": 13.742170397255757,
+     "SD_E:AM2175": 4.28130116588333,
+     "E:CH2262": 16.180592612793486,
+     "SD_E:CH2262": 5.992678737728459,
+     "E:CH2284": 28.657923655408517,
+     "SD_E:CH2284": 7.273010059782637,
+     "E:NH1510": 1.798194462060902,
+     "E:CH1762": 0.34062489508492405,
+     "E:CH2350": 1.4091649211042934,
+     "E:NH1545c": -5.6340333365789474,
+     "SD_E:NH1545c": 0.26400417008218074
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_hires [none]",
+    "spectrum_sha256": "17e9ad8ea4576c88b0a02412672cff5119a44404e6ff433fb0cc6990ed2ebf0d",
+    "transfer_key": "none",
+    "expected": {
+     "E:CH1689": 11.25810995563534,
+     "SD_E:CH1689": 0.6972710363326464,
+     "E:CH1728": 13.052090695003727,
+     "SD_E:CH1728": 0.7890226726260843,
+     "E:NH2044": 27.425652337337446,
+     "SD_E:NH2044": 4.580658559766721,
+     "E:AM2175": 12.700431196610928,
+     "SD_E:AM2175": 4.580658559766721,
+     "E:CH2262": 7.496745732042164,
+     "SD_E:CH2262": 3.2835487634729423,
+     "E:CH2284": 11.318455239844713,
+     "SD_E:CH2284": 3.9851198052562946,
+     "E:NH1510": -0.04291016022741744,
+     "E:CH1762": 1.5059056322396567,
+     "E:CH2350": 18.666610376611175,
+     "E:NH1545c": -8.564463627385445,
+     "SD_E:NH1545c": 0.45873230678126353
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_hires [0.2.0]",
+    "spectrum_sha256": "17e9ad8ea4576c88b0a02412672cff5119a44404e6ff433fb0cc6990ed2ebf0d",
+    "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f",
+    "expected": {
+     "E:CH1689": 7.118125401267212,
+     "SD_E:CH1689": 0.3689471466181982,
+     "E:CH1728": 8.32264475192618,
+     "SD_E:CH1728": 0.41748805741529055,
+     "E:NH2044": 15.924120072016269,
+     "SD_E:NH2044": 2.1514548946459175,
+     "E:AM2175": 8.825593992321902,
+     "SD_E:AM2175": 2.1514548946459175,
+     "E:CH2262": 6.404251643094502,
+     "SD_E:CH2262": 1.542284896230867,
+     "E:CH2284": 7.560211398090523,
+     "SD_E:CH2284": 1.8717003605700269,
+     "E:NH1510": 0.19813172024632422,
+     "E:CH1762": 0.6600412296362814,
+     "E:CH2350": 9.467156234331572,
+     "E:NH1545c": -5.556138424587017,
+     "SD_E:NH1545c": 0.24273042867138772
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_hires [0.1.0]",
+    "spectrum_sha256": "17e9ad8ea4576c88b0a02412672cff5119a44404e6ff433fb0cc6990ed2ebf0d",
+    "transfer_key": "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff",
+    "expected": {
+     "E:CH1689": 6.404293534783855,
+     "SD_E:CH1689": 0.3319722204300079,
+     "E:CH1728": 7.488019242759625,
+     "SD_E:CH1728": 0.37567456495894663,
+     "E:NH2044": 16.14041125228573,
+     "SD_E:NH2044": 2.1809091828637195,
+     "E:AM2175": 8.94546863108043,
+     "SD_E:AM2175": 2.1809091828637195,
+     "E:CH2262": 6.4912381227472284,
+     "SD_E:CH2262": 1.5633383593529757,
+     "E:CH2284": 7.662898833188306,
+     "SD_E:CH2284": 1.8973444284330467,
+     "E:NH1510": 0.1782623406397857,
+     "E:CH1762": 0.5938498609321272,
+     "E:CH2350": 9.595744965543188,
+     "E:NH1545c": -5.058971239268988,
+     "SD_E:NH1545c": 0.21840822390098966
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS79 [none]",
+    "spectrum_sha256": "604808f4d0a5727f1d1f6f10b31c7a6684c9d9e492e1a1caa30426941b5dd9a2",
+    "transfer_key": "none",
+    "expected": {
+     "E:CH1689": 4.012942599735564,
+     "SD_E:CH1689": 0.04956059269816128,
+     "E:CH1728": 4.709265264871611,
+     "SD_E:CH1728": 0.05608211049939625,
+     "E:NH2044": 5.465280360819136,
+     "SD_E:NH2044": 0.11856464044027362,
+     "E:AM2175": 5.766070040667879,
+     "SD_E:AM2175": 0.11856464044027362,
+     "E:CH2262": 6.901553728795607,
+     "SD_E:CH2262": 0.21996156647195675,
+     "E:CH2284": 4.694782011742367,
+     "SD_E:CH2284": 0.26695909154565445,
+     "E:NH1510": -0.5548164167492372,
+     "E:CH1762": 1.2292713617300115,
+     "E:CH2350": -2.5042125681267073,
+     "E:NH1545c": -2.605066761230185,
+     "SD_E:NH1545c": 0.03260574988665955
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS79 [0.2.0]",
+    "spectrum_sha256": "604808f4d0a5727f1d1f6f10b31c7a6684c9d9e492e1a1caa30426941b5dd9a2",
+    "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f",
+    "expected": {
+     "E:CH1689": 2.4648678163165174,
+     "SD_E:CH1689": 0.026224005168586972,
+     "E:CH1728": 2.9734290506370753,
+     "SD_E:CH1728": 0.029674193379279807,
+     "E:NH2044": 3.1596336955049895,
+     "SD_E:NH2044": 0.05568772976175522,
+     "E:AM2175": 3.4257226605160582,
+     "SD_E:AM2175": 0.05568772976175522,
+     "E:CH2262": 3.9130278135800225,
+     "SD_E:CH2262": 0.10331608456521595,
+     "E:CH2284": 2.601080830492738,
+     "SD_E:CH2284": 0.12538328891502754,
+     "E:NH1510": -0.3077538234923694,
+     "E:CH1762": 0.7978032799942015,
+     "E:CH2350": -1.798172860310236,
+     "E:NH1545c": -1.882969985644598,
+     "SD_E:NH1545c": 0.01725278017297948
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS79 [0.1.0]",
+    "spectrum_sha256": "604808f4d0a5727f1d1f6f10b31c7a6684c9d9e492e1a1caa30426941b5dd9a2",
+    "transfer_key": "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff",
+    "expected": {
+     "E:CH1689": 2.2176817814019705,
+     "SD_E:CH1689": 0.02359590338123086,
+     "E:CH1728": 2.675242619599831,
+     "SD_E:CH1728": 0.026702176242563592,
+     "E:NH2044": 3.2025497811749184,
+     "SD_E:NH2044": 0.05645011731943988,
+     "E:AM2175": 3.472252929955016,
+     "SD_E:AM2175": 0.05645011731943988,
+     "E:CH2262": 3.9661769609366893,
+     "SD_E:CH2262": 0.10472643448281563,
+     "E:CH2284": 2.6364103080566985,
+     "SD_E:CH2284": 0.12710115873947228,
+     "E:NH1510": -0.27689113509566343,
+     "E:CH1762": 0.7177966248214781,
+     "E:CH2350": -1.822596748632861,
+     "E:NH1545c": -1.7541616778204958,
+     "SD_E:NH1545c": 0.015524007828602472
+    },
+    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+   }
+  ]
+ }
+}

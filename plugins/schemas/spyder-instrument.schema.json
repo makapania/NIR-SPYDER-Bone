@@ -1,0 +1,111 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://spyder-bone.org/schemas/spyder-instrument.schema.json",
+ "title": "SPYDER Bone instrument registry (presets the Standard / High-res switch)",
+ "type": "object",
+ "required": [
+  "format",
+  "format_version",
+  "id",
+  "version",
+  "engine_min",
+  "status",
+  "default_class",
+  "classes"
+ ],
+ "properties": {
+  "format_version": {
+   "const": 1
+  },
+  "id": {
+   "type": "string"
+  },
+  "version": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "engine_min": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+$"
+  },
+  "status": {
+   "enum": [
+    "active",
+    "experimental",
+    "demo",
+    "withdrawn"
+   ]
+  },
+  "licence": {
+   "type": "string"
+  },
+  "created": {
+   "type": "string"
+  },
+  "title": {
+   "type": "string"
+  },
+  "description": {
+   "type": "string"
+  },
+  "provenance": {
+   "type": "object"
+  },
+  "format": {
+   "const": "spyder-bone/instrument"
+  },
+  "default_class": {
+   "type": "string"
+  },
+  "switch": {
+   "type": "object"
+  },
+  "accepted_input": {
+   "type": "object"
+  },
+  "classes": {
+   "type": "object",
+   "minProperties": 1,
+   "additionalProperties": {
+    "type": "object",
+    "required": [
+     "display_name",
+     "serials"
+    ],
+    "properties": {
+     "display_name": {
+      "type": "string"
+     },
+     "long_name": {
+      "type": "string"
+     },
+     "nominal_fwhm_nm": {
+      "type": "object"
+     },
+     "header_hint": {
+      "type": "object",
+      "properties": {
+       "swir_gain": {
+        "type": "array",
+        "items": {
+         "type": "integer",
+         "minimum": 0
+        },
+        "minItems": 2,
+        "maxItems": 2
+       }
+      }
+     },
+     "serials": {
+      "type": "array",
+      "items": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "uniqueItems": true
+     }
+    }
+   }
+  }
+ }
+}

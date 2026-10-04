@@ -1,0 +1,155 @@
+name: CI
+
+# Every push and PR: Rust (fmt, clippy, tests) and the UI (svelte-check, Vitest, build, Playwright
+# smoke on Chromium + WebKit) on Ubuntu and Windows.
+# macOS is MANUAL ONLY (workflow_dispatch) to save private-repo minutes (macOS runners bill at 10x);
+# real Mac testing happens on a real Mac. A Windows debug executable is also built on demand.
+#
+# Private-data tests: they read SPYDER_PRIVATE_DATA and skip themselves when it is unset. It is never
+# set here, so CI runs public fixtures only.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      macos:
+        description: Also run the macOS job
+        type: boolean
+        default: false
+      windows_exe:
+        description: Also build a Windows debug executable (artifact)
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  NODE_VERSION: '24'
+
+jobs:
+  rust:
+    name: Rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tauri Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Rust toolchain (from rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      # tauri::generate_context! needs the frontend dist folder to exist; the UI job builds the real
+      # one. A placeholder is enough for check/clippy/test.
+      - name: Placeholder UI dist
+        shell: bash
+        run: mkdir -p app/ui/dist && [ -f app/ui/dist/index.html ] || echo '<!doctype html><title>SPYDER Bone</title>' > app/ui/dist/index.html
+
+      - name: cargo fmt
+        run: cargo fmt --all --check
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: cargo test
+        run: cargo test --workspace
+
+  ui:
+    name: UI (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: app/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/ui/package-lock.json
+      - run: npm ci
+      - name: svelte-check
+        run: npm run check
+      - name: Vitest
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Playwright browsers
+        if: runner.os == 'Linux'
+        run: npx playwright install --with-deps chromium webkit
+      - name: Playwright smoke (Chromium + WebKit, mocked api.ts)
+        if: runner.os == 'Linux'
+        run: npx playwright test --project=chromium --project=webkit
+      - uses: actions/upload-artifact@v4
+        if: failure() && runner.os == 'Linux'
+        with:
+          name: playwright-report
+          path: app/ui/test-results
+          retention-days: 7
+
+  windows-exe:
+    name: Windows debug executable
+    if: github.event_name == 'workflow_dispatch' && inputs.windows_exe
+    needs: [rust, ui]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/ui/package-lock.json
+      - run: npm ci
+        working-directory: app/ui
+      - uses: Swatinem/rust-cache@v2
+      - name: tauri build --debug --no-bundle
+        working-directory: app/src-tauri
+        run: ../ui/node_modules/.bin/tauri build --debug --no-bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spyder-bone-windows-debug
+          path: target/debug/spyder-bone-app.exe
+          retention-days: 14
+
+  macos:
+    name: macOS (manual only)
+    if: github.event_name == 'workflow_dispatch' && inputs.macos
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust toolchain (from rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/ui/package-lock.json
+      - run: npm ci
+        working-directory: app/ui
+      - run: npm run build
+        working-directory: app/ui
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - name: tauri build --debug --no-bundle
+        working-directory: app/src-tauri
+        run: ../ui/node_modules/.bin/tauri build --debug --no-bundle

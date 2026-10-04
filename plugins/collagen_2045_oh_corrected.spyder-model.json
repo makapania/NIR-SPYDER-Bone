@@ -1,0 +1,789 @@
+{
+ "format": "spyder-bone/model",
+ "format_version": 1,
+ "engine_min": "1.0",
+ "id": "collagen.spyder.2045_oh_corrected",
+ "version": "1.0.0",
+ "status": "active",
+ "title": "Collagen, 2045 nm, OH-corrected (reads 2030-2060 nm)",
+ "short_name": "2045 nm, OH-corrected",
+ "kind": "regression",
+ "role": "collagen_percent",
+ "citation": {
+  "text": "SPYDER Bone (OH-corrected Ryder 2045 model); calibration data Ryder, C. et al. 2026. Refining near-infrared spectroscopy for collagen quantification in archaeological bone. Journal of Archaeological Science 185:106448 (calibration spectra and yields: supplement mmc2).",
+  "doi": "10.1016/j.jas.2025.106448"
+ },
+ "authors": [
+  "M. Sponheimer (PI)"
+ ],
+ "created": "2026-09-30",
+ "exported": "2026-10-03",
+ "provenance": {
+  "training_data": "Ryder et al. 2026 JAS supplement mmc2 (140 reference bones, raw reflectance, collagen yield)",
+  "training_data_sha256": "2855d9c8e4867e806a30b57c227004db1e1585b2389c70b351b577583fe75f12",
+  "n_train": 140,
+  "model_algorithm": "PLS1 NIPALS, mean-centred, unscaled, 1 LV, on the OH-projected features; folded b = (I - v v^T) b_pls",
+  "latent_variables": 1,
+  "oh_direction": "one altered OH / bound-water direction in the window features, estimated within groups of collagen-free archaeological bone from unreleased collections (a statistic only; no spectra ship; sources anonymised per the data policy) and projected out of the features before the 1-LV PLS fit, then folded into the coefficients",
+  "derived_from": "an earlier research export of this model, 1.0.0 (coefficients, chain and features unchanged; renamed and re-documented in Phase 0b)",
+  "environment": {
+   "python": "3.12.10",
+   "numpy": "2.4.4",
+   "sklearn": "1.8.0"
+  }
+ },
+ "instrument": {
+  "trained_on_class": "asd.labspec4.std",
+  "grid": {
+   "start_nm": 350.0,
+   "step_nm": 1.0,
+   "n": 2151
+  },
+  "training_splices_nm": [
+   1000.0,
+   1800.0
+  ],
+  "description": "ASD LabSpec 4 Standard-Res, contact probe, 350-2500 nm at 1 nm"
+ },
+ "input": {
+  "quantity": "reflectance",
+  "scale": "fraction",
+  "range_nm": [
+   350,
+   2500
+  ]
+ },
+ "preprocessing": [
+  {
+   "op": "absorbance",
+   "clip_min": 1e-06
+  },
+  {
+   "op": "savgol",
+   "window": 31,
+   "polyorder": 3,
+   "deriv": 2,
+   "delta": 1.0,
+   "mode": "zero_edges",
+   "note": "Ryder/Unscrambler: 15 edge points zeroed (Ryder/Unscrambler edge handling); immaterial in 2030-2060"
+  }
+ ],
+ "features": {
+  "windows_nm": [
+   [
+    2030,
+    2060
+   ]
+  ],
+  "exclude_nm": [],
+  "wavelengths_nm": [
+   2030.0,
+   2031.0,
+   2032.0,
+   2033.0,
+   2034.0,
+   2035.0,
+   2036.0,
+   2037.0,
+   2038.0,
+   2039.0,
+   2040.0,
+   2041.0,
+   2042.0,
+   2043.0,
+   2044.0,
+   2045.0,
+   2046.0,
+   2047.0,
+   2048.0,
+   2049.0,
+   2050.0,
+   2051.0,
+   2052.0,
+   2053.0,
+   2054.0,
+   2055.0,
+   2056.0,
+   2057.0,
+   2058.0,
+   2059.0,
+   2060.0
+  ]
+ },
+ "regression": {
+  "x_center": [
+   1.2537773311287117e-05,
+   2.941294675699694e-06,
+   -6.764615845445568e-06,
+   -1.641680086593177e-05,
+   -2.5731574492018198e-05,
+   -3.4610424912960803e-05,
+   -4.274694313935716e-05,
+   -4.998572392213793e-05,
+   -5.614626495613304e-05,
+   -6.112386801324948e-05,
+   -6.481892908766841e-05,
+   -6.725359428504086e-05,
+   -6.841149611156567e-05,
+   -6.836612747641365e-05,
+   -6.719197616098359e-05,
+   -6.496475680929377e-05,
+   -6.182779493459615e-05,
+   -5.7894106286209534e-05,
+   -5.325997781978736e-05,
+   -4.8172482075421254e-05,
+   -4.2691399023965964e-05,
+   -3.707082587134261e-05,
+   -3.139584901289577e-05,
+   -2.5813810814609313e-05,
+   -2.0338624969826217e-05,
+   -1.5100003735215848e-05,
+   -1.0120326916859841e-05,
+   -5.400890131448509e-06,
+   -9.729796963804958e-07,
+   3.1656954284866064e-06,
+   7.01918524569003e-06
+  ],
+  "coefficients": [
+   13456.035191325305,
+   11098.667213258335,
+   8710.97549752707,
+   6322.545820966654,
+   4006.2114389823114,
+   1779.8259597271535,
+   -289.973283269518,
+   -2162.817659816875,
+   -3782.12030587903,
+   -5124.783778402506,
+   -6158.798952173259,
+   -6891.941281151044,
+   -7325.662703597533,
+   -7477.761368342832,
+   -7368.447808120958,
+   -7010.921288050194,
+   -6438.462760335966,
+   -5688.218685738378,
+   -4775.608414367074,
+   -3753.4206533897,
+   -2630.98181547192,
+   -1472.2319116235265,
+   -309.2800889858327,
+   828.3564166168053,
+   1943.2787302207255,
+   2996.76363156936,
+   3989.1495755448136,
+   4928.110756877694,
+   5796.982774509765,
+   6595.966261552262,
+   7328.374707363095
+  ],
+  "offset": 4.537214285714286
+ },
+ "output": {
+  "name": "collagen",
+  "units": "wt% collagen",
+  "y_transform": {
+   "type": "none"
+  },
+  "clip": {
+   "min": null,
+   "max": null
+  },
+  "decimals": 1,
+  "reading_rule": "predictions below ~1% = none detectable (Ryder et al. 2026a)"
+ },
+ "error": {
+  "rmsecv": 1.657520308440067,
+  "rmsep": 1.6816489183908827,
+  "rmsec": 1.6173862388415172,
+  "units": "wt% collagen",
+  "display": "approx",
+  "note": "used for a gentle '+/- about' hint only (BRIEF decision 5)"
+ },
+ "domain": {
+  "method": "none",
+  "note": "no T2/Q domain block: the OH/water projection is folded into the coefficients, so a plain PLS domain model would still see the projected-out direction"
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_public_v2.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "mmc2_Reference_Sample_1",
+    "spectrum_sha256": "ef8ddf9e2c7d95bc6ca3d426aca0859ecb56e566fc930cb047d336251ebf75ea",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.07580659726755723,
+     "linear": 0.07580659726755723
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)",
+    "features": [
+     2.2315818113835106e-05,
+     2.172061231006271e-05,
+     2.1056227281028832e-05,
+     2.0323077177710445e-05,
+     1.9548199196458898e-05,
+     1.873482770808053e-05,
+     1.7981493129822597e-05,
+     1.7308451600108387e-05,
+     1.6772282708282316e-05,
+     1.6420736105796823e-05,
+     1.6269641415985175e-05,
+     1.6253087519656814e-05,
+     1.627721995992146e-05,
+     1.635717890793192e-05,
+     1.6456905032776565e-05,
+     1.6536837833517563e-05,
+     1.668966050337819e-05,
+     1.6830393455027253e-05,
+     1.6994771878515525e-05,
+     1.7138888666806684e-05,
+     1.7249027465894356e-05,
+     1.7231412185404445e-05,
+     1.708165103783102e-05,
+     1.6767686242426813e-05,
+     1.6238904208787288e-05,
+     1.555021989747287e-05,
+     1.4783003328166936e-05,
+     1.3956087849799565e-05,
+     1.3088263458568622e-05,
+     1.2158746760527507e-05,
+     1.1206904282646743e-05
+    ]
+   },
+   {
+    "name": "mmc2_Reference_Sample_44",
+    "spectrum_sha256": "398b24182857f70334a551d5929031b7269827a47f9dbba57b41b103ef460df4",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 1.8357099428854582,
+     "linear": 1.8357099428854582
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_79",
+    "spectrum_sha256": "2b0379847078cea3a05aa8c409bf74dbafdfe68f7bd676cb7c67ce13fd4922bb",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.356511356063597,
+     "linear": 2.356511356063597
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_93",
+    "spectrum_sha256": "ed59c79c87c4d871d9e9f05a767334aad6f4f449ea7e2f457293f19e739c5a15",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 5.983819508305898,
+     "linear": 5.983819508305898
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_112",
+    "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 10.703871970985944,
+     "linear": 10.703871970985944
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_140",
+    "spectrum_sha256": "4c653c83b8f5dc1332a3301889d6c3fc2878be99b8bdcd56aa0a7a86d6d74089",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 17.1959473546761,
+     "linear": 17.1959473546761
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Zafarraya_16",
+    "spectrum_sha256": "3d0986c98d39f90856a9c3622d22c3d4785cd244e91efbc7ed1a18b3d482a516",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -0.07458121016268215,
+     "linear": -0.07458121016268215
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Zafarraya_30",
+    "spectrum_sha256": "510d5bca138e112c8bd55869901c9c60e7f06c05601557701a1bd18fa3f2dce4",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 12.35228073082296,
+     "linear": 12.35228073082296
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_clip_vnir",
+    "spectrum_sha256": "9397e5f18b1934942e6ce74004cc4acac37aacf4a8cfa2373e61a538abf4434f",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.356511356063597,
+     "linear": 2.356511356063597
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_dark_x0.25",
+    "spectrum_sha256": "f02a9fb48712fdbaee5b06d41a03ad274a66cb46192b954c5b6c849dbce73424",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.356511356063836,
+     "linear": 2.356511356063836
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_cal_median",
+    "spectrum_sha256": "b37678c5836380d86b47b72d1a5ee0ad6607a56f4c82a09377c96f694b777cdd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.542239955750753,
+     "linear": 3.542239955750753
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_val_a",
+    "spectrum_sha256": "8b6d90414c7e27c97959797113d8113b67823a3c347bbee2b4e2b6612f56162e",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -0.08713581817399696,
+     "linear": -0.08713581817399696
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_val_b",
+    "spectrum_sha256": "ac79a69bf508c165ba7d61e8f880947c7cca5368e177843eb5bf5f1f4c18c360",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.949231377769947,
+     "linear": 2.949231377769947
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_steps_join1830",
+    "spectrum_sha256": "32aa71ee6174f8244a09f1798a9d4fbf6e8260257964ad95db57c759689bb626",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1830.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.855386762818503,
+     "linear": 3.855386762818503
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_bison_28",
+    "spectrum_sha256": "6eec034385d09bd8b741a2acb157d8a43b7ac62318864f2f52209484f9a8955c",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.002535939524064723,
+     "linear": 0.002535939524064723
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_bison_33",
+    "spectrum_sha256": "bf391ad251be0c40ba44881bb6ce2791d60946de297a6ecfd66fd93dfdc674f8",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 6.189550331755509,
+     "linear": 6.189550331755509
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_dodo_19617_TMT_R_10",
+    "spectrum_sha256": "49534f016e933ac0fbfb7b38d5bfe277f0a9d8280039d0a87297f11830737dd5",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 1.0341252634420743,
+     "linear": 1.0341252634420743
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_dodo_19626_L_Femur_2",
+    "spectrum_sha256": "afa25626f5ca0ceca2eaa5a25f462c8e1d0e73211074058bf92d6c7191f458db",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 12.50302876332424,
+     "linear": 12.50302876332424
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_CF_98",
+    "spectrum_sha256": "c5a1fd5b302082dd74f1042c291d311c15513cf630507ad9a54dbc848b89007f",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.13460078522536367,
+     "linear": 0.13460078522536367
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_CF_44",
+    "spectrum_sha256": "fa9b74715d155a565f422ba7e7f8273d8fddc0fbc15f5836ca283ee0e361fe71",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 6.9796385746841185,
+     "linear": 6.9796385746841185
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS79",
+    "spectrum_sha256": "604808f4d0a5727f1d1f6f10b31c7a6684c9d9e492e1a1caa30426941b5dd9a2",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 3.7388841318025516,
+     "linear": 3.7388841318025516
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS112",
+    "spectrum_sha256": "154f959e33e2a3dd1458e357aa819bd3c23d7742bd2cd2111f5265ab02255a35",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 16.898840958103186,
+     "linear": 16.898840958103186
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS44_join1830",
+    "spectrum_sha256": "20e1797178a18f2abefdb44ef94195924006a3eb9205720a0ee6f87901959424",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1830.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 2.917819315188791,
+     "linear": 2.917819315188791
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS3_clipvnir",
+    "spectrum_sha256": "56079ac7eab77fcdbc1004bb4e796a348dd0262927f30957fa377e0b83d2295d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": -0.11362599627178316,
+     "linear": -0.11362599627178316
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_above60",
+    "spectrum_sha256": "48924bd678ca86c006f8f12c2b4c1ae19e7cad75a5e088721b273cbaee800bdd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.485109753824082,
+     "linear": 3.485109753824082
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_below60",
+    "spectrum_sha256": "77ef55a3eb355056157975574d717da2b7dde09759674f8fde9654b8d43db696",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.4876523264396804,
+     "linear": 3.4876523264396804
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_15p6",
+    "spectrum_sha256": "7ada546edaee373a0b6833e7d87b221bb483d96faef4ab7b4bee43d1a0d1c24b",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.5260634832009625,
+     "linear": 3.5260634832009625
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_std",
+    "spectrum_sha256": "59e894856873cf0808e936c7439573263e474c3b21381f840f6fc60547edb1c2",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 9.685567941773893,
+     "linear": 9.685567941773893
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_hires",
+    "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 22.046075977724936,
+     "linear": 22.046075977724936
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_std",
+    "spectrum_sha256": "28431d2a7330915c7d70dcfab578247421b37bf7f056f57d081d3b7a83c478fd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 10.46602414102022,
+     "linear": 10.46602414102022
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_hires",
+    "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 23.56844365572744,
+     "linear": 23.56844365572744
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_std",
+    "spectrum_sha256": "d45ca81886bb691bfc7f85c462b5ebd34378b46f973c51c352a3b825c075a9cd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 8.930182221416601,
+     "linear": 8.930182221416601
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_hires",
+    "spectrum_sha256": "17e9ad8ea4576c88b0a02412672cff5119a44404e6ff433fb0cc6990ed2ebf0d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 19.958054826832125,
+     "linear": 19.958054826832125
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   }
+  ]
+ },
+ "description": "The Ryder et al. 2026 2045 nm chain (log10(1/R) -> SG31 cubic 2nd derivative -> 2030-2060 nm -> 1-LV PLS on the 140 reference bones) with an altered OH / bound-water direction projected out, so variation in the 1930 nm OH/water band of dry archaeological bone moves the reading less. A component of the CONS3 consensus.",
+ "licence": "CC-BY-4.0",
+ "statistics": {
+  "rmsecv_R140_LOO": 1.663,
+  "rmsep_Z31": 1.81,
+  "rho_lt3_R140": 0.776,
+  "rho_lt1_R140": 0.678,
+  "auc_lt05_vs_05to3_R140": 0.947,
+  "auc_lt1_vs_1to3_R140": 0.898,
+  "rho_lt3_Z31": 0.709,
+  "note": "per scan; R140 = the 140 Ryder et al. 2026 reference bones (leave-one-out); Z31 = the 31 scans of the 15 contaminant-free Zafarraya bones in the same supplement; the low end (< 3%) is what matters, and differences between the shipped % models are within about +-0.05 (CIs +-0.09 on R140, +-0.22 on Z31)"
+ }
+}

@@ -1,0 +1,16 @@
+[package]
+name = "spyder-core"
+description = "SPYDER Bone numerical core: ASD reader, canonical N2, acquisition checks, grid eligibility, preprocessing operators, plug-ins, models and transfers. No UI or Tauri dependency."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# float_roundtrip: JSON numbers must parse with correct rounding (LESSONS 20; PLAN section 7)
+serde_json = { version = "1", features = ["float_roundtrip"] }
+thiserror = "2"
+# file SHA-256 of plug-ins and sidecars (PLAN section 4); RustCrypto, no unsafe in our code
+sha2 = "0.10"

@@ -1,0 +1,22 @@
+[package]
+name = "spyder-watch"
+description = "SPYDER Bone live folder watching: settle rule, immutable byte snapshots, poll mode on network volumes, versioned settings and the JSONL session log. No Tauri dependency, so it is testable on its own."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+# ReadDirectoryChangesW (Windows), FSEvents (macOS), inotify (Linux). Stable 8.x; our own settle rule is the
+# debounce, so notify-debouncer-full is not needed (03_architecture section 4.2 named it; see the module docs).
+notify = "8.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_Foundation"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

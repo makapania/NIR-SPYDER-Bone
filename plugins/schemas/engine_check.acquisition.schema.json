@@ -1,0 +1,226 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://spyder-bone.org/schemas/engine_check.acquisition.schema.json",
+ "title": "SPYDER Bone engine-check parameter file: acquisition",
+ "type": "object",
+ "required": [
+  "format",
+  "format_version",
+  "check",
+  "id",
+  "version",
+  "engine_min",
+  "status",
+  "title",
+  "licence",
+  "provenance",
+  "parameters",
+  "golden"
+ ],
+ "properties": {
+  "format": {
+   "const": "spyder-bone/engine_check"
+  },
+  "format_version": {
+   "const": 1
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[a-z0-9_.]+$"
+  },
+  "version": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "engine_min": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+$"
+  },
+  "status": {
+   "enum": [
+    "active",
+    "experimental",
+    "demo",
+    "withdrawn"
+   ]
+  },
+  "title": {
+   "type": "string"
+  },
+  "description": {
+   "type": "string"
+  },
+  "licence": {
+   "type": "string"
+  },
+  "created": {
+   "type": "string"
+  },
+  "provenance": {
+   "type": "object"
+  },
+  "check": {
+   "const": "acquisition"
+  },
+  "parameters": {
+   "type": "object",
+   "required": [
+    "input_matrix",
+    "integrity_range_nm",
+    "B2_saturation",
+    "B3_impossible",
+    "B4_panel_or_empty",
+    "B5_dark",
+    "B6_noise",
+    "B6b_signs_gate",
+    "B7_above_one",
+    "B8_splice_step"
+   ],
+   "properties": {
+    "B6b_signs_gate": {
+     "type": "object",
+     "required": [
+      "n2_window_nm",
+      "signs",
+      "contaminant_signs",
+      "by_transfer_key",
+      "unknown_transfer_key_uses"
+     ],
+     "properties": {
+      "n2_window_nm": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "signs": {
+       "type": "array",
+       "items": {
+        "enum": [
+         "plaster",
+         "wax",
+         "ester",
+         "burnt",
+         "C1"
+        ]
+       },
+       "minItems": 1
+      },
+      "contaminant_signs": {
+       "type": "array",
+       "items": {
+        "enum": [
+         "plaster",
+         "wax",
+         "ester",
+         "burnt",
+         "C1"
+        ]
+       },
+       "minItems": 1
+      },
+      "by_transfer_key": {
+       "type": "object",
+       "minProperties": 1,
+       "propertyNames": {
+        "pattern": "^(none|[0-9a-f]{64})$"
+       },
+       "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+         "oneOf": [
+          {
+           "type": "null"
+          },
+          {
+           "type": "object",
+           "required": [
+            "n2_window_nm",
+            "n2_above"
+           ],
+           "properties": {
+            "n2_window_nm": {
+             "type": "array",
+             "items": {
+              "type": "number"
+             },
+             "minItems": 2,
+             "maxItems": 2
+            },
+            "n2_above": {
+             "type": "number"
+            }
+           }
+          }
+         ]
+        }
+       }
+      },
+      "unknown_transfer_key_uses": {
+       "type": "string",
+       "pattern": "^(none|[0-9a-f]{64})$"
+      }
+     }
+    },
+    "B8_splice_step": {
+     "type": "object",
+     "required": [
+      "fits",
+      "note_above",
+      "check_above"
+     ]
+    }
+   }
+  },
+  "golden": {
+   "type": "object",
+   "required": [
+    "cases"
+   ],
+   "properties": {
+    "spectra_file": {
+     "type": "string"
+    },
+    "tolerance": {
+     "type": "object",
+     "required": [
+      "abs",
+      "rel"
+     ],
+     "properties": {
+      "abs": {
+       "type": "number",
+       "maximum": 1e-09
+      },
+      "rel": {
+       "type": "number",
+       "maximum": 1e-09
+      }
+     }
+    },
+    "cases": {
+     "type": "array",
+     "minItems": 3,
+     "items": {
+      "type": "object",
+      "required": [
+       "name",
+       "expected"
+      ],
+      "properties": {
+       "name": {
+        "type": "string"
+       },
+       "expected": {
+        "type": "object",
+        "minProperties": 1
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

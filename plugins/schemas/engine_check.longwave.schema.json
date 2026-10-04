@@ -1,0 +1,161 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://spyder-bone.org/schemas/engine_check.longwave.schema.json",
+ "title": "SPYDER Bone engine-check parameter file: longwave",
+ "type": "object",
+ "required": [
+  "format",
+  "format_version",
+  "check",
+  "id",
+  "version",
+  "engine_min",
+  "status",
+  "title",
+  "licence",
+  "provenance",
+  "parameters",
+  "golden"
+ ],
+ "properties": {
+  "format": {
+   "const": "spyder-bone/engine_check"
+  },
+  "format_version": {
+   "const": 1
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[a-z0-9_.]+$"
+  },
+  "version": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "engine_min": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+$"
+  },
+  "status": {
+   "enum": [
+    "active",
+    "experimental",
+    "demo",
+    "withdrawn"
+   ]
+  },
+  "title": {
+   "type": "string"
+  },
+  "description": {
+   "type": "string"
+  },
+  "licence": {
+   "type": "string"
+  },
+  "created": {
+   "type": "string"
+  },
+  "provenance": {
+   "type": "object"
+  },
+  "check": {
+   "const": "longwave"
+  },
+  "parameters": {
+   "type": "object",
+   "required": [
+    "applies_to_classes",
+    "n2_window_nm",
+    "tail_unreliable_if_n2_above",
+    "when_unreliable"
+   ],
+   "properties": {
+    "n2_window_nm": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 2,
+     "maxItems": 2
+    },
+    "tail_unreliable_if_n2_above": {
+     "type": "number"
+    },
+    "c1_tail_unreliable_if_n2_above": {
+     "type": "number"
+    },
+    "when_unreliable": {
+     "type": "object",
+     "required": [
+      "b9",
+      "c1"
+     ],
+     "properties": {
+      "b9": {
+       "enum": [
+        "truncated",
+        "not_assessed"
+       ]
+      },
+      "c1": {
+       "enum": [
+        "truncated",
+        "not_assessed"
+       ]
+      }
+     },
+     "additionalProperties": false
+    }
+   }
+  },
+  "golden": {
+   "type": "object",
+   "required": [
+    "cases"
+   ],
+   "properties": {
+    "spectra_file": {
+     "type": "string"
+    },
+    "tolerance": {
+     "type": "object",
+     "required": [
+      "abs",
+      "rel"
+     ],
+     "properties": {
+      "abs": {
+       "type": "number",
+       "maximum": 1e-09
+      },
+      "rel": {
+       "type": "number",
+       "maximum": 1e-09
+      }
+     }
+    },
+    "cases": {
+     "type": "array",
+     "minItems": 3,
+     "items": {
+      "type": "object",
+      "required": [
+       "name",
+       "expected"
+      ],
+      "properties": {
+       "name": {
+        "type": "string"
+       },
+       "expected": {
+        "type": "object",
+        "minProperties": 1
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

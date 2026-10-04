@@ -1,0 +1,1059 @@
+{
+ "format": "spyder-bone/model",
+ "format_version": 1,
+ "engine_min": "1.1",
+ "id": "collagen.spyder.1500_snv_transfer_free",
+ "version": "1.0.0",
+ "status": "active",
+ "title": "Collagen, 1545 nm, no transfer needed (reads 1500-1550 nm; first derivative)",
+ "short_name": "1545 nm, no transfer needed",
+ "kind": "regression",
+ "role": "collagen_percent",
+ "description": "First derivative of absorbance (SG23 quadratic, full grid), standard normal variate inside the fixed SWIR1 block 1480-1650 nm (op set 1.1 block SNV), read at 1500-1550 nm, 1-LV PLS on the 140 reference bones. The block normalisation divides out any absorbance gain or offset uniform within the block, so a high-res scan is read as measured, with no transfer: shown on high-res scans as a second opinion beside CONS3.",
+ "citation": {
+  "text": "SPYDER Bone (transfer-free 1500 nm model, S1_R2); calibration data Ryder, C. et al. 2026. Refining near-infrared spectroscopy for collagen quantification in archaeological bone. Journal of Archaeological Science 185:106448 (calibration spectra and yields: supplement mmc2).",
+  "doi": "10.1016/j.jas.2025.106448"
+ },
+ "authors": [
+  "M. Sponheimer (PI)"
+ ],
+ "created": "2026-10-02",
+ "exported": "2026-10-03",
+ "provenance": {
+  "training_data": "Ryder et al. 2026 JAS supplement mmc2 (140 reference bones, raw reflectance, collagen yield)",
+  "training_data_sha256": "2855d9c8e4867e806a30b57c227004db1e1585b2389c70b351b577583fe75f12",
+  "n_train": 140,
+  "model_algorithm": "PLS1 (NIPALS; checked against sklearn PLSRegression scale=False)",
+  "latent_variables": 1,
+  "selection": "nested CV on the 140 bones (family S1, 64 recipes, one-SE rule) before any external set",
+  "pairs": "36 standard/high-res scan pairs: mean high-res - standard -0.11 points with NO transfer",
+  "derived_from": "an earlier research export of this model, 1.0.0 (block-SNV form; renamed in Phase 0b)",
+  "environment": {
+   "python": "3.12.10",
+   "numpy": "2.4.4",
+   "sklearn": "1.8.0"
+  }
+ },
+ "instrument": {
+  "trained_on_class": "asd.labspec4.std",
+  "also_valid_for": [
+   "asd.labspec4.hires"
+  ],
+  "grid": {
+   "start_nm": 350.0,
+   "step_nm": 1.0,
+   "n": 2151
+  },
+  "training_splices_nm": [
+   1000.0,
+   1800.0
+  ],
+  "description": "ASD LabSpec 4 Standard-Res, contact probe, 350-2500 nm at 1 nm; applied to Hi-Res scans as measured (no transfer)"
+ },
+ "input": {
+  "quantity": "reflectance",
+  "scale": "fraction",
+  "range_nm": [
+   350,
+   2500
+  ]
+ },
+ "preprocessing": [
+  {
+   "op": "absorbance",
+   "clip_min": 1e-06
+  },
+  {
+   "op": "savgol",
+   "window": 23,
+   "polyorder": 2,
+   "deriv": 1,
+   "delta": 1.0,
+   "mode": "zero_edges",
+   "note": "on the full 350-2500 grid: the SNV block is > 11 channels from both grid edges, so no edge value enters it"
+  },
+  {
+   "op": "snv",
+   "ddof": 0,
+   "blocks_nm": [
+    [
+     1480.0,
+     1650.0
+    ]
+   ],
+   "note": "op set 1.1: SNV inside the fixed SWIR1 block only (SG support 1469-1661, no detector join); part of the model"
+  }
+ ],
+ "features": {
+  "windows_nm": [
+   [
+    1500,
+    1550
+   ]
+  ],
+  "exclude_nm": [],
+  "wavelengths_nm": [
+   1500.0,
+   1501.0,
+   1502.0,
+   1503.0,
+   1504.0,
+   1505.0,
+   1506.0,
+   1507.0,
+   1508.0,
+   1509.0,
+   1510.0,
+   1511.0,
+   1512.0,
+   1513.0,
+   1514.0,
+   1515.0,
+   1516.0,
+   1517.0,
+   1518.0,
+   1519.0,
+   1520.0,
+   1521.0,
+   1522.0,
+   1523.0,
+   1524.0,
+   1525.0,
+   1526.0,
+   1527.0,
+   1528.0,
+   1529.0,
+   1530.0,
+   1531.0,
+   1532.0,
+   1533.0,
+   1534.0,
+   1535.0,
+   1536.0,
+   1537.0,
+   1538.0,
+   1539.0,
+   1540.0,
+   1541.0,
+   1542.0,
+   1543.0,
+   1544.0,
+   1545.0,
+   1546.0,
+   1547.0,
+   1548.0,
+   1549.0,
+   1550.0
+  ]
+ },
+ "regression": {
+  "x_center": [
+   -1.0313312811227082,
+   -1.057013872299532,
+   -1.0784994250026898,
+   -1.095910758608071,
+   -1.1095319846041267,
+   -1.1193734294793358,
+   -1.1255957058503367,
+   -1.1286116339615273,
+   -1.1289430099858455,
+   -1.1269409100968284,
+   -1.1229270380839353,
+   -1.1175772056718196,
+   -1.111635828710404,
+   -1.1054926118588595,
+   -1.09957897423521,
+   -1.0945971221353417,
+   -1.0911124483848258,
+   -1.0896012757746716,
+   -1.090666114648388,
+   -1.0944250944499658,
+   -1.1012325330797774,
+   -1.110990067218335,
+   -1.1234971701267251,
+   -1.138478576315357,
+   -1.155994310695989,
+   -1.1750928781136674,
+   -1.195411032121686,
+   -1.2157745046318185,
+   -1.2357157322052732,
+   -1.2536491086581256,
+   -1.2687673142385787,
+   -1.2798030426993592,
+   -1.2863993543093681,
+   -1.2870628915844147,
+   -1.281130776598471,
+   -1.2676492643318278,
+   -1.2462862856930172,
+   -1.216453709367486,
+   -1.177864001874018,
+   -1.1307486944656344,
+   -1.0754044973525454,
+   -1.012751148191494,
+   -0.9429740994150991,
+   -0.8678194355897441,
+   -0.7879738530883656,
+   -0.705382777660187,
+   -0.62073360453028,
+   -0.5362295351790975,
+   -0.4528980437122444,
+   -0.3728878470779777,
+   -0.2969712452918993
+  ],
+  "coefficients": [
+   0.43141139752006413,
+   0.40332589048258716,
+   0.3772764332400904,
+   0.35319496361158054,
+   0.33107181727654367,
+   0.3107279093294759,
+   0.29205720583381495,
+   0.27484463754800664,
+   0.25884544545634314,
+   0.24376350371717148,
+   0.22940192788492786,
+   0.21524956096006692,
+   0.20098819296552095,
+   0.18603256312276772,
+   0.16992802361748224,
+   0.15230729598597806,
+   0.13274911895326805,
+   0.11089637912667004,
+   0.0864323504080182,
+   0.05933394746763481,
+   0.029320133734694512,
+   -0.0034493419360191206,
+   -0.03898791115557831,
+   -0.07682540065951801,
+   -0.11688202599679062,
+   -0.15823815403364597,
+   -0.20054062769466413,
+   -0.24266010247490954,
+   -0.2841967911029162,
+   -0.32393968685797575,
+   -0.3613031769982378,
+   -0.3950103036244571,
+   -0.42454216958475655,
+   -0.4485726611310952,
+   -0.4666322523128222,
+   -0.47781894043242135,
+   -0.48189325264792,
+   -0.4785062694431037,
+   -0.46742027430749467,
+   -0.4488053218864504,
+   -0.42288551112902323,
+   -0.3905119319791584,
+   -0.35193709448468835,
+   -0.30857600286866305,
+   -0.26099987994130114,
+   -0.21096233534175488,
+   -0.15912009896962795,
+   -0.10745997579932436,
+   -0.05676465886896885,
+   -0.008731395870798067,
+   0.035985539401053555
+  ],
+  "offset": 4.537214285714286
+ },
+ "output": {
+  "name": "collagen",
+  "units": "wt% collagen",
+  "y_transform": {
+   "type": "none"
+  },
+  "clip": {
+   "min": null,
+   "max": null
+  },
+  "decimals": 1,
+  "reading_rule": "predictions below ~1% = none detectable; negative values are not collagen amounts"
+ },
+ "error": {
+  "rmsecv": 1.704312067963415,
+  "rmsep": 1.6724972532919395,
+  "rmsec": 1.6761827875643436,
+  "units": "wt% collagen",
+  "display": "approx",
+  "note": "3 x 5-fold CV on the 140; Calibration-100 -> Validation-40; used for a gentle '+/- about' hint only"
+ },
+ "domain": {
+  "method": "pls_t2_q",
+  "x_center": [
+   -1.0313312811227082,
+   -1.057013872299532,
+   -1.0784994250026898,
+   -1.095910758608071,
+   -1.1095319846041267,
+   -1.1193734294793358,
+   -1.1255957058503367,
+   -1.1286116339615273,
+   -1.1289430099858455,
+   -1.1269409100968284,
+   -1.1229270380839353,
+   -1.1175772056718196,
+   -1.111635828710404,
+   -1.1054926118588595,
+   -1.09957897423521,
+   -1.0945971221353417,
+   -1.0911124483848258,
+   -1.0896012757746716,
+   -1.090666114648388,
+   -1.0944250944499658,
+   -1.1012325330797774,
+   -1.110990067218335,
+   -1.1234971701267251,
+   -1.138478576315357,
+   -1.155994310695989,
+   -1.1750928781136674,
+   -1.195411032121686,
+   -1.2157745046318185,
+   -1.2357157322052732,
+   -1.2536491086581256,
+   -1.2687673142385787,
+   -1.2798030426993592,
+   -1.2863993543093681,
+   -1.2870628915844147,
+   -1.281130776598471,
+   -1.2676492643318278,
+   -1.2462862856930172,
+   -1.216453709367486,
+   -1.177864001874018,
+   -1.1307486944656344,
+   -1.0754044973525454,
+   -1.012751148191494,
+   -0.9429740994150991,
+   -0.8678194355897441,
+   -0.7879738530883656,
+   -0.705382777660187,
+   -0.62073360453028,
+   -0.5362295351790975,
+   -0.4528980437122444,
+   -0.3728878470779777,
+   -0.2969712452918993
+  ],
+  "components": [
+   {
+    "weights_r": [
+     0.20548725825334185,
+     0.19210974001677816,
+     0.17970202065999094,
+     0.16823168121805848,
+     0.1576941184404947,
+     0.14800403169213314,
+     0.13911091553192315,
+     0.13091232948417117,
+     0.12329169142017199,
+     0.1161079524764764,
+     0.1092673338490375,
+     0.1025263643384911,
+     0.09573347610005527,
+     0.08860990127216425,
+     0.08093908476755433,
+     0.07254608673773687,
+     0.06323025456921344,
+     0.052821490178415455,
+     0.041168932512752526,
+     0.02826158570811762,
+     0.013965588130952156,
+     -0.0016429696138889765,
+     -0.018570485189863508,
+     -0.036593008521534555,
+     -0.055672537163460815,
+     -0.07537103704343287,
+     -0.09552029452690618,
+     -0.11558238709427021,
+     -0.13536689049903924,
+     -0.15429698537066514,
+     -0.17209373620254637,
+     -0.18814891015908952,
+     -0.20221534929855361,
+     -0.2136614071698169,
+     -0.22226344202202938,
+     -0.22759181740535425,
+     -0.22953246906927322,
+     -0.2279192017877211,
+     -0.22263878787533653,
+     -0.2137722267285859,
+     -0.20142625979862905,
+     -0.18600627308155604,
+     -0.16763254063064606,
+     -0.14697904866852268,
+     -0.12431787857689841,
+     -0.1004842990549019,
+     -0.07579111970204398,
+     -0.051184683404074074,
+     -0.02703779775806264,
+     -0.0041588854826938165,
+     0.017140413699770634
+    ],
+    "loadings_p": [
+     0.2038950401613926,
+     0.1898676630115395,
+     0.1768501596681681,
+     0.16480495059486716,
+     0.15371989123217708,
+     0.14351989832134415,
+     0.1341564883608872,
+     0.12553475333934666,
+     0.11754673350787999,
+     0.11004442732072067,
+     0.10292751174166148,
+     0.09595786393951303,
+     0.08897242933121284,
+     0.08170281911526577,
+     0.07394106885981998,
+     0.06551003409964895,
+     0.056209858898293774,
+     0.04586767182139954,
+     0.03433091964115341,
+     0.021568702855258408,
+     0.007442233864692048,
+     -0.007966590767125912,
+     -0.024666243855145382,
+     -0.04243076245421154,
+     -0.061217841097814224,
+     -0.0806102205126934,
+     -0.1004472671316303,
+     -0.12019584321317603,
+     -0.1396733342949523,
+     -0.1583027910526919,
+     -0.1757953180654526,
+     -0.19155153592456797,
+     -0.20532399941871057,
+     -0.21650008607093219,
+     -0.22486095244202536,
+     -0.2299826077793538,
+     -0.2317574148760218,
+     -0.23001939377575548,
+     -0.2246522161926565,
+     -0.2157405889538114,
+     -0.20338604753738326,
+     -0.1879833221507339,
+     -0.16965945701735757,
+     -0.14908803393530393,
+     -0.1265343554424465,
+     -0.10282718946746831,
+     -0.07827438551283321,
+     -0.05380734618346312,
+     -0.029802451645321696,
+     -0.007068785611342167,
+     0.014085483401752167
+    ],
+    "score_var": 4.466263385357154
+   }
+  ],
+  "t2_limit": 6.820778225512093,
+  "q_limit": 2.78592879677827,
+  "confidence": 0.99,
+  "levels": [
+   {
+    "label": "typical",
+    "below": 1.0
+   },
+   {
+    "label": "unusual",
+    "below": 3.0
+   },
+   {
+    "label": "very unusual"
+   }
+  ],
+  "policy": "inform only; never blocks or hides a prediction (BRIEF decision 3)"
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_public_v2.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "mmc2_Reference_Sample_1",
+    "spectrum_sha256": "ef8ddf9e2c7d95bc6ca3d426aca0859ecb56e566fc930cb047d336251ebf75ea",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -0.8450758208687237,
+     "linear": -0.8450758208687237
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)",
+    "features": [
+     -1.4735364296058782,
+     -1.4606507163346316,
+     -1.4458578810514133,
+     -1.429537676733656,
+     -1.411936158904032,
+     -1.3930420461897453,
+     -1.3732268307130768,
+     -1.3525129106042546,
+     -1.3309403429621298,
+     -1.3084741971136864,
+     -1.2851571288028392,
+     -1.2611299709186805,
+     -1.236615774481203,
+     -1.2115818011642623,
+     -1.186101728645221,
+     -1.1602598084068985,
+     -1.1342942500794513,
+     -1.1080714370759839,
+     -1.0817219124960813,
+     -1.0552221564867095,
+     -1.0285045974474756,
+     -1.0018578498520605,
+     -0.9751236355243605,
+     -0.9484784750213818,
+     -0.9220210052569137,
+     -0.8955236621653158,
+     -0.8689753292942397,
+     -0.8424243478780263,
+     -0.8161430877500434,
+     -0.7897665493142765,
+     -0.7631584809456736,
+     -0.7366366467379624,
+     -0.710199464969126,
+     -0.6837614253292852,
+     -0.6571690271491856,
+     -0.6305752254606305,
+     -0.603965279728619,
+     -0.5776244494303496,
+     -0.5515933075722566,
+     -0.5257838968384236,
+     -0.5002325347876965,
+     -0.4746060696959285,
+     -0.4490761094319285,
+     -0.42349307049633617,
+     -0.397905478432802,
+     -0.37241888568533604,
+     -0.3466461502274058,
+     -0.3208217962495685,
+     -0.2950893449117363,
+     -0.26959019809046303,
+     -0.24444701043545342
+    ]
+   },
+   {
+    "name": "mmc2_Reference_Sample_44",
+    "spectrum_sha256": "398b24182857f70334a551d5929031b7269827a47f9dbba57b41b103ef460df4",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 1.5761060475326985,
+     "linear": 1.5761060475326985
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_79",
+    "spectrum_sha256": "2b0379847078cea3a05aa8c409bf74dbafdfe68f7bd676cb7c67ce13fd4922bb",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.40721188020171,
+     "linear": 2.40721188020171
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_93",
+    "spectrum_sha256": "ed59c79c87c4d871d9e9f05a767334aad6f4f449ea7e2f457293f19e739c5a15",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 6.596609728610725,
+     "linear": 6.596609728610725
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_112",
+    "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 6.204717072581221,
+     "linear": 6.204717072581221
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_140",
+    "spectrum_sha256": "4c653c83b8f5dc1332a3301889d6c3fc2878be99b8bdcd56aa0a7a86d6d74089",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 14.732863427597188,
+     "linear": 14.732863427597188
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Zafarraya_16",
+    "spectrum_sha256": "3d0986c98d39f90856a9c3622d22c3d4785cd244e91efbc7ed1a18b3d482a516",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.1730058288164118,
+     "linear": 0.1730058288164118
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Zafarraya_30",
+    "spectrum_sha256": "510d5bca138e112c8bd55869901c9c60e7f06c05601557701a1bd18fa3f2dce4",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 11.151244890829481,
+     "linear": 11.151244890829481
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_clip_vnir",
+    "spectrum_sha256": "9397e5f18b1934942e6ce74004cc4acac37aacf4a8cfa2373e61a538abf4434f",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.40721188020171,
+     "linear": 2.40721188020171
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_dark_x0.25",
+    "spectrum_sha256": "f02a9fb48712fdbaee5b06d41a03ad274a66cb46192b954c5b6c849dbce73424",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.407211880201687,
+     "linear": 2.407211880201687
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_cal_median",
+    "spectrum_sha256": "b37678c5836380d86b47b72d1a5ee0ad6607a56f4c82a09377c96f694b777cdd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 5.310519554414661,
+     "linear": 5.310519554414661
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_val_a",
+    "spectrum_sha256": "8b6d90414c7e27c97959797113d8113b67823a3c347bbee2b4e2b6612f56162e",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -0.4003329551740009,
+     "linear": -0.4003329551740009
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_val_b",
+    "spectrum_sha256": "ac79a69bf508c165ba7d61e8f880947c7cca5368e177843eb5bf5f1f4c18c360",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.7458759866466815,
+     "linear": 2.7458759866466815
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_steps_join1830",
+    "spectrum_sha256": "32aa71ee6174f8244a09f1798a9d4fbf6e8260257964ad95db57c759689bb626",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1830.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 5.310519554414661,
+     "linear": 5.310519554414661
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_bison_28",
+    "spectrum_sha256": "6eec034385d09bd8b741a2acb157d8a43b7ac62318864f2f52209484f9a8955c",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.43525456117833183,
+     "linear": 0.43525456117833183
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_bison_33",
+    "spectrum_sha256": "bf391ad251be0c40ba44881bb6ce2791d60946de297a6ecfd66fd93dfdc674f8",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 9.707911209304424,
+     "linear": 9.707911209304424
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_dodo_19617_TMT_R_10",
+    "spectrum_sha256": "49534f016e933ac0fbfb7b38d5bfe277f0a9d8280039d0a87297f11830737dd5",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 12.649528278497133,
+     "linear": 12.649528278497133
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_dodo_19626_L_Femur_2",
+    "spectrum_sha256": "afa25626f5ca0ceca2eaa5a25f462c8e1d0e73211074058bf92d6c7191f458db",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 13.79754903725702,
+     "linear": 13.79754903725702
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_CF_98",
+    "spectrum_sha256": "c5a1fd5b302082dd74f1042c291d311c15513cf630507ad9a54dbc848b89007f",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -3.2746496509806597,
+     "linear": -3.2746496509806597
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_CF_44",
+    "spectrum_sha256": "fa9b74715d155a565f422ba7e7f8273d8fddc0fbc15f5836ca283ee0e361fe71",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 10.175058207143351,
+     "linear": 10.175058207143351
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS79",
+    "spectrum_sha256": "604808f4d0a5727f1d1f6f10b31c7a6684c9d9e492e1a1caa30426941b5dd9a2",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 2.4072118802017233,
+     "linear": 2.4072118802017233
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS112",
+    "spectrum_sha256": "154f959e33e2a3dd1458e357aa819bd3c23d7742bd2cd2111f5265ab02255a35",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 6.2047170725812375,
+     "linear": 6.2047170725812375
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS44_join1830",
+    "spectrum_sha256": "20e1797178a18f2abefdb44ef94195924006a3eb9205720a0ee6f87901959424",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1830.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 1.5761060475326993,
+     "linear": 1.5761060475326993
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS3_clipvnir",
+    "spectrum_sha256": "56079ac7eab77fcdbc1004bb4e796a348dd0262927f30957fa377e0b83d2295d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": -0.40033295517400536,
+     "linear": -0.40033295517400536
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_above60",
+    "spectrum_sha256": "48924bd678ca86c006f8f12c2b4c1ae19e7cad75a5e088721b273cbaee800bdd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 5.232519446412636,
+     "linear": 5.232519446412636
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_below60",
+    "spectrum_sha256": "77ef55a3eb355056157975574d717da2b7dde09759674f8fde9654b8d43db696",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 5.236046630574369,
+     "linear": 5.236046630574369
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_15p6",
+    "spectrum_sha256": "7ada546edaee373a0b6833e7d87b221bb483d96faef4ab7b4bee43d1a0d1c24b",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 5.288702586458015,
+     "linear": 5.288702586458015
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_std",
+    "spectrum_sha256": "59e894856873cf0808e936c7439573263e474c3b21381f840f6fc60547edb1c2",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 9.886094870728817,
+     "linear": 9.886094870728817
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_hires",
+    "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 11.299155012606814,
+     "linear": 11.299155012606814
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_std",
+    "spectrum_sha256": "28431d2a7330915c7d70dcfab578247421b37bf7f056f57d081d3b7a83c478fd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 10.02285952647339,
+     "linear": 10.02285952647339
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_hires",
+    "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 12.059003534417052,
+     "linear": 12.059003534417052
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_std",
+    "spectrum_sha256": "d45ca81886bb691bfc7f85c462b5ebd34378b46f973c51c352a3b825c075a9cd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 10.60455294893109,
+     "linear": 10.60455294893109
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_hires",
+    "spectrum_sha256": "17e9ad8ea4576c88b0a02412672cff5119a44404e6ff433fb0cc6990ed2ebf0d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 10.978320739848577,
+     "linear": 10.978320739848577
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   }
+  ]
+ },
+ "licence": "CC-BY-4.0",
+ "statistics": {
+  "rmsecv_R140_LOO": 1.7,
+  "rmsep_Z31": 2.62,
+  "note": "per scan; R140 = the 140 Ryder et al. 2026 reference bones (leave-one-out); Z31 = the 31 scans of the 15 contaminant-free Zafarraya bones in the same supplement; the low end (< 3%) is what matters, and differences between the shipped % models are within about +-0.05 (CIs +-0.09 on R140, +-0.22 on Z31)"
+ }
+}

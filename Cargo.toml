@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/spyder-core",
+    "crates/spyder-cli",
+    "app/src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/makapania/SPYDER-Bone"
+
+[profile.release]
+lto = true
+codegen-units = 1

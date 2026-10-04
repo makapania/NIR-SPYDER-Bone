@@ -1,0 +1,17 @@
+[package]
+name = "spyder-cli"
+description = "SPYDER Bone command-line tool (`spyder read`, `validate`, `predict`, `analyse`), built on spyder-core."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "spyder"
+path = "src/main.rs"
+
+[dependencies]
+spyder-core = { path = "../spyder-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }

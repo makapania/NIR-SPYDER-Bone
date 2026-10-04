@@ -1,0 +1,2360 @@
+{
+ "format": "spyder-bone/analysis_profile",
+ "format_version": 1,
+ "analysis": "isotopes",
+ "id": "profile.isotopes",
+ "version": "1.0.0",
+ "engine_min": "1.1",
+ "status": "active",
+ "title": "Stable isotopes: verdict profile",
+ "description": "Rule L2 with flat-bands-lead and +D (PLAN v3.2 Step 9; DECISIONS 13, 15, 16, 36). m = CONS3 (median of three collagen models). Model verdict: Unlikely below 0.5, Borderline to 3, Good from 3. Flat bands (evidence 'none') -> Unlikely whatever m reads. +D: both protein bands readable and flat with m >= 3 -> Borderline. Lift, on a scan with no plaster, wax, ester or C1 sign, every one of them checked (none gated by its own B6b gate; C1 assessed), with all six collagen bands readable and lit: strong -> Good, clear -> at least Borderline. Contaminant and burnt signs are FLAGS only and never change the verdict (DECISIONS 53). Models-disagree note: only when the three CONS3 components fall in different verdict bands, i.e. straddle the 0.5 or the 3 cut, AND span at least 1 point (DECISIONS 65). Notes: above_bone_range when m > above_bone_range_m_above (DECISIONS 72); possible_thin_coating when the soft tier fired (it also suppresses the positive-signs line; DECISIONS 76); contaminants_not_checked lists the skipped (gated) and checked signs; c1_reduced (the truncated C1 ran) is details-only. ZooMS line (DECISIONS 80 amended): the ZooMS band-pattern rule (check.zooms_patterns with its 1545 nm vote, unchanged) runs underneath; where it calls the scan better than this verdict (Good > Borderline > Unlikely; Can't tell never counts) a note says so and never changes the verdict: zooms_better_good (ZooMS Good), zooms_better_protein (ZooMS Borderline from the band pattern), zooms_better_1545 (ZooMS Borderline only through the 1545 nm vote; zooms_better_1545_flat when flat bands set the verdict). No line when a sign in suppressed_by_signs fired (wax, ester, plaster, C1: coatings can create the C-H bands the patterns read); burnt, gated or unassessed signs do not suppress it. The band-pattern Borderline splits by strength: zooms_better_protein needs m >= 0.3 and at least two N-type bands (NH2044, AM2175, the 1545 nm vote band) lit and readable, else zooms_faint_protein (a quieter note, shown only when a slot is left: precedence_last). Ryder line: on an Unlikely verdict with no band line, when the published Ryder 2045 model reads >= ryder_2045_at_least, zooms_better_ryder (params r, at_least) is the ZooMS line and a faint protein note stays in the details. Shown after the rule's note and before the supporting note (precedence_zooms). Keys only (the UI holds the strings); at most two shown.",
+ "licence": "CC-BY-4.0",
+ "created": "2026-10-03",
+ "provenance": {
+  "basis": "Phase 0a A19 (rule L2), A20 (display, sort), Matt's rulings DECISIONS 13-16, 36, 41, 45, 52, 53, 65, 80 (amended: one verdict for every analysis plus a ZooMS line). Cuts: the published 3% line (Ryder et al. 2026) and 0.5%.",
+  "zooms_ryder_2045_cut": "0.34% yield: the a priori ZooMS cut of Ryder et al. 2026b (Archaeometry, doi:10.1111/arcm.70202): 0.26 %N converted to collagen yield with the Brock et al. 2010 regression (0.33, rounded up). Not tuned on any test set; phase 0d evaluation: no line on true-zero archaeological bone."
+ },
+ "parameters": {
+  "kind": "collagen_rule_L2",
+  "models": [
+   {
+    "key": "cons3",
+    "model_id": "collagen.spyder.consensus3_median",
+    "role": "verdict_input",
+    "components": [
+     "wc2045",
+     "wc1500",
+     "F05"
+    ],
+    "shown_for_classes": [
+     "asd.labspec4.std",
+     "asd.labspec4.hires"
+    ]
+   },
+   {
+    "key": "ryder2045",
+    "model_id": "collagen.ryder2026.2045",
+    "role": "published",
+    "shown_for_classes": [
+     "asd.labspec4.std",
+     "asd.labspec4.hires"
+    ]
+   },
+   {
+    "key": "s1_r2",
+    "model_id": "collagen.spyder.1500_snv_transfer_free",
+    "role": "second_opinion",
+    "shown_for_classes": [
+     "asd.labspec4.hires"
+    ]
+   }
+  ],
+  "cuts": {
+   "unlikely_below": 0.5,
+   "good_from": 3.0
+  },
+  "flat_bands_lead": {
+   "enabled": true,
+   "evidence_level": "none",
+   "verdict": "Unlikely"
+  },
+  "plus_d": {
+   "enabled": true,
+   "zooms_verdict": "Unlikely",
+   "m_at_least": 3.0,
+   "verdict": "Borderline"
+  },
+  "lift": {
+   "requires_zooms_verdict": "Good",
+   "to_good_levels": [
+    "strong"
+   ],
+   "to_at_least_borderline_levels": [
+    "clear"
+   ],
+   "blocked_by_signs": [
+    "plaster",
+    "wax",
+    "ester",
+    "C1"
+   ],
+   "requires_contaminants_checked": true
+  },
+  "flags": {
+   "contaminant": [
+    "plaster",
+    "wax",
+    "ester",
+    "C1"
+   ],
+   "burnt": [
+    "burnt"
+   ],
+   "keys": [
+    "flag_contaminant",
+    "flag_burnt"
+   ]
+  },
+  "notes": {
+   "precedence_rule": [
+    "plus_d",
+    "flat_bands_lead",
+    "lift",
+    "lift_blocked"
+   ],
+   "precedence_zooms": [
+    "zooms_better"
+   ],
+   "precedence_supporting": [
+    "above_bone_range",
+    "possible_thin_coating",
+    "contaminants_not_checked",
+    "models_disagree",
+    "positive_signs",
+    "bands_too_noisy"
+   ],
+   "max_shown": 2,
+   "models_disagree_when": "components_in_different_verdict_bands",
+   "models_disagree_min_span": 1.0,
+   "positive_signs": {
+    "all_six_zooms_verdict": "Good",
+    "clear_levels": [
+     "clear",
+     "strong"
+    ],
+    "clear_min_m": 1.0
+   },
+   "positive_signs_hidden_after_lift": true,
+   "bands_too_noisy_level": "can't tell",
+   "above_bone_range_m_above": 20.0,
+   "zooms_better": {
+    "enabled": true,
+    "suppressed_by_signs": [
+     "plaster",
+     "wax",
+     "ester",
+     "C1"
+    ],
+    "protein": {
+     "m_at_least": 0.3,
+     "n_type_lit_at_least": 2,
+     "n_type_bands": [
+      "NH2044",
+      "AM2175",
+      "NH1545c"
+     ]
+    },
+    "ryder_2045_model_key": "ryder2045",
+    "ryder_2045_at_least": 0.34
+   },
+   "precedence_last": [
+    "zooms_faint_protein"
+   ],
+   "details_only": [
+    "c1_reduced"
+   ],
+   "keys": [
+    "lift_good",
+    "lift_borderline",
+    "lift_blocked_contaminant",
+    "lift_blocked_noisy",
+    "flat_bands_lead",
+    "plus_d",
+    "above_bone_range",
+    "possible_thin_coating",
+    "contaminants_not_checked",
+    "models_disagree",
+    "positive_signs_all_six",
+    "positive_signs_clear",
+    "bands_too_noisy",
+    "c1_reduced",
+    "second_opinion_differs",
+    "no_model_reading",
+    "zooms_better_good",
+    "zooms_better_protein",
+    "zooms_better_1545",
+    "zooms_better_1545_flat",
+    "zooms_faint_protein",
+    "zooms_better_ryder"
+   ]
+  },
+  "second_opinion": {
+   "classes": [
+    "asd.labspec4.hires"
+   ],
+   "gap_points": 4.1,
+   "basis": "Phase 0b item 18: |S1_R2 - CONS3| on 36 concordant standard/high-res pairs (high-res side), 95th percentile 4.10 (bootstrap CI 2.96-5.92)"
+  },
+  "domain_note_ratio_above": 3.0,
+  "display": {
+   "below": [
+    [
+     0.5,
+     "< 0.5%"
+    ],
+    [
+     3.0,
+     "one decimal, (± 1)"
+    ],
+    [
+     6.0,
+     "whole number"
+    ]
+   ],
+   "from_6": "> 6%"
+  },
+  "sort": {
+   "verdict_order": [
+    "Good",
+    "Borderline",
+    "Can't tell",
+    "Unlikely",
+    "Rescan",
+    "Doesn't look like bone"
+   ],
+   "within": {
+    "Good": "m",
+    "Borderline": "m",
+    "Can't tell": "m",
+    "Unlikely": "S"
+   },
+   "descending": true,
+   "unrounded": true
+  }
+ },
+ "golden": {
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "cut_below_0p5",
+    "inputs": {
+     "m": 0.4999999,
+     "components": {
+      "wc2045": 0.4,
+      "wc1500": 0.5,
+      "F05": 0.6
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "cut_at_0p5",
+    "inputs": {
+     "m": 0.5,
+     "components": {
+      "wc2045": 0.4,
+      "wc1500": 0.5,
+      "F05": 0.6
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Can't tell",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "cut_below_3",
+    "inputs": {
+     "m": 2.9999999,
+     "components": {
+      "wc2045": 2.8,
+      "wc1500": 2.9999999,
+      "F05": 2.9999999
+     },
+     "evidence_level": "clear",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "positive_signs_clear",
+     "notes_all": "positive_signs_clear",
+     "flags": ""
+    }
+   },
+   {
+    "name": "cut_at_3",
+    "inputs": {
+     "m": 3.0,
+     "components": {
+      "wc2045": 3.0,
+      "wc1500": 3.0,
+      "F05": 3.1
+     },
+     "evidence_level": "clear",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "positive_signs_all_six",
+     "notes_all": "positive_signs_all_six",
+     "flags": ""
+    }
+   },
+   {
+    "name": "flat_none_m_5",
+    "inputs": {
+     "m": 5.0,
+     "components": {
+      "wc2045": 5.0,
+      "wc1500": 5.0,
+      "F05": 5.0
+     },
+     "evidence_level": "none",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "A",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "flat_bands_lead",
+     "model_verdict": "Good",
+     "notes_shown": "flat_bands_lead",
+     "notes_all": "flat_bands_lead",
+     "flags": ""
+    }
+   },
+   {
+    "name": "plus_d_at_3",
+    "inputs": {
+     "m": 3.0,
+     "components": {
+      "wc2045": 3.0,
+      "wc1500": 3.0,
+      "F05": 3.0
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "plus_d",
+     "model_verdict": "Good",
+     "notes_shown": "plus_d",
+     "notes_all": "plus_d",
+     "flags": ""
+    }
+   },
+   {
+    "name": "no_plus_d_below_3",
+    "inputs": {
+     "m": 2.99,
+     "components": {
+      "wc2045": 3.0,
+      "wc1500": 2.99,
+      "F05": 2.9
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "lift_good",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.1,
+      "F05": 0.3
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "lift_good",
+     "model_verdict": "Unlikely",
+     "notes_shown": "lift_good",
+     "notes_all": "lift_good,positive_signs_all_six",
+     "flags": ""
+    }
+   },
+   {
+    "name": "lift_borderline",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.1,
+      "F05": 0.3
+     },
+     "evidence_level": "clear",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "lift_borderline",
+     "model_verdict": "Unlikely",
+     "notes_shown": "lift_borderline,zooms_better_good",
+     "notes_all": "lift_borderline,zooms_better_good,positive_signs_all_six",
+     "flags": ""
+    }
+   },
+   {
+    "name": "no_lift_needed_clear_at_1",
+    "inputs": {
+     "m": 1.0,
+     "components": {
+      "wc2045": 1.0,
+      "wc1500": 1.0,
+      "F05": 1.0
+     },
+     "evidence_level": "clear",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "zooms_better_good,positive_signs_all_six",
+     "notes_all": "zooms_better_good,positive_signs_all_six",
+     "flags": ""
+    }
+   },
+   {
+    "name": "lift_blocked_wax",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.1,
+      "F05": 0.3
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [
+      "wax"
+     ],
+     "c1_status": "skipped: a specific sign fired",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "lift_blocked",
+     "model_verdict": "Unlikely",
+     "notes_shown": "lift_blocked_contaminant",
+     "notes_all": "lift_blocked_contaminant",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "lift_blocked_c1_borderline",
+    "inputs": {
+     "m": 1.0,
+     "components": {
+      "wc2045": 1.0,
+      "wc1500": 1.0,
+      "F05": 1.0
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [
+      "C1"
+     ],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "lift_blocked",
+     "model_verdict": "Borderline",
+     "notes_shown": "lift_blocked_contaminant",
+     "notes_all": "lift_blocked_contaminant",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "burnt_does_not_block_lift",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.1,
+      "F05": 0.3
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [
+      "burnt"
+     ],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "lift_good",
+     "model_verdict": "Unlikely",
+     "notes_shown": "lift_good",
+     "notes_all": "lift_good,positive_signs_all_six",
+     "flags": "flag_burnt"
+    }
+   },
+   {
+    "name": "lift_blocked_gated_unlikely",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.1,
+      "F05": 0.3
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "gated: B6b too noisy for contaminant signs",
+     "gated": true
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "lift_blocked",
+     "model_verdict": "Unlikely",
+     "notes_shown": "lift_blocked_noisy,zooms_better_good",
+     "notes_all": "lift_blocked_noisy,zooms_better_good",
+     "flags": ""
+    }
+   },
+   {
+    "name": "lift_blocked_gated_borderline",
+    "inputs": {
+     "m": 1.0,
+     "components": {
+      "wc2045": 1.0,
+      "wc1500": 1.0,
+      "F05": 1.0
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "gated: B6b too noisy for contaminant signs",
+     "gated": true
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "lift_blocked",
+     "model_verdict": "Borderline",
+     "notes_shown": "lift_blocked_noisy,zooms_better_good",
+     "notes_all": "lift_blocked_noisy,zooms_better_good,contaminants_not_checked",
+     "flags": ""
+    }
+   },
+   {
+    "name": "longwave_c1_not_assessed_good",
+    "inputs": {
+     "m": 4.0,
+     "components": {
+      "wc2045": 4.0,
+      "wc1500": 4.0,
+      "F05": 4.0
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "not assessed: long-wave region too noisy",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "contaminants_not_checked",
+     "notes_all": "contaminants_not_checked",
+     "flags": ""
+    }
+   },
+   {
+    "name": "flag_on_good_ester",
+    "inputs": {
+     "m": 5.0,
+     "components": {
+      "wc2045": 5.0,
+      "wc1500": 5.0,
+      "F05": 5.0
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [
+      "ester"
+     ],
+     "c1_status": "skipped: a specific sign fired",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "flag_on_borderline_plaster",
+    "inputs": {
+     "m": 1.2,
+     "components": {
+      "wc2045": 1.2,
+      "wc1500": 1.2,
+      "F05": 1.2
+     },
+     "evidence_level": "clear",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [
+      "plaster"
+     ],
+     "c1_status": "skipped: a specific sign fired",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "flag_on_unlikely_c1",
+    "inputs": {
+     "m": 0.1,
+     "components": {
+      "wc2045": 0.1,
+      "wc1500": 0.1,
+      "F05": 0.1
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [
+      "C1"
+     ],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "positive_b_at_1",
+    "inputs": {
+     "m": 1.0,
+     "components": {
+      "wc2045": 1.0,
+      "wc1500": 1.0,
+      "F05": 1.0
+     },
+     "evidence_level": "clear",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "positive_signs_clear",
+     "notes_all": "positive_signs_clear",
+     "flags": ""
+    }
+   },
+   {
+    "name": "positive_b_at_0p9_none",
+    "inputs": {
+     "m": 0.9,
+     "components": {
+      "wc2045": 0.9,
+      "wc1500": 0.9,
+      "F05": 0.9
+     },
+     "evidence_level": "clear",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "models_disagree_over_positive",
+    "inputs": {
+     "m": 2.0,
+     "components": {
+      "wc2045": 1.0,
+      "wc1500": 2.0,
+      "F05": 5.0
+     },
+     "evidence_level": "clear",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "zooms_better_good,models_disagree",
+     "notes_all": "zooms_better_good,models_disagree,positive_signs_all_six",
+     "flags": ""
+    }
+   },
+   {
+    "name": "bands_too_noisy",
+    "inputs": {
+     "m": 2.0,
+     "components": {
+      "wc2045": 2.0,
+      "wc1500": 2.0,
+      "F05": 2.0
+     },
+     "evidence_level": "can't tell",
+     "zooms_verdict": "Can't tell",
+     "zooms_pattern": "A",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "bands_too_noisy",
+     "notes_all": "bands_too_noisy",
+     "flags": ""
+    }
+   },
+   {
+    "name": "plus_d_with_flag",
+    "inputs": {
+     "m": 4.0,
+     "components": {
+      "wc2045": 4.0,
+      "wc1500": 4.0,
+      "F05": 4.0
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [
+      "ester"
+     ],
+     "c1_status": "skipped: a specific sign fired",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "plus_d",
+     "model_verdict": "Good",
+     "notes_shown": "plus_d",
+     "notes_all": "plus_d",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "disagree_none_7_9_12_one_band",
+    "inputs": {
+     "m": 9.0,
+     "components": {
+      "wc2045": 7.0,
+      "wc1500": 9.0,
+      "F05": 12.0
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "disagree_2p5_3p5_4_straddles_3",
+    "inputs": {
+     "m": 3.5,
+     "components": {
+      "wc2045": 2.5,
+      "wc1500": 3.5,
+      "F05": 4.0
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "models_disagree",
+     "notes_all": "models_disagree",
+     "flags": ""
+    }
+   },
+   {
+    "name": "disagree_none_0p3_0p7_1_span_below_1",
+    "inputs": {
+     "m": 0.7,
+     "components": {
+      "wc2045": 0.3,
+      "wc1500": 0.7,
+      "F05": 1.0
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "disagree_none_1_2_2p9_one_band",
+    "inputs": {
+     "m": 2.0,
+     "components": {
+      "wc2045": 1.0,
+      "wc1500": 2.0,
+      "F05": 2.9
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "disagree_none_2p9_3_3_span_below_1",
+    "inputs": {
+     "m": 3.0,
+     "components": {
+      "wc2045": 2.9,
+      "wc1500": 3.0,
+      "F05": 3.0
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "disagree_none_0p45_0p55_0p6_span_below_1",
+    "inputs": {
+     "m": 0.55,
+     "components": {
+      "wc2045": 0.45,
+      "wc1500": 0.55,
+      "F05": 0.6
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "disagree_0p3_0p7_1p4_straddles_0p5_span_1p1",
+    "inputs": {
+     "m": 0.7,
+     "components": {
+      "wc2045": 0.3,
+      "wc1500": 0.7,
+      "F05": 1.4
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "models_disagree",
+     "notes_all": "models_disagree",
+     "flags": ""
+    }
+   },
+   {
+    "name": "disagree_2p5_3_3p5_span_exactly_1",
+    "inputs": {
+     "m": 3.0,
+     "components": {
+      "wc2045": 2.5,
+      "wc1500": 3.0,
+      "F05": 3.5
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "models_disagree",
+     "notes_all": "models_disagree",
+     "flags": ""
+    }
+   },
+   {
+    "name": "above_bone_range_over_positive",
+    "inputs": {
+     "m": 21.0,
+     "components": {
+      "wc2045": 21.0,
+      "wc1500": 21.0,
+      "F05": 21.0
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "above_bone_range",
+     "notes_all": "above_bone_range,positive_signs_all_six",
+     "flags": ""
+    }
+   },
+   {
+    "name": "above_bone_range_not_at_20",
+    "inputs": {
+     "m": 20.0,
+     "components": {
+      "wc2045": 20.0,
+      "wc1500": 20.0,
+      "F05": 20.0
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "positive_signs_all_six",
+     "notes_all": "positive_signs_all_six",
+     "flags": ""
+    }
+   },
+   {
+    "name": "soft_note_suppresses_positive",
+    "inputs": {
+     "m": 1.2,
+     "components": {
+      "wc2045": 1.2,
+      "wc1500": 1.2,
+      "F05": 1.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "soft_components": [
+      "ester"
+     ]
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "zooms_better_good,possible_thin_coating",
+     "notes_all": "zooms_better_good,possible_thin_coating",
+     "flags": ""
+    }
+   },
+   {
+    "name": "soft_note_does_not_block_lift",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.1,
+      "F05": 0.3
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "soft_components": [
+      "plaster"
+     ]
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "lift_good",
+     "model_verdict": "Unlikely",
+     "notes_shown": "lift_good,possible_thin_coating",
+     "notes_all": "lift_good,possible_thin_coating",
+     "flags": ""
+    }
+   },
+   {
+    "name": "one_sign_gated_blocks_lift",
+    "inputs": {
+     "m": 1.0,
+     "components": {
+      "wc2045": 1.0,
+      "wc1500": 1.0,
+      "F05": 1.0
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "signs_gated": [
+      "plaster"
+     ]
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "lift_blocked",
+     "model_verdict": "Borderline",
+     "notes_shown": "lift_blocked_noisy,zooms_better_good",
+     "notes_all": "lift_blocked_noisy,zooms_better_good,contaminants_not_checked",
+     "flags": ""
+    }
+   },
+   {
+    "name": "c1_gated_only_no_positive",
+    "inputs": {
+     "m": 4.0,
+     "components": {
+      "wc2045": 4.0,
+      "wc1500": 4.0,
+      "F05": 4.0
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "gated: noise in 2000-2100 nm",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "contaminants_not_checked",
+     "notes_all": "contaminants_not_checked",
+     "flags": ""
+    }
+   },
+   {
+    "name": "c1_reduced_details_only",
+    "inputs": {
+     "m": 4.0,
+     "components": {
+      "wc2045": 4.0,
+      "wc1500": 4.0,
+      "F05": 4.0
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed: truncated (long-wave region too noisy)",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "positive_signs_all_six",
+     "notes_all": "positive_signs_all_six,c1_reduced",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_unlikely_zooms_good",
+    "inputs": {
+     "m": 0.3,
+     "components": {
+      "wc2045": 0.3,
+      "wc1500": 0.3,
+      "F05": 0.3
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_good",
+     "notes_all": "zooms_better_good",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_borderline_zooms_borderline_no_line",
+    "inputs": {
+     "m": 1.5,
+     "components": {
+      "wc2045": 1.5,
+      "wc1500": 1.5,
+      "F05": 1.5
+     },
+     "evidence_level": "clear",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "positive_signs_clear",
+     "notes_all": "positive_signs_clear",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_good_never",
+    "inputs": {
+     "m": 4.0,
+     "components": {
+      "wc2045": 4.0,
+      "wc1500": 4.0,
+      "F05": 4.0
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "positive_signs_all_six",
+     "notes_all": "positive_signs_all_six",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_lift_good_never",
+    "inputs": {
+     "m": 0.3,
+     "components": {
+      "wc2045": 0.3,
+      "wc1500": 0.3,
+      "F05": 0.3
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "lift_good",
+     "model_verdict": "Unlikely",
+     "notes_shown": "lift_good",
+     "notes_all": "lift_good,positive_signs_all_six",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_zooms_cant_tell_unlikely",
+    "inputs": {
+     "m": 0.3,
+     "components": {
+      "wc2045": 0.3,
+      "wc1500": 0.3,
+      "F05": 0.3
+     },
+     "evidence_level": "can't tell",
+     "zooms_verdict": "Can't tell",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "bands_too_noisy",
+     "notes_all": "bands_too_noisy",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_zooms_cant_tell_trace",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Can't tell",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_vote_1545_only",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "zooms_shown_verdict": "Borderline"
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_1545",
+     "notes_all": "zooms_better_1545",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_unlikely_zooms_protein",
+    "inputs": {
+     "m": 0.3,
+     "components": {
+      "wc2045": 0.3,
+      "wc1500": 0.3,
+      "F05": 0.3
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "n_type_lit": [
+      "AM2175",
+      "NH2044"
+     ]
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_protein",
+     "notes_all": "zooms_better_protein",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_rc_unaffected_plus_d_vote",
+    "inputs": {
+     "m": 4.0,
+     "components": {
+      "wc2045": 4.0,
+      "wc1500": 4.0,
+      "F05": 4.0
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "zooms_shown_verdict": "Borderline"
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "plus_d",
+     "model_verdict": "Good",
+     "notes_shown": "plus_d",
+     "notes_all": "plus_d",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_rc_unaffected_flat_bands_vote",
+    "inputs": {
+     "m": 5.0,
+     "components": {
+      "wc2045": 5.0,
+      "wc1500": 5.0,
+      "F05": 5.0
+     },
+     "evidence_level": "none",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "A",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "zooms_shown_verdict": "Borderline"
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "flat_bands_lead",
+     "model_verdict": "Good",
+     "notes_shown": "flat_bands_lead,zooms_better_1545_flat",
+     "notes_all": "flat_bands_lead,zooms_better_1545_flat",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_rc_unaffected_good_with_flag",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [
+      "C1"
+     ],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "zl_borderline_zooms_good_positive",
+    "inputs": {
+     "m": 1.2,
+     "components": {
+      "wc2045": 1.2,
+      "wc1500": 1.2,
+      "F05": 1.2
+     },
+     "evidence_level": "clear",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "zooms_better_good,positive_signs_all_six",
+     "notes_all": "zooms_better_good,positive_signs_all_six",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_line_and_supporting",
+    "inputs": {
+     "m": 0.4,
+     "components": {
+      "wc2045": 0.1,
+      "wc1500": 0.4,
+      "F05": 1.6
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "models_disagree,zooms_faint_protein",
+     "notes_all": "zooms_faint_protein,models_disagree",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_rule_line_supporting_to_details",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "clear",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "soft_components": [
+      "ester"
+     ]
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "lift_borderline",
+     "model_verdict": "Unlikely",
+     "notes_shown": "lift_borderline,zooms_better_good",
+     "notes_all": "lift_borderline,zooms_better_good,possible_thin_coating",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_wax_suppresses_line",
+    "inputs": {
+     "m": 0.3,
+     "components": {
+      "wc2045": 0.3,
+      "wc1500": 0.3,
+      "F05": 0.3
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [
+      "wax"
+     ],
+     "c1_status": "skipped: a specific sign fired",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "zl_plaster_suppresses_protein_line",
+    "inputs": {
+     "m": 0.3,
+     "components": {
+      "wc2045": 0.3,
+      "wc1500": 0.3,
+      "F05": 0.3
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [
+      "plaster"
+     ],
+     "c1_status": "skipped: a specific sign fired",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "zl_burnt_keeps_line",
+    "inputs": {
+     "m": 0.3,
+     "components": {
+      "wc2045": 0.3,
+      "wc1500": 0.3,
+      "F05": 0.3
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [
+      "burnt"
+     ],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_good",
+     "notes_all": "zooms_better_good",
+     "flags": "flag_burnt"
+    }
+   },
+   {
+    "name": "zl_c1_not_assessed_keeps_line",
+    "inputs": {
+     "m": 0.3,
+     "components": {
+      "wc2045": 0.3,
+      "wc1500": 0.3,
+      "F05": 0.3
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "not assessed: long-wave region too noisy",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_good",
+     "notes_all": "zooms_better_good",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_ester_gated_keeps_line",
+    "inputs": {
+     "m": 0.3,
+     "components": {
+      "wc2045": 0.3,
+      "wc1500": 0.3,
+      "F05": 0.3
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "signs_gated": [
+      "ester"
+     ]
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_good",
+     "notes_all": "zooms_better_good",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_flat_bands_1545_low_m",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "none",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "A",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "zooms_shown_verdict": "Borderline"
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "flat_bands_lead",
+     "model_verdict": "Unlikely",
+     "notes_shown": "flat_bands_lead,zooms_better_1545_flat",
+     "notes_all": "flat_bands_lead,zooms_better_1545_flat",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_faint_m02_2175_only",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "n_type_lit": [
+      "AM2175"
+     ]
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_faint_protein",
+     "notes_all": "zooms_faint_protein",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_protein_m035_2175_2044",
+    "inputs": {
+     "m": 0.35,
+     "components": {
+      "wc2045": 0.35,
+      "wc1500": 0.35,
+      "F05": 0.35
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "n_type_lit": [
+      "AM2175",
+      "NH2044"
+     ]
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_protein",
+     "notes_all": "zooms_better_protein",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_faint_m035_2175_only",
+    "inputs": {
+     "m": 0.35,
+     "components": {
+      "wc2045": 0.35,
+      "wc1500": 0.35,
+      "F05": 0.35
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "n_type_lit": [
+      "AM2175"
+     ]
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_faint_protein",
+     "notes_all": "zooms_faint_protein",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_faint_m025_2175_1545",
+    "inputs": {
+     "m": 0.25,
+     "components": {
+      "wc2045": 0.25,
+      "wc1500": 0.25,
+      "F05": 0.25
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "n_type_lit": [
+      "AM2175",
+      "NH1545c"
+     ]
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_faint_protein",
+     "notes_all": "zooms_faint_protein",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_protein_m04_2175_1545",
+    "inputs": {
+     "m": 0.4,
+     "components": {
+      "wc2045": 0.4,
+      "wc1500": 0.4,
+      "F05": 0.4
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "n_type_lit": [
+      "AM2175",
+      "NH1545c"
+     ]
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_protein",
+     "notes_all": "zooms_better_protein",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_faint_m04_2044_only",
+    "inputs": {
+     "m": 0.4,
+     "components": {
+      "wc2045": 0.4,
+      "wc1500": 0.4,
+      "F05": 0.4
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "n_type_lit": [
+      "NH2044"
+     ]
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_faint_protein",
+     "notes_all": "zooms_faint_protein",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_faint_lowest_priority",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.1,
+      "wc1500": 0.2,
+      "F05": 1.4
+     },
+     "evidence_level": "none",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "n_type_lit": [
+      "AM2175"
+     ]
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "flat_bands_lead",
+     "model_verdict": "Unlikely",
+     "notes_shown": "flat_bands_lead,models_disagree",
+     "notes_all": "flat_bands_lead,zooms_faint_protein,models_disagree",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_wax_suppresses_faint",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [
+      "wax"
+     ],
+     "c1_status": "skipped: a specific sign fired",
+     "gated": false,
+     "n_type_lit": [
+      "AM2175"
+     ]
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "zr_unlikely_flat_ryder_044",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "ryder2045": 0.44
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_ryder",
+     "notes_all": "zooms_better_ryder",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zr_wax_suppresses",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [
+      "wax"
+     ],
+     "c1_status": "skipped: a specific sign fired",
+     "gated": false,
+     "ryder2045": 0.44
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "zr_burnt_keeps",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [
+      "burnt"
+     ],
+     "c1_status": "assessed",
+     "gated": false,
+     "ryder2045": 0.44
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_ryder",
+     "notes_all": "zooms_better_ryder",
+     "flags": "flag_burnt"
+    }
+   },
+   {
+    "name": "zr_c1_not_assessed_keeps",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "not assessed: long-wave region too noisy",
+     "gated": false,
+     "ryder2045": 0.44
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_ryder",
+     "notes_all": "zooms_better_ryder",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zr_ryder_033_no_line",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "ryder2045": 0.33
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zr_ryder_034_line",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "ryder2045": 0.34
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_ryder",
+     "notes_all": "zooms_better_ryder",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zr_borderline_never",
+    "inputs": {
+     "m": 0.9,
+     "components": {
+      "wc2045": 0.9,
+      "wc1500": 0.9,
+      "F05": 0.9
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "ryder2045": 0.9
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zr_band_good_wins",
+    "inputs": {
+     "m": 0.3,
+     "components": {
+      "wc2045": 0.3,
+      "wc1500": 0.3,
+      "F05": 0.3
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "ryder2045": 0.5
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_good",
+     "notes_all": "zooms_better_good",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zr_band_1545_wins",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "ryder2045": 0.5,
+     "zooms_shown_verdict": "Borderline"
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_1545",
+     "notes_all": "zooms_better_1545",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zr_over_faint",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "ryder2045": 0.4,
+     "n_type_lit": [
+      "AM2175"
+     ]
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_ryder",
+     "notes_all": "zooms_better_ryder,zooms_faint_protein",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zr_flat_bands_ryder",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.2,
+      "F05": 0.2
+     },
+     "evidence_level": "none",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "A",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "ryder2045": 0.44
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "flat_bands_lead",
+     "model_verdict": "Unlikely",
+     "notes_shown": "flat_bands_lead,zooms_better_ryder",
+     "notes_all": "flat_bands_lead,zooms_better_ryder",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_vote_band_lit_unreadable_is_faint",
+    "inputs": {
+     "m": 0.4,
+     "components": {
+      "wc2045": 0.4,
+      "wc1500": 0.4,
+      "F05": 0.4
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "zooms_check": {
+      "bands": {
+       "NH2044": {
+        "lit": false,
+        "readable": true
+       },
+       "AM2175": {
+        "lit": true,
+        "readable": true
+       }
+      },
+      "vote_band": {
+       "id": "NH1545c",
+       "lit": true,
+       "readable": false
+      }
+     }
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_faint_protein",
+     "notes_all": "zooms_faint_protein",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zl_vote_band_lit_readable_is_protein",
+    "inputs": {
+     "m": 0.4,
+     "components": {
+      "wc2045": 0.4,
+      "wc1500": 0.4,
+      "F05": 0.4
+     },
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "C",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "zooms_check": {
+      "bands": {
+       "NH2044": {
+        "lit": false,
+        "readable": true
+       },
+       "AM2175": {
+        "lit": true,
+        "readable": true
+       }
+      },
+      "vote_band": {
+       "id": "NH1545c",
+       "lit": true,
+       "readable": true
+      }
+     }
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "model_verdict",
+     "model_verdict": "Unlikely",
+     "notes_shown": "zooms_better_protein",
+     "notes_all": "zooms_better_protein",
+     "flags": ""
+    }
+   }
+  ]
+ }
+}

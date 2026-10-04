@@ -1,0 +1,1426 @@
+{
+ "format": "spyder-bone/model",
+ "format_version": 1,
+ "engine_min": "1.1",
+ "id": "collagen.spyder.consensus3_median",
+ "version": "1.0.0",
+ "status": "active",
+ "title": "Collagen, consensus of three models (CONS3)",
+ "short_name": "Collagen (CONS3)",
+ "kind": "consensus",
+ "role": "collagen_percent",
+ "description": "The verdict input for radiocarbon and isotopes on both instrument classes (high-res after the transfer): the median of three 1-LV PLS collagen models calibrated on the 140 Ryder et al. 2026 reference bones, OH-corrected 2045 nm, OH-corrected 1545 nm (1500-1550 nm window) and the OH-corrected N-H set (component key F05). Each component is its shipped model folded exactly into one linear functional of absorbance (an SG derivative is linear); the three component values are reported beside the median. The median shrugs off one failing component (an altered OH/water band at 2045 nm, a coating at one window, noise on high-res SWIR2). Verdict cut-offs belong to the analysis profiles.",
+ "citation": {
+  "text": "SPYDER Bone (CONS3 consensus); calibration data Ryder, C. et al. 2026. Refining near-infrared spectroscopy for collagen quantification in archaeological bone. Journal of Archaeological Science 185:106448 (calibration spectra and yields: supplement mmc2).",
+  "doi": "10.1016/j.jas.2025.106448"
+ },
+ "authors": [
+  "M. Sponheimer (PI)"
+ ],
+ "created": "2026-10-02",
+ "exported": "2026-10-03",
+ "licence": "CC-BY-4.0",
+ "provenance": {
+  "construction": "each component's linear model on its SG-derivative features folded into weights on absorbance (no refit, no new parameters); components identified by id, version and file SHA-256",
+  "selection": "A19-A21: no low-end-selected alternative among 53,760 recipes beats or improves it",
+  "environment": {
+   "python": "3.12.10",
+   "numpy": "2.4.4"
+  },
+  "derived_from": "research export collagen.spyder.consensus3_median 0.1.0 (rule kind with a min/max expression; identical values), re-cast as kind 'consensus' in Phase 0b; the N-H set component replaced by its OH-corrected form in phase 0c (DECISIONS 78)"
+ },
+ "instrument": {
+  "trained_on_class": "asd.labspec4.std",
+  "grid": {
+   "start_nm": 350.0,
+   "step_nm": 1.0,
+   "n": 2151
+  },
+  "training_splices_nm": [
+   1000.0,
+   1800.0
+  ],
+  "description": "ASD LabSpec 4 standard-res; high-res scans after the transfer"
+ },
+ "input": {
+  "quantity": "reflectance",
+  "scale": "fraction",
+  "range_nm": [
+   350,
+   2500
+  ]
+ },
+ "preprocessing": [
+  {
+   "op": "absorbance",
+   "clip_min": 1e-06,
+   "note": "the SG derivatives of the components are folded into the component weights; every support lies inside one detector segment"
+  }
+ ],
+ "features": {
+  "wavelengths_nm": []
+ },
+ "consensus": {
+  "combine": "median",
+  "components": [
+   {
+    "name": "wc2045",
+    "label": "2045 nm, OH-corrected",
+    "id": "collagen.spyder.2045_oh_corrected",
+    "version": "1.0.0",
+    "sha256": "b3ad281dab292156c484476da3b67848092c96ada131febe3422d2a6008b23b1",
+    "file": "collagen_2045_oh_corrected.spyder-model.json",
+    "feature": {
+     "type": "linear",
+     "wavelengths_nm": [
+      2015.0,
+      2016.0,
+      2017.0,
+      2018.0,
+      2019.0,
+      2020.0,
+      2021.0,
+      2022.0,
+      2023.0,
+      2024.0,
+      2025.0,
+      2026.0,
+      2027.0,
+      2028.0,
+      2029.0,
+      2030.0,
+      2031.0,
+      2032.0,
+      2033.0,
+      2034.0,
+      2035.0,
+      2036.0,
+      2037.0,
+      2038.0,
+      2039.0,
+      2040.0,
+      2041.0,
+      2042.0,
+      2043.0,
+      2044.0,
+      2045.0,
+      2046.0,
+      2047.0,
+      2048.0,
+      2049.0,
+      2050.0,
+      2051.0,
+      2052.0,
+      2053.0,
+      2054.0,
+      2055.0,
+      2056.0,
+      2057.0,
+      2058.0,
+      2059.0,
+      2060.0,
+      2061.0,
+      2062.0,
+      2063.0,
+      2064.0,
+      2065.0,
+      2066.0,
+      2067.0,
+      2068.0,
+      2069.0,
+      2070.0,
+      2071.0,
+      2072.0,
+      2073.0,
+      2074.0,
+      2075.0
+     ],
+     "weights": [
+      24.662821098470143,
+      40.07238886788597,
+      47.377439274792,
+      47.73245444405548,
+      42.365316736491906,
+      32.44982253716564,
+      19.190373277387284,
+      3.751675772829672,
+      -12.72237156319837,
+      -29.185823468545994,
+      -44.67641121772823,
+      -58.393201513931366,
+      -69.67435340909381,
+      -78.01893988133116,
+      -83.07727556697346,
+      -84.62353804723509,
+      -82.58112735738237,
+      -77.01127612434583,
+      -68.05417679872474,
+      -55.98732709576291,
+      -41.122414948273544,
+      -23.899227784794107,
+      -4.801338674114406,
+      15.661332426618454,
+      37.02231296355343,
+      58.78124320569783,
+      80.48909072437101,
+      101.75991842159387,
+      122.22191792639639,
+      141.55307862176645,
+      159.4850475833208,
+      131.20637189255308,
+      102.5875104557633,
+      74.33907671620244,
+      47.17810947074774,
+      21.720285942652886,
+      -1.4281276115949213,
+      -21.78807466004148,
+      -38.97933896994893,
+      -52.77742278589198,
+      -63.067626339227715,
+      -69.88091794545123,
+      -73.32577106487604,
+      -73.60679163325008,
+      -70.9953533467557,
+      -65.82437624597374,
+      -58.50261381563519,
+      -49.47108022415122,
+      -39.18684323734678,
+      -28.161299098183974,
+      -16.875099790615266,
+      -5.856928306159384,
+      4.4391200479193476,
+      13.58686061059643,
+      21.19472888437935,
+      26.846533309009992,
+      30.19294426792914,
+      30.881320661085383,
+      28.5408021235627,
+      22.834798437395037,
+      13.431771824345839
+     ],
+     "offset": -0.041189085969041805
+    }
+   },
+   {
+    "name": "wc1500",
+    "label": "1545 nm, OH-corrected",
+    "id": "collagen.spyder.1500_oh_corrected",
+    "version": "1.0.0",
+    "sha256": "07b4709f825b89c1f56cad44d22f35d47a55183ab9554f540f484712154b5541",
+    "file": "collagen_1500_oh_corrected.spyder-model.json",
+    "feature": {
+     "type": "linear",
+     "wavelengths_nm": [
+      1485.0,
+      1486.0,
+      1487.0,
+      1488.0,
+      1489.0,
+      1490.0,
+      1491.0,
+      1492.0,
+      1493.0,
+      1494.0,
+      1495.0,
+      1496.0,
+      1497.0,
+      1498.0,
+      1499.0,
+      1500.0,
+      1501.0,
+      1502.0,
+      1503.0,
+      1504.0,
+      1505.0,
+      1506.0,
+      1507.0,
+      1508.0,
+      1509.0,
+      1510.0,
+      1511.0,
+      1512.0,
+      1513.0,
+      1514.0,
+      1515.0,
+      1516.0,
+      1517.0,
+      1518.0,
+      1519.0,
+      1520.0,
+      1521.0,
+      1522.0,
+      1523.0,
+      1524.0,
+      1525.0,
+      1526.0,
+      1527.0,
+      1528.0,
+      1529.0,
+      1530.0,
+      1531.0,
+      1532.0,
+      1533.0,
+      1534.0,
+      1535.0,
+      1536.0,
+      1537.0,
+      1538.0,
+      1539.0,
+      1540.0,
+      1541.0,
+      1542.0,
+      1543.0,
+      1544.0,
+      1545.0,
+      1546.0,
+      1547.0,
+      1548.0,
+      1549.0,
+      1550.0,
+      1551.0,
+      1552.0,
+      1553.0,
+      1554.0,
+      1555.0,
+      1556.0,
+      1557.0,
+      1558.0,
+      1559.0,
+      1560.0,
+      1561.0,
+      1562.0,
+      1563.0,
+      1564.0,
+      1565.0
+     ],
+     "weights": [
+      -14.327871191142798,
+      -24.63564982046294,
+      -31.334284086392408,
+      -34.846889358799835,
+      -35.609785471808536,
+      -34.06647548467693,
+      -30.648473940417087,
+      -25.795732157089088,
+      -19.921725119846297,
+      -13.446345131131594,
+      -6.749732713420023,
+      -0.1867307899073678,
+      5.941009243553966,
+      11.350604613592283,
+      15.817374513365616,
+      19.172235388897974,
+      21.292996506036747,
+      22.121046799659773,
+      21.649946991410403,
+      19.94662691965257,
+      17.10483981571593,
+      13.275311488444617,
+      8.61648643553945,
+      3.337927213237437,
+      -2.3732962054481685,
+      -8.307157299698703,
+      -14.301943290484518,
+      -20.182721811222464,
+      -25.856159888047657,
+      -31.266320454903457,
+      -36.43202040370132,
+      -24.04755265545487,
+      -9.811294976229128,
+      5.922992522069641,
+      22.744572529188215,
+      40.15159771419545,
+      57.61522761684707,
+      74.49902025007324,
+      90.21216499362068,
+      104.09527168342176,
+      115.59559860200935,
+      124.14091140346855,
+      129.27412866996147,
+      130.5745724739067,
+      127.79609242288285,
+      120.80057565356441,
+      109.60036306261708,
+      94.3749004597608,
+      75.44080464429969,
+      53.27902013168012,
+      28.442769969754853,
+      -19.972043541257626,
+      -62.47422268608045,
+      -98.74802926320417,
+      -128.58874933427944,
+      -151.8537242035107,
+      -168.53052246481417,
+      -178.6862506490472,
+      -182.5502223861483,
+      -180.43562271017998,
+      -172.79061524262022,
+      -160.16844973118225,
+      -143.2360175075409,
+      -122.75548932983597,
+      -99.55129887998667,
+      -74.52772371788632,
+      -48.59752315858651,
+      -22.70978822059533,
+      2.261562463597194,
+      25.435863052931715,
+      46.056829346926015,
+      63.403132866386265,
+      76.91960551184494,
+      86.14491554130552,
+      90.8014507082553,
+      90.72673719605078,
+      85.92267241546661,
+      76.52653398772782,
+      62.800823313773435,
+      45.13478125560417,
+      24.002556884743054
+     ],
+     "offset": -0.0031615816632548643
+    }
+   },
+   {
+    "name": "F05",
+    "label": "N–H set, 2175 + 2045 nm (OH-corrected)",
+    "id": "collagen.spyder.nh3_oh_corrected",
+    "version": "1.0.0",
+    "sha256": "61760e82a243ccb30a33c9dac90334ca3b6a91b232e37b924beaa398c53f520b",
+    "file": "collagen_nh3_oh_corrected.spyder-model.json",
+    "feature": {
+     "type": "linear",
+     "wavelengths_nm": [
+      1489.0,
+      1490.0,
+      1491.0,
+      1492.0,
+      1493.0,
+      1494.0,
+      1495.0,
+      1496.0,
+      1497.0,
+      1498.0,
+      1499.0,
+      1500.0,
+      1501.0,
+      1502.0,
+      1503.0,
+      1504.0,
+      1505.0,
+      1506.0,
+      1507.0,
+      1508.0,
+      1509.0,
+      1510.0,
+      1511.0,
+      1512.0,
+      1513.0,
+      1514.0,
+      1515.0,
+      1516.0,
+      1517.0,
+      1518.0,
+      1519.0,
+      1520.0,
+      1521.0,
+      1522.0,
+      1523.0,
+      1524.0,
+      1525.0,
+      1526.0,
+      1527.0,
+      1528.0,
+      1529.0,
+      1530.0,
+      1531.0,
+      1532.0,
+      1533.0,
+      1534.0,
+      1535.0,
+      1536.0,
+      1537.0,
+      1538.0,
+      1539.0,
+      1540.0,
+      1541.0,
+      1542.0,
+      1543.0,
+      1544.0,
+      1545.0,
+      1546.0,
+      1547.0,
+      1548.0,
+      1549.0,
+      1550.0,
+      1551.0,
+      1552.0,
+      1553.0,
+      1554.0,
+      1555.0,
+      1556.0,
+      1557.0,
+      1558.0,
+      1559.0,
+      1560.0,
+      1561.0,
+      2019.0,
+      2020.0,
+      2021.0,
+      2022.0,
+      2023.0,
+      2024.0,
+      2025.0,
+      2026.0,
+      2027.0,
+      2028.0,
+      2029.0,
+      2030.0,
+      2031.0,
+      2032.0,
+      2033.0,
+      2034.0,
+      2035.0,
+      2036.0,
+      2037.0,
+      2038.0,
+      2039.0,
+      2040.0,
+      2041.0,
+      2042.0,
+      2043.0,
+      2044.0,
+      2045.0,
+      2046.0,
+      2047.0,
+      2048.0,
+      2049.0,
+      2050.0,
+      2051.0,
+      2052.0,
+      2053.0,
+      2054.0,
+      2055.0,
+      2056.0,
+      2057.0,
+      2058.0,
+      2059.0,
+      2060.0,
+      2061.0,
+      2062.0,
+      2063.0,
+      2064.0,
+      2065.0,
+      2066.0,
+      2067.0,
+      2068.0,
+      2069.0,
+      2070.0,
+      2071.0,
+      2139.0,
+      2140.0,
+      2141.0,
+      2142.0,
+      2143.0,
+      2144.0,
+      2145.0,
+      2146.0,
+      2147.0,
+      2148.0,
+      2149.0,
+      2150.0,
+      2151.0,
+      2152.0,
+      2153.0,
+      2154.0,
+      2155.0,
+      2156.0,
+      2157.0,
+      2158.0,
+      2159.0,
+      2160.0,
+      2161.0,
+      2162.0,
+      2163.0,
+      2164.0,
+      2165.0,
+      2166.0,
+      2167.0,
+      2168.0,
+      2169.0,
+      2170.0,
+      2171.0,
+      2172.0,
+      2173.0,
+      2174.0,
+      2175.0,
+      2176.0,
+      2177.0,
+      2178.0,
+      2179.0,
+      2180.0,
+      2181.0,
+      2182.0,
+      2183.0,
+      2184.0,
+      2185.0,
+      2186.0,
+      2187.0,
+      2188.0,
+      2189.0,
+      2190.0,
+      2191.0,
+      2192.0,
+      2193.0,
+      2194.0,
+      2195.0,
+      2196.0,
+      2197.0,
+      2198.0,
+      2199.0,
+      2200.0,
+      2201.0,
+      2202.0,
+      2203.0,
+      2204.0,
+      2205.0,
+      2206.0,
+      2207.0,
+      2208.0,
+      2209.0,
+      2210.0,
+      2211.0
+     ],
+     "weights": [
+      -2.292530319377373,
+      -3.749192719460994,
+      -4.48513081034018,
+      -4.614223578240614,
+      -4.24831523073398,
+      -3.50057383574537,
+      -2.474405749656106,
+      -1.2731568796206476,
+      0.010290760507664087,
+      1.2832650051070642,
+      2.471706439069205,
+      3.497727876729268,
+      4.30129730287811,
+      4.819063639471784,
+      5.007648829593599,
+      4.8313930555153455,
+      4.274147928812377,
+      3.319442766434258,
+      1.9648660993195082,
+      0.2198416067477591,
+      -1.9004283898080194,
+      -4.365942830219966,
+      -7.14889985175013,
+      -7.221829081861452,
+      -7.055704581997723,
+      -6.622255334604015,
+      -5.911468510019855,
+      -4.910668529798369,
+      -3.627701671254525,
+      -2.080568072361104,
+      -0.30344008840775816,
+      1.6585994388249614,
+      3.7434065641275334,
+      5.866348806269058,
+      7.948121063089575,
+      9.895401499185933,
+      11.634728398582242,
+      13.08248962044024,
+      14.171871808197693,
+      14.824399608882306,
+      14.999262372432366,
+      14.658508410479492,
+      13.79266951403147,
+      12.410855817379037,
+      10.54531319267615,
+      8.247742455891032,
+      5.570311879099025,
+      2.595837337064668,
+      -0.5907826501213913,
+      -3.8780224918646464,
+      -7.1662472239839525,
+      -14.229676292729094,
+      -19.42448134327568,
+      -22.83801642244112,
+      -24.599418965824864,
+      -24.85800487281843,
+      -23.788710834175703,
+      -21.590231308657277,
+      -18.478064434276188,
+      -14.68794797068443,
+      -10.458071981970653,
+      -6.035077262929915,
+      -1.646882644105192,
+      2.478302699977111,
+      6.14347353741914,
+      9.16645370998279,
+      11.401108163850255,
+      12.725595553962608,
+      13.064402710033187,
+      12.3800646818749,
+      10.672834783567396,
+      7.985702866355652,
+      4.391574961254956,
+      14.764943477796658,
+      22.700372363862307,
+      24.891260730856526,
+      22.43950315330005,
+      16.460329480869774,
+      8.069457948094477,
+      -1.6355680158965937,
+      -11.727938812821396,
+      -21.419474169337896,
+      -30.078849094779706,
+      -37.10204182635955,
+      -41.9819495300795,
+      -44.307563054752386,
+      -43.876361301534345,
+      -40.554193893672746,
+      -34.393124799128046,
+      -25.576733284465504,
+      -14.491180603485041,
+      -1.4777944580893494,
+      12.986929247158193,
+      28.480824968415796,
+      44.63709815459134,
+      61.14022306014463,
+      58.49521242946271,
+      54.410410935303574,
+      49.10221127608956,
+      42.81428534049779,
+      35.87139702244962,
+      28.581995214986716,
+      21.11751136278627,
+      13.78289105489344,
+      -0.5467977236218875,
+      -12.40480554291015,
+      -21.663259964489768,
+      -28.316986782495935,
+      -32.50558798037673,
+      -34.38906608195524,
+      -34.274717104676064,
+      -32.48316393884708,
+      -29.358072179350508,
+      -25.127760148388624,
+      -20.115591386173993,
+      -14.53072340116126,
+      -8.621912113171394,
+      -2.689493438242404,
+      2.905325891991512,
+      7.7966002555444645,
+      11.617054339297674,
+      14.12443845946132,
+      15.139805816034169,
+      14.4436114526813,
+      11.805998013117048,
+      7.071019180576178,
+      0.36471157392267656,
+      0.6252801038536244,
+      0.7579045095596888,
+      0.7053518091495908,
+      0.4190860204780697,
+      -0.12073071942810881,
+      -0.9435013741717767,
+      -2.034624003635883,
+      -3.328831208696351,
+      -4.787425020241193,
+      -6.360217409522637,
+      -7.973388097854169,
+      -9.539791731010865,
+      -10.9609956844582,
+      -12.128370530695314,
+      -12.953062696171216,
+      -13.386457793398925,
+      -13.346694833031696,
+      -12.739731347513937,
+      -11.52687027663338,
+      -9.693953348322555,
+      -7.326378996606731,
+      -4.564528880365306,
+      -2.0637046644715618,
+      0.373267248121671,
+      2.586196517274221,
+      4.530188000470586,
+      6.185467765728713,
+      7.549082989778441,
+      8.651924806218434,
+      9.545119356139876,
+      10.194365250607605,
+      10.678516565990076,
+      11.078409526622641,
+      11.500916507575392,
+      12.034235150574434,
+      12.751204903345775,
+      13.67858104824318,
+      14.819031140618684,
+      16.187849089091095,
+      17.70031131664834,
+      19.20477732412468,
+      20.534891998538825,
+      21.486102267688445,
+      21.942054629891526,
+      21.85733410828794,
+      21.27037213842738,
+      20.220975510612742,
+      18.830605316894008,
+      17.14868328117103,
+      15.261499596267539,
+      4.9824117780181245,
+      -4.346445241761947,
+      -12.534166386877558,
+      -19.356046650593292,
+      -24.681737578480742,
+      -28.41241975955735,
+      -30.534083924150416,
+      -31.084265843759084,
+      -30.16710004020825,
+      -27.935170542993248,
+      -24.582933697293164,
+      -20.351704025160934,
+      -15.485284663103995,
+      -10.253268200424515,
+      -4.93300952924514,
+      0.1981011893440754,
+      4.831270015681806,
+      8.623290104958505,
+      11.181586137782613,
+      12.086309459746843,
+      10.85451078858954,
+      7.005117853800883
+     ],
+     "offset": 0.0383221427901459
+    }
+   }
+  ]
+ },
+ "output": {
+  "name": "collagen",
+  "units": "wt% collagen",
+  "decimals": 1,
+  "reading_rule": "display policy belongs to the app; negative values read as below the calibrated range"
+ },
+ "error": {
+  "rmsecv": 1.676,
+  "units": "wt% collagen",
+  "display": "approx",
+  "note": "leave-one-out on the 140 reference bones with component refits per fold; larger at a new site"
+ },
+ "domain": {
+  "method": "none"
+ },
+ "statistics": {
+  "rmsecv_R140_LOO": 1.676,
+  "rmsep_Z31": 1.88,
+  "rho_lt3_R140": 0.78,
+  "rho_lt1_R140": 0.65,
+  "auc_lt05_vs_05to3_R140": 0.949,
+  "auc_lt1_vs_1to3_R140": 0.905,
+  "rho_lt3_Z31": 0.734,
+  "note": "per scan; R140 = the 140 Ryder et al. 2026 reference bones (leave-one-out); Z31 = the 31 scans of the 15 contaminant-free Zafarraya bones in the same supplement; the low end (< 3%) is what matters, and differences between the shipped % models are within about +-0.05 (CIs +-0.09 on R140, +-0.22 on Z31)"
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_public_v2.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "mmc2_Reference_Sample_1",
+    "spectrum_sha256": "ef8ddf9e2c7d95bc6ca3d426aca0859ecb56e566fc930cb047d336251ebf75ea",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -0.13131139076362253,
+     "component:wc2045": 0.07580659726755723,
+     "component:wc1500": -0.13131139076362253,
+     "component:F05": -0.4693201066159789
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_44",
+    "spectrum_sha256": "398b24182857f70334a551d5929031b7269827a47f9dbba57b41b103ef460df4",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 1.9895457665047251,
+     "component:wc2045": 1.8357099428854582,
+     "component:wc1500": 1.9895457665047251,
+     "component:F05": 2.000349231440305
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_79",
+    "spectrum_sha256": "2b0379847078cea3a05aa8c409bf74dbafdfe68f7bd676cb7c67ce13fd4922bb",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.8026793155557743,
+     "component:wc2045": 2.356511356063597,
+     "component:wc1500": 3.0572213341618264,
+     "component:F05": 2.8026793155557743
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_93",
+    "spectrum_sha256": "ed59c79c87c4d871d9e9f05a767334aad6f4f449ea7e2f457293f19e739c5a15",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 6.024633474725042,
+     "component:wc2045": 5.983819508305898,
+     "component:wc1500": 6.94951962120343,
+     "component:F05": 6.024633474725042
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_112",
+    "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 10.101629938143184,
+     "component:wc2045": 10.703871970985944,
+     "component:wc1500": 9.216550206022772,
+     "component:F05": 10.101629938143184
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_140",
+    "spectrum_sha256": "4c653c83b8f5dc1332a3301889d6c3fc2878be99b8bdcd56aa0a7a86d6d74089",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 17.1959473546761,
+     "component:wc2045": 17.1959473546761,
+     "component:wc1500": 18.340077402573932,
+     "component:F05": 16.411453952512154
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Zafarraya_16",
+    "spectrum_sha256": "3d0986c98d39f90856a9c3622d22c3d4785cd244e91efbc7ed1a18b3d482a516",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -0.07458121016268215,
+     "component:wc2045": -0.07458121016268215,
+     "component:wc1500": 0.12548861798296507,
+     "component:F05": -0.1155646024187531
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Zafarraya_30",
+    "spectrum_sha256": "510d5bca138e112c8bd55869901c9c60e7f06c05601557701a1bd18fa3f2dce4",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 11.902878547743512,
+     "component:wc2045": 12.35228073082296,
+     "component:wc1500": 11.902878547743512,
+     "component:F05": 11.66701231036765
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_clip_vnir",
+    "spectrum_sha256": "9397e5f18b1934942e6ce74004cc4acac37aacf4a8cfa2373e61a538abf4434f",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.8026793155557743,
+     "component:wc2045": 2.356511356063597,
+     "component:wc1500": 3.0572213341618264,
+     "component:F05": 2.8026793155557743
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_dark_x0.25",
+    "spectrum_sha256": "f02a9fb48712fdbaee5b06d41a03ad274a66cb46192b954c5b6c849dbce73424",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.802679315548273,
+     "component:wc2045": 2.356511356063836,
+     "component:wc1500": 3.057221334156286,
+     "component:F05": 2.802679315548273
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_cal_median",
+    "spectrum_sha256": "b37678c5836380d86b47b72d1a5ee0ad6607a56f4c82a09377c96f694b777cdd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.6369517882665923,
+     "component:wc2045": 3.542239955750753,
+     "component:wc1500": 4.463106623494914,
+     "component:F05": 3.6369517882665923
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_val_a",
+    "spectrum_sha256": "8b6d90414c7e27c97959797113d8113b67823a3c347bbee2b4e2b6612f56162e",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -0.1623193739722435,
+     "component:wc2045": -0.08713581817399696,
+     "component:wc1500": -0.1623193739722435,
+     "component:F05": -0.4408186116150983
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_val_b",
+    "spectrum_sha256": "ac79a69bf508c165ba7d61e8f880947c7cca5368e177843eb5bf5f1f4c18c360",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.8262505117572574,
+     "component:wc2045": 2.949231377769947,
+     "component:wc1500": 2.8262505117572574,
+     "component:F05": 2.772088448438754
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_steps_join1830",
+    "spectrum_sha256": "32aa71ee6174f8244a09f1798a9d4fbf6e8260257964ad95db57c759689bb626",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1830.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.875093875501931,
+     "component:wc2045": 3.855386762818503,
+     "component:wc1500": 4.463106623494914,
+     "component:F05": 3.875093875501931
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_bison_28",
+    "spectrum_sha256": "6eec034385d09bd8b741a2acb157d8a43b7ac62318864f2f52209484f9a8955c",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.04118186453898165,
+     "component:wc2045": 0.002535939524064723,
+     "component:wc1500": 0.38337743369893396,
+     "component:F05": 0.04118186453898165
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_bison_33",
+    "spectrum_sha256": "bf391ad251be0c40ba44881bb6ce2791d60946de297a6ecfd66fd93dfdc674f8",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 6.613570284001458,
+     "component:wc2045": 6.189550331755509,
+     "component:wc1500": 7.756191595542154,
+     "component:F05": 6.613570284001458
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_dodo_19617_TMT_R_10",
+    "spectrum_sha256": "49534f016e933ac0fbfb7b38d5bfe277f0a9d8280039d0a87297f11830737dd5",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 1.0341252634420743,
+     "component:wc2045": 1.0341252634420743,
+     "component:wc1500": 1.0558290397472878,
+     "component:F05": 0.9190035866569288
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_dodo_19626_L_Femur_2",
+    "spectrum_sha256": "afa25626f5ca0ceca2eaa5a25f462c8e1d0e73211074058bf92d6c7191f458db",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 12.68112103999384,
+     "component:wc2045": 12.50302876332424,
+     "component:wc1500": 14.244928310644315,
+     "component:F05": 12.68112103999384
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_CF_98",
+    "spectrum_sha256": "c5a1fd5b302082dd74f1042c291d311c15513cf630507ad9a54dbc848b89007f",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -0.1559461723579636,
+     "component:wc2045": 0.13460078522536367,
+     "component:wc1500": -0.1559461723579636,
+     "component:F05": -0.7367146493157639
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_CF_44",
+    "spectrum_sha256": "fa9b74715d155a565f422ba7e7f8273d8fddc0fbc15f5836ca283ee0e361fe71",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 7.360162050296006,
+     "component:wc2045": 6.9796385746841185,
+     "component:wc1500": 7.964586540774903,
+     "component:F05": 7.360162050296006
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS79",
+    "spectrum_sha256": "604808f4d0a5727f1d1f6f10b31c7a6684c9d9e492e1a1caa30426941b5dd9a2",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 4.396444754753766,
+     "component:wc2045": 3.7388841318025516,
+     "component:wc1500": 4.821657771682448,
+     "component:F05": 4.396444754753766
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS112",
+    "spectrum_sha256": "154f959e33e2a3dd1458e357aa819bd3c23d7742bd2cd2111f5265ab02255a35",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 15.903540171098378,
+     "component:wc2045": 16.898840958103186,
+     "component:wc1500": 14.532092695001058,
+     "component:F05": 15.903540171098378
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS44_join1830",
+    "spectrum_sha256": "20e1797178a18f2abefdb44ef94195924006a3eb9205720a0ee6f87901959424",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1830.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 3.131538426335905,
+     "component:wc2045": 2.917819315188791,
+     "component:wc1500": 3.1384233910153245,
+     "component:F05": 3.131538426335905
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS3_clipvnir",
+    "spectrum_sha256": "56079ac7eab77fcdbc1004bb4e796a348dd0262927f30957fa377e0b83d2295d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": -0.25408037766976044,
+     "component:wc2045": -0.11362599627178316,
+     "component:wc1500": -0.25408037766976044,
+     "component:F05": -0.7170629343064849
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_above60",
+    "spectrum_sha256": "48924bd678ca86c006f8f12c2b4c1ae19e7cad75a5e088721b273cbaee800bdd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.5839638923761763,
+     "component:wc2045": 3.485109753824082,
+     "component:wc1500": 4.483859862067384,
+     "component:F05": 3.5839638923761763
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_below60",
+    "spectrum_sha256": "77ef55a3eb355056157975574d717da2b7dde09759674f8fde9654b8d43db696",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.5863221121707105,
+     "component:wc2045": 3.4876523264396804,
+     "component:wc1500": 4.48293624173514,
+     "component:F05": 3.5863221121707105
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_15p6",
+    "spectrum_sha256": "7ada546edaee373a0b6833e7d87b221bb483d96faef4ab7b4bee43d1a0d1c24b",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.6219482137222196,
+     "component:wc2045": 3.5260634832009625,
+     "component:wc1500": 4.468982923293651,
+     "component:F05": 3.6219482137222196
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_std",
+    "spectrum_sha256": "59e894856873cf0808e936c7439573263e474c3b21381f840f6fc60547edb1c2",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 10.304589157506484,
+     "component:wc2045": 9.685567941773893,
+     "component:wc1500": 10.304589157506484,
+     "component:F05": 10.781141546190579
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_hires",
+    "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 20.907385009272968,
+     "component:wc2045": 22.046075977724936,
+     "component:wc1500": 19.851507751787654,
+     "component:F05": 20.907385009272968
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_std",
+    "spectrum_sha256": "28431d2a7330915c7d70dcfab578247421b37bf7f056f57d081d3b7a83c478fd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 10.46602414102022,
+     "component:wc2045": 10.46602414102022,
+     "component:wc1500": 10.378273635875017,
+     "component:F05": 11.53904420048471
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_hires",
+    "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 21.101242188064614,
+     "component:wc2045": 23.56844365572744,
+     "component:wc1500": 21.101242188064614,
+     "component:F05": 18.100409653701142
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_std",
+    "spectrum_sha256": "d45ca81886bb691bfc7f85c462b5ebd34378b46f973c51c352a3b825c075a9cd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 8.960715526783403,
+     "component:wc2045": 8.930182221416601,
+     "component:wc1500": 8.960715526783403,
+     "component:F05": 9.242321991004177
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_hires",
+    "spectrum_sha256": "17e9ad8ea4576c88b0a02412672cff5119a44404e6ff433fb0cc6990ed2ebf0d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 18.127079739061475,
+     "component:wc2045": 19.958054826832125,
+     "component:wc1500": 18.121040369881086,
+     "component:F05": 18.127079739061475
+    },
+    "generated_by": "research: median of the component files' scipy-path predictions (spyder_ref.golden_gen)"
+   }
+  ]
+ }
+}

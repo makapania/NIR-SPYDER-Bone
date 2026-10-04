@@ -1,0 +1,1505 @@
+{
+ "format": "spyder-bone/model",
+ "format_version": 1,
+ "engine_min": "1.0",
+ "id": "collagen.spyder.nh3_oh_corrected",
+ "version": "1.0.0",
+ "status": "active",
+ "title": "Collagen, N–H set, 2175 + 2045 nm, OH-corrected (reads 1500-1550, 2030-2060 and 2150-2200 nm)",
+ "short_name": "N–H set, 2175 + 2045 nm (OH-corrected)",
+ "kind": "regression",
+ "role": "collagen_percent",
+ "description": "One latent variable on the Ryder transform (SG23 cubic 2nd derivative of log10(1/R)) over the three N-H windows 1500-1550, 2030-2060 and 2150-2200 nm, with one altered OH / bound-water direction projected out of each window, calibrated on the 140 reference bones. Most of its weight sits at 2150-2200 nm (amide), then 2030-2060 nm. A component of the CONS3 consensus; replaces the uncorrected N-H set (DECISIONS 78), so all three CONS3 components are OH-corrected.",
+ "citation": {
+  "text": "SPYDER Bone (OH-corrected N-H set, F05c); calibration data Ryder, C. et al. 2026. Refining near-infrared spectroscopy for collagen quantification in archaeological bone. Journal of Archaeological Science 185:106448 (calibration spectra and yields: supplement mmc2).",
+  "doi": "10.1016/j.jas.2025.106448"
+ },
+ "authors": [
+  "M. Sponheimer (PI)"
+ ],
+ "created": "2026-10-02",
+ "exported": "2026-10-03",
+ "provenance": {
+  "training_data": "Ryder et al. 2026 JAS supplement mmc2 (140 reference bones, raw reflectance, collagen yield)",
+  "training_data_sha256": "2855d9c8e4867e806a30b57c227004db1e1585b2389c70b351b577583fe75f12",
+  "n_train": 140,
+  "model_algorithm": "PLS1 (NIPALS), mean-centred, unscaled, 1 LV, on X(I - sum v v^T); folded b = (I - sum v v^T) b_pls; x_center = raw feature mean; offset = mean yield",
+  "latent_variables": 1,
+  "oh_direction": "one altered OH / bound-water direction per window of the N-H set's features (1500-1550 nm with the 1450 nm band depth; 2030-2060 and 2150-2200 nm with the 1930 nm band depth), each estimated on 210 scans of an independent archaeological collection whose evidence level was 'none' (a statistic only; no spectra ship), projected out of the features (P = I - sum v v^T) before the 1-LV PLS fit, then folded into the coefficients; the directions are listed in oh_directions",
+  "oh_directions": [
+   {
+    "window_nm": [
+     1500,
+     1550
+    ],
+    "water_measure": "1450 nm band depth",
+    "wavelengths_nm": [
+     1500.0,
+     1501.0,
+     1502.0,
+     1503.0,
+     1504.0,
+     1505.0,
+     1506.0,
+     1507.0,
+     1508.0,
+     1509.0,
+     1510.0,
+     1511.0,
+     1512.0,
+     1513.0,
+     1514.0,
+     1515.0,
+     1516.0,
+     1517.0,
+     1518.0,
+     1519.0,
+     1520.0,
+     1521.0,
+     1522.0,
+     1523.0,
+     1524.0,
+     1525.0,
+     1526.0,
+     1527.0,
+     1528.0,
+     1529.0,
+     1530.0,
+     1531.0,
+     1532.0,
+     1533.0,
+     1534.0,
+     1535.0,
+     1536.0,
+     1537.0,
+     1538.0,
+     1539.0,
+     1540.0,
+     1541.0,
+     1542.0,
+     1543.0,
+     1544.0,
+     1545.0,
+     1546.0,
+     1547.0,
+     1548.0,
+     1549.0,
+     1550.0
+    ],
+    "direction": [
+     0.04248712480606298,
+     0.051835769513084454,
+     0.06102078163905372,
+     0.07005222089920486,
+     0.07879559028117974,
+     0.0870117671651567,
+     0.09542303779139978,
+     0.10375980105228874,
+     0.11166572531665182,
+     0.11871125080298066,
+     0.12505755495168122,
+     0.1307880180369044,
+     0.13589344661897582,
+     0.13971936279576094,
+     0.14261458506194238,
+     0.14514665969110727,
+     0.14716777157829833,
+     0.14847999559789107,
+     0.14993261716570086,
+     0.1509593657154101,
+     0.15144059013672387,
+     0.15165648644236504,
+     0.15128527889162166,
+     0.15163551947806153,
+     0.152837800597438,
+     0.15391824240819896,
+     0.15498607566542774,
+     0.15630825333154877,
+     0.15734858626164472,
+     0.15793765499823606,
+     0.15849323394831297,
+     0.1589938663128352,
+     0.1593252997629541,
+     0.15895228383721555,
+     0.15755553052996638,
+     0.15589368220154662,
+     0.15454050243460674,
+     0.15350778647897045,
+     0.15274932804820587,
+     0.15242515733692782,
+     0.15236175080202335,
+     0.15182246711144742,
+     0.15096087038277745,
+     0.15046815477156836,
+     0.1502256877364793,
+     0.14977526086107795,
+     0.14892303519539524,
+     0.14787712843444864,
+     0.14656027373625652,
+     0.1453258318974033,
+     0.14491868106508074
+    ]
+   },
+   {
+    "window_nm": [
+     2030,
+     2060
+    ],
+    "water_measure": "1930 nm band depth",
+    "wavelengths_nm": [
+     2030.0,
+     2031.0,
+     2032.0,
+     2033.0,
+     2034.0,
+     2035.0,
+     2036.0,
+     2037.0,
+     2038.0,
+     2039.0,
+     2040.0,
+     2041.0,
+     2042.0,
+     2043.0,
+     2044.0,
+     2045.0,
+     2046.0,
+     2047.0,
+     2048.0,
+     2049.0,
+     2050.0,
+     2051.0,
+     2052.0,
+     2053.0,
+     2054.0,
+     2055.0,
+     2056.0,
+     2057.0,
+     2058.0,
+     2059.0,
+     2060.0
+    ],
+    "direction": [
+     0.2192053162451654,
+     0.2175058922526048,
+     0.21599523543992485,
+     0.21458003213349738,
+     0.21290234345435444,
+     0.21161387606484897,
+     0.2110524978562559,
+     0.21041600920092154,
+     0.2083423988328322,
+     0.204588119361813,
+     0.19971692782916992,
+     0.19477692217257597,
+     0.1903103477243548,
+     0.1857248901117124,
+     0.1817990290952322,
+     0.17915713201854608,
+     0.17657753225186115,
+     0.1733033190500421,
+     0.16989153573978483,
+     0.1652161612863954,
+     0.15997383669262705,
+     0.15522718186825707,
+     0.15175309807095902,
+     0.14919727769560465,
+     0.14727185548499053,
+     0.14391471485930993,
+     0.13884762869700798,
+     0.13298423162859033,
+     0.12634611305902574,
+     0.11866446272713013,
+     0.11095261162332981
+    ]
+   },
+   {
+    "window_nm": [
+     2150,
+     2200
+    ],
+    "water_measure": "1930 nm band depth",
+    "wavelengths_nm": [
+     2150.0,
+     2151.0,
+     2152.0,
+     2153.0,
+     2154.0,
+     2155.0,
+     2156.0,
+     2157.0,
+     2158.0,
+     2159.0,
+     2160.0,
+     2161.0,
+     2162.0,
+     2163.0,
+     2164.0,
+     2165.0,
+     2166.0,
+     2167.0,
+     2168.0,
+     2169.0,
+     2170.0,
+     2171.0,
+     2172.0,
+     2173.0,
+     2174.0,
+     2175.0,
+     2176.0,
+     2177.0,
+     2178.0,
+     2179.0,
+     2180.0,
+     2181.0,
+     2182.0,
+     2183.0,
+     2184.0,
+     2185.0,
+     2186.0,
+     2187.0,
+     2188.0,
+     2189.0,
+     2190.0,
+     2191.0,
+     2192.0,
+     2193.0,
+     2194.0,
+     2195.0,
+     2196.0,
+     2197.0,
+     2198.0,
+     2199.0,
+     2200.0
+    ],
+    "direction": [
+     -0.167051077323995,
+     -0.13159069833405038,
+     -0.09306930939098158,
+     -0.05253090226132294,
+     -0.01047531175787963,
+     0.031677221892037935,
+     0.07106046694627313,
+     0.10748455506233412,
+     0.1417454260221933,
+     0.1708135148498584,
+     0.19328109902839197,
+     0.208931220768301,
+     0.2198392361317114,
+     0.22371037862196566,
+     0.2215753792937887,
+     0.21315843675481463,
+     0.1983274533921454,
+     0.17906982454663578,
+     0.16033896441131137,
+     0.1413997474664318,
+     0.12421712987234197,
+     0.1049189519414511,
+     0.08392299755265473,
+     0.061778032348341234,
+     0.03896888528149544,
+     0.016317051347683183,
+     -0.0051543758489643685,
+     -0.025074260518107804,
+     -0.042984063431475934,
+     -0.05920033944718561,
+     -0.07255770106278635,
+     -0.08405684185652874,
+     -0.0928588179245926,
+     -0.09999782731722161,
+     -0.10381581032840317,
+     -0.1053915249000108,
+     -0.1029909481761932,
+     -0.09555205262591689,
+     -0.0840258134959809,
+     -0.06804472336174798,
+     -0.0492332111311087,
+     -0.027910080743544466,
+     -0.004522363803103137,
+     0.02088795599245644,
+     0.04940607426729461,
+     0.08353630117109546,
+     0.12559169617480673,
+     0.17619939892388944,
+     0.23621451764573265,
+     0.3053463025130093,
+     0.38348991201690585
+    ]
+   }
+  ],
+  "sensitivity_notes": "weight shares (|b x sd| on the 140) 1500-1550 / 2030-2060 / 2150-2200 nm: 8 / 36 / 56% (uncorrected N-H set 5 / 60 / 35%). Compared with the uncorrected set it moves a little MORE with materials that have bands at or near 2150-2200 nm: hide glue (controlled coat +4.4 vs +3.8 points per applied coat), alkyd (Glyptal), pure Paraloid, paraffin, shellac, PVB (0.1-0.7 points at the strength where a sign first fires), and LESS with PVA and lacquer coats, other protein glue and restoration plaster; inside the CONS3 median the difference mostly disappears",
+  "derived_from": "phase 0c research export (planning e09_f05c_export.py; e06b 'F05c CF blocks'); no parameter tuned on the 140",
+  "environment": {
+   "python": "3.12.10",
+   "numpy": "2.4.4",
+   "sklearn": "1.8.0"
+  }
+ },
+ "instrument": {
+  "trained_on_class": "asd.labspec4.std",
+  "grid": {
+   "start_nm": 350.0,
+   "step_nm": 1.0,
+   "n": 2151
+  },
+  "training_splices_nm": [
+   1000.0,
+   1800.0
+  ],
+  "description": "ASD LabSpec 4 Standard-Res, contact probe, 350-2500 nm at 1 nm"
+ },
+ "input": {
+  "quantity": "reflectance",
+  "scale": "fraction",
+  "range_nm": [
+   350,
+   2500
+  ]
+ },
+ "preprocessing": [
+  {
+   "op": "absorbance",
+   "clip_min": 1e-06
+  },
+  {
+   "op": "savgol",
+   "window": 23,
+   "polyorder": 3,
+   "deriv": 2,
+   "delta": 1.0,
+   "mode": "zero_edges",
+   "note": "full 350-2500 nm; edge points zeroed; every feature is >= window/2 from both ends and its SG support stays inside one detector block"
+  }
+ ],
+ "features": {
+  "windows_nm": [
+   [
+    1500,
+    1550
+   ],
+   [
+    2030,
+    2060
+   ],
+   [
+    2150,
+    2200
+   ]
+  ],
+  "exclude_nm": [],
+  "wavelengths_nm": [
+   1500.0,
+   1501.0,
+   1502.0,
+   1503.0,
+   1504.0,
+   1505.0,
+   1506.0,
+   1507.0,
+   1508.0,
+   1509.0,
+   1510.0,
+   1511.0,
+   1512.0,
+   1513.0,
+   1514.0,
+   1515.0,
+   1516.0,
+   1517.0,
+   1518.0,
+   1519.0,
+   1520.0,
+   1521.0,
+   1522.0,
+   1523.0,
+   1524.0,
+   1525.0,
+   1526.0,
+   1527.0,
+   1528.0,
+   1529.0,
+   1530.0,
+   1531.0,
+   1532.0,
+   1533.0,
+   1534.0,
+   1535.0,
+   1536.0,
+   1537.0,
+   1538.0,
+   1539.0,
+   1540.0,
+   1541.0,
+   1542.0,
+   1543.0,
+   1544.0,
+   1545.0,
+   1546.0,
+   1547.0,
+   1548.0,
+   1549.0,
+   1550.0,
+   2030.0,
+   2031.0,
+   2032.0,
+   2033.0,
+   2034.0,
+   2035.0,
+   2036.0,
+   2037.0,
+   2038.0,
+   2039.0,
+   2040.0,
+   2041.0,
+   2042.0,
+   2043.0,
+   2044.0,
+   2045.0,
+   2046.0,
+   2047.0,
+   2048.0,
+   2049.0,
+   2050.0,
+   2051.0,
+   2052.0,
+   2053.0,
+   2054.0,
+   2055.0,
+   2056.0,
+   2057.0,
+   2058.0,
+   2059.0,
+   2060.0,
+   2150.0,
+   2151.0,
+   2152.0,
+   2153.0,
+   2154.0,
+   2155.0,
+   2156.0,
+   2157.0,
+   2158.0,
+   2159.0,
+   2160.0,
+   2161.0,
+   2162.0,
+   2163.0,
+   2164.0,
+   2165.0,
+   2166.0,
+   2167.0,
+   2168.0,
+   2169.0,
+   2170.0,
+   2171.0,
+   2172.0,
+   2173.0,
+   2174.0,
+   2175.0,
+   2176.0,
+   2177.0,
+   2178.0,
+   2179.0,
+   2180.0,
+   2181.0,
+   2182.0,
+   2183.0,
+   2184.0,
+   2185.0,
+   2186.0,
+   2187.0,
+   2188.0,
+   2189.0,
+   2190.0,
+   2191.0,
+   2192.0,
+   2193.0,
+   2194.0,
+   2195.0,
+   2196.0,
+   2197.0,
+   2198.0,
+   2199.0,
+   2200.0
+  ]
+ },
+ "regression": {
+  "x_center": [
+   -8.826148561140176e-06,
+   -7.386671897408988e-06,
+   -5.955419324086261e-06,
+   -4.5505874378801e-06,
+   -3.2103934469531733e-06,
+   -1.9705705915811095e-06,
+   -8.005753967058292e-07,
+   2.588371422028796e-07,
+   1.2065461913229035e-06,
+   1.962041905585997e-06,
+   2.558309283720553e-06,
+   2.9572902241092145e-06,
+   3.1886463681249877e-06,
+   3.1745674980049625e-06,
+   2.9644806627346284e-06,
+   2.5445323310669114e-06,
+   1.936467852643159e-06,
+   1.1009845157538523e-06,
+   1.0796530457338302e-07,
+   -9.93887911883014e-07,
+   -2.205051532925069e-06,
+   -3.4438425668507938e-06,
+   -4.706536004744962e-06,
+   -5.830736446092331e-06,
+   -6.790217415389451e-06,
+   -7.519444285760579e-06,
+   -8.00159270298862e-06,
+   -8.089533263130778e-06,
+   -7.811751952008862e-06,
+   -7.124999054714775e-06,
+   -6.026826447714671e-06,
+   -4.489391401660849e-06,
+   -2.571520113402743e-06,
+   -3.011978129251196e-07,
+   2.2846488512894155e-06,
+   5.1389604978418385e-06,
+   8.199909591774151e-06,
+   1.1342456058571656e-05,
+   1.452203696929929e-05,
+   1.7614881048464126e-05,
+   2.058863698266028e-05,
+   2.3296848723520553e-05,
+   2.5700625323966027e-05,
+   2.7692058469315498e-05,
+   2.9234770149059758e-05,
+   3.023108805454359e-05,
+   3.064923806087667e-05,
+   3.047150614626975e-05,
+   2.971092970735643e-05,
+   2.838901664499884e-05,
+   2.649184798743885e-05,
+   1.791530105998854e-05,
+   5.833654920428079e-06,
+   -6.641499437523697e-06,
+   -1.9189355440879084e-05,
+   -3.129987343283581e-05,
+   -4.265530180980396e-05,
+   -5.2851056596466716e-05,
+   -6.175751586506147e-05,
+   -6.903595526974982e-05,
+   -7.47663640002645e-05,
+   -7.862151692036931e-05,
+   -8.066157627253748e-05,
+   -8.088538448614007e-05,
+   -7.946689808864756e-05,
+   -7.643133254596845e-05,
+   -7.231929712693088e-05,
+   -6.710508109942457e-05,
+   -6.136393748265891e-05,
+   -5.512844062539532e-05,
+   -4.87296576124441e-05,
+   -4.2243994718453476e-05,
+   -3.5830978765369216e-05,
+   -2.9630673927735675e-05,
+   -2.364644707612922e-05,
+   -1.7919795629106414e-05,
+   -1.2506846223549252e-05,
+   -7.468218257429926e-06,
+   -2.8240016983606438e-06,
+   1.4883815378605449e-06,
+   5.381817364704517e-06,
+   9.05061242255173e-06,
+   1.979894897560672e-05,
+   1.8179021832638917e-05,
+   1.6276947646958444e-05,
+   1.3970823478970094e-05,
+   1.1281972135749188e-05,
+   8.185211791458656e-06,
+   4.712196623663244e-06,
+   8.540076246694916e-07,
+   -3.3187175592355136e-06,
+   -7.787398118024467e-06,
+   -1.2484365236760989e-05,
+   -1.7292074228572975e-05,
+   -2.218655630398153e-05,
+   -2.6958278371941822e-05,
+   -3.155302297563181e-05,
+   -3.5790203117106354e-05,
+   -3.962834091730682e-05,
+   -4.2951407674487405e-05,
+   -4.57265200857581e-05,
+   -4.795354672608058e-05,
+   -4.964257143320457e-05,
+   -5.082109878846015e-05,
+   -5.161580899629081e-05,
+   -5.212355305885682e-05,
+   -5.2320839905471386e-05,
+   -5.241566444712747e-05,
+   -5.223394086977545e-05,
+   -5.190971465313554e-05,
+   -5.1259846914891676e-05,
+   -5.038143379340304e-05,
+   -4.91889956463708e-05,
+   -4.776180134354188e-05,
+   -4.6022514999003974e-05,
+   -4.406132494400426e-05,
+   -4.170436010307382e-05,
+   -3.8927935377059115e-05,
+   -3.569129410012238e-05,
+   -3.193295537741548e-05,
+   -2.7816933618121848e-05,
+   -2.3492927866339763e-05,
+   -1.9032157645130948e-05,
+   -1.4588486947248374e-05,
+   -1.0196920686585238e-05,
+   -5.919916174439349e-06,
+   -1.8892929682251028e-06,
+   1.7879577523052683e-06,
+   5.041415916876994e-06,
+   7.858097899625684e-06,
+   1.0355537305364033e-05,
+   1.240201344266466e-05,
+   1.4175005416541287e-05
+  ],
+  "coefficients": [
+   -527.2819734567958,
+   -478.8365265983592,
+   -429.9660797885071,
+   -381.52218375597,
+   -334.42253369530636,
+   -290.5965130394145,
+   -249.91510368675569,
+   -214.3603617785225,
+   -183.98043386894224,
+   -161.06186756329998,
+   -144.14773608119623,
+   -136.35128722082192,
+   -136.49180058283295,
+   -147.69979184508907,
+   -168.39621951431076,
+   -199.10252730470134,
+   -237.5234842323662,
+   -285.0396468443797,
+   -339.89995963127893,
+   -400.15110248043715,
+   -464.50927087873157,
+   -529.1258880632452,
+   -592.9056147286448,
+   -648.7998807693047,
+   -696.3594233094823,
+   -730.9501176836654,
+   -751.7086754686779,
+   -753.4127441598558,
+   -736.7303416730854,
+   -698.6100454755706,
+   -639.8148148026092,
+   -558.8759510437169,
+   -458.9316611462516,
+   -341.8146367697708,
+   -209.6094466179821,
+   -65.45454102663625,
+   88.60298433360096,
+   247.63867952441075,
+   408.82347598905176,
+   565.1237246362048,
+   714.5882864104152,
+   850.2738598174587,
+   970.0096717685018,
+   1068.6865715665683,
+   1144.8721551896836,
+   1194.010993933457,
+   1214.6027225656278,
+   1206.1214372375803,
+   1167.8549161347466,
+   1102.120938470063,
+   1010.0622410886409,
+   3395.9369998932307,
+   2751.3132801296183,
+   2092.220972209884,
+   1435.3492862146759,
+   801.4902403163353,
+   214.09393983630713,
+   -301.8842913039059,
+   -750.9785321589528,
+   -1133.430407227773,
+   -1455.476655380045,
+   -1696.9889422047784,
+   -1849.9299760743882,
+   -1905.9724613638446,
+   -1882.6692788403755,
+   -1772.6503180310656,
+   -1595.7003979737474,
+   -1366.6717747164953,
+   -1122.5511244520585,
+   -854.8595182877566,
+   -594.5979964281701,
+   -338.2499912674329,
+   -80.90753673798467,
+   182.83401615686665,
+   447.06730121646655,
+   706.6300426413643,
+   935.2631716848858,
+   1124.296895894918,
+   1286.2483373856599,
+   1425.9337183840078,
+   1532.59088008418,
+   1626.3344115325224,
+   83.88366200221559,
+   82.80812424835868,
+   73.78621314690946,
+   46.98933463089281,
+   -0.19558439061401403,
+   -66.03232837276245,
+   -156.58214950101538,
+   -266.7538047523179,
+   -387.8937044554114,
+   -526.2425554739214,
+   -680.704503548987,
+   -846.6451355602919,
+   -1020.1182356471288,
+   -1196.2718948274287,
+   -1368.9861151824257,
+   -1537.2958946310869,
+   -1704.768951166275,
+   -1859.1586866189414,
+   -1989.7452330036092,
+   -2098.75613217374,
+   -2182.5591796328417,
+   -2254.346097207283,
+   -2321.3091977499275,
+   -2389.7600801323815,
+   -2454.3373801301373,
+   -2519.7891284158354,
+   -2573.53091823641,
+   -2614.290230809684,
+   -2638.3223359806293,
+   -2647.375600292921,
+   -2635.208390801684,
+   -2612.9307283702383,
+   -2566.6030250098947,
+   -2497.0995506072395,
+   -2396.1209259640873,
+   -2263.797381337081,
+   -2098.1900805323544,
+   -1901.6860256784435,
+   -1677.9059641961485,
+   -1429.300395715283,
+   -1166.1105645952416,
+   -892.3873357754941,
+   -614.6531514738563,
+   -339.3789690030701,
+   -65.942862406482,
+   206.70372913679114,
+   482.03261910662036,
+   758.7504086967875,
+   1042.17841639582,
+   1324.772313103448,
+   1611.1771063742046
+  ],
+  "offset": 4.537214285714286
+ },
+ "output": {
+  "name": "collagen",
+  "units": "wt% collagen",
+  "y_transform": {
+   "type": "none"
+  },
+  "clip": {
+   "min": null,
+   "max": null
+  },
+  "decimals": 1,
+  "reading_rule": "predictions below ~1% = none detectable; negative values are not collagen amounts"
+ },
+ "error": {
+  "rmsecv": 1.688,
+  "units": "wt% collagen",
+  "display": "approx",
+  "note": "leave-one-out on the 140 reference bones (OH directions held fixed); used for a gentle '+/- about' hint only; larger at a new site"
+ },
+ "domain": {
+  "method": "none",
+  "note": "no T2/Q domain block: the OH/water projection is folded into the coefficients, so a plain PLS domain model would still see the projected-out direction"
+ },
+ "licence": "CC-BY-4.0",
+ "statistics": {
+  "rmsecv_R140_LOO": 1.688,
+  "rmsep_Z31": 1.94,
+  "rho_lt3_R140": 0.788,
+  "rho_lt1_R140": 0.754,
+  "auc_lt05_vs_05to3_R140": 0.943,
+  "auc_lt1_vs_1to3_R140": 0.899,
+  "rho_lt3_Z31": 0.752,
+  "note": "per scan; R140 = the 140 Ryder et al. 2026 reference bones (leave-one-out); Z31 = the 31 scans of the 15 contaminant-free Zafarraya bones in the same supplement; the low end (< 3%) is what matters, and differences between the shipped % models are within about +-0.05 (CIs +-0.09 on R140, +-0.22 on Z31)"
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_public_v2.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "mmc2_Reference_Sample_1",
+    "spectrum_sha256": "ef8ddf9e2c7d95bc6ca3d426aca0859ecb56e566fc930cb047d336251ebf75ea",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -0.4693201066159789,
+     "linear": -0.4693201066159789
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)",
+    "features": [
+     6.210929006703362e-06,
+     6.990770857081196e-06,
+     7.74282604845038e-06,
+     8.480283004725286e-06,
+     9.199159115684486e-06,
+     9.849903432937544e-06,
+     1.0540853143925152e-05,
+     1.1204565210429143e-05,
+     1.1746677228360392e-05,
+     1.2171406215363053e-05,
+     1.2484828744142645e-05,
+     1.2722711880243072e-05,
+     1.2908920502866265e-05,
+     1.2996903620987208e-05,
+     1.2987552395525483e-05,
+     1.2971326728164131e-05,
+     1.297352372865517e-05,
+     1.2975238589715832e-05,
+     1.3113816080853645e-05,
+     1.3290108641910358e-05,
+     1.344773092479593e-05,
+     1.3590717399013198e-05,
+     1.363848097433876e-05,
+     1.3694500686053023e-05,
+     1.3772331425778534e-05,
+     1.377648442763067e-05,
+     1.3734314091350206e-05,
+     1.3660527734296124e-05,
+     1.3519287315045701e-05,
+     1.334105512362533e-05,
+     1.3198901513410436e-05,
+     1.3110352189021424e-05,
+     1.3057180736483417e-05,
+     1.3047136356838553e-05,
+     1.308825319566785e-05,
+     1.3154906358087354e-05,
+     1.3280668075126099e-05,
+     1.3416356486842468e-05,
+     1.3480801844786925e-05,
+     1.3518849493875974e-05,
+     1.3509668425350967e-05,
+     1.3397484243230862e-05,
+     1.321170843819673e-05,
+     1.3007902875846345e-05,
+     1.2825445748420542e-05,
+     1.2690962091089835e-05,
+     1.2623652996689291e-05,
+     1.2576028414622905e-05,
+     1.256805982385173e-05,
+     1.2547777308384881e-05,
+     1.249561338672548e-05,
+     2.3037579328539625e-05,
+     2.2000129372239368e-05,
+     2.0982975333810362e-05,
+     1.9884801281248345e-05,
+     1.8848990867141504e-05,
+     1.7941871424810834e-05,
+     1.724546285959607e-05,
+     1.6620791875199704e-05,
+     1.600019812577529e-05,
+     1.5488008854715705e-05,
+     1.5139286759156736e-05,
+     1.4843461680529805e-05,
+     1.4843879414471427e-05,
+     1.5081071976126136e-05,
+     1.5500486812245785e-05,
+     1.609683472002287e-05,
+     1.6721028788010527e-05,
+     1.7182796438739312e-05,
+     1.753838216140679e-05,
+     1.783042031386437e-05,
+     1.8101030191524162e-05,
+     1.8309567700569487e-05,
+     1.8439984878609525e-05,
+     1.8406406777814882e-05,
+     1.8227227984468977e-05,
+     1.769096148914861e-05,
+     1.6883036861579416e-05,
+     1.5742055505685564e-05,
+     1.4158053833750617e-05,
+     1.2338125230157166e-05,
+     1.0641025805171404e-05,
+     -3.93713625161142e-06,
+     -1.9902900964519597e-06,
+     3.772275146683192e-07,
+     3.0556812974646963e-06,
+     5.872696421609699e-06,
+     8.66018737105895e-06,
+     1.137313440496314e-05,
+     1.3759609129549225e-05,
+     1.5619179364037214e-05,
+     1.706792344475204e-05,
+     1.7976495902301704e-05,
+     1.844082374123819e-05,
+     1.892396466538328e-05,
+     1.9031956651706285e-05,
+     1.8665436860590846e-05,
+     1.7914018546738315e-05,
+     1.6665424391677525e-05,
+     1.5089784140348388e-05,
+     1.3501472659582445e-05,
+     1.1962186846363812e-05,
+     1.0592652932244536e-05,
+     9.407795057665876e-06,
+     8.316443748272034e-06,
+     7.5417550347020926e-06,
+     7.046674105409649e-06,
+     6.841963833761119e-06,
+     6.675359962848414e-06,
+     6.40169872220776e-06,
+     6.0587389329922435e-06,
+     5.322006752384555e-06,
+     4.709374741469503e-06,
+     4.5451171532995445e-06,
+     4.679934071835125e-06,
+     5.172028662484181e-06,
+     5.783184958252797e-06,
+     6.219043695864651e-06,
+     6.625729523777879e-06,
+     7.028103365037952e-06,
+     7.433828824416917e-06,
+     8.040025331478625e-06,
+     8.608637906957518e-06,
+     8.995392362264997e-06,
+     9.000196351290589e-06,
+     8.490119737864475e-06,
+     7.652190610464397e-06,
+     6.970256153207392e-06,
+     6.279310833239016e-06,
+     5.40193380776802e-06,
+     4.335460861141192e-06,
+     3.2331630054724565e-06,
+     1.8630646677615485e-06
+    ]
+   },
+   {
+    "name": "mmc2_Reference_Sample_44",
+    "spectrum_sha256": "398b24182857f70334a551d5929031b7269827a47f9dbba57b41b103ef460df4",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.000349231440305,
+     "linear": 2.000349231440305
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_79",
+    "spectrum_sha256": "2b0379847078cea3a05aa8c409bf74dbafdfe68f7bd676cb7c67ce13fd4922bb",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.8026793155557743,
+     "linear": 2.8026793155557743
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_93",
+    "spectrum_sha256": "ed59c79c87c4d871d9e9f05a767334aad6f4f449ea7e2f457293f19e739c5a15",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 6.024633474725042,
+     "linear": 6.024633474725042
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_112",
+    "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 10.101629938143184,
+     "linear": 10.101629938143184
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_140",
+    "spectrum_sha256": "4c653c83b8f5dc1332a3301889d6c3fc2878be99b8bdcd56aa0a7a86d6d74089",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 16.411453952512154,
+     "linear": 16.411453952512154
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Zafarraya_16",
+    "spectrum_sha256": "3d0986c98d39f90856a9c3622d22c3d4785cd244e91efbc7ed1a18b3d482a516",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -0.1155646024187531,
+     "linear": -0.1155646024187531
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Zafarraya_30",
+    "spectrum_sha256": "510d5bca138e112c8bd55869901c9c60e7f06c05601557701a1bd18fa3f2dce4",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 11.66701231036765,
+     "linear": 11.66701231036765
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_clip_vnir",
+    "spectrum_sha256": "9397e5f18b1934942e6ce74004cc4acac37aacf4a8cfa2373e61a538abf4434f",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.8026793155557743,
+     "linear": 2.8026793155557743
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_dark_x0.25",
+    "spectrum_sha256": "f02a9fb48712fdbaee5b06d41a03ad274a66cb46192b954c5b6c849dbce73424",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.802679315548273,
+     "linear": 2.802679315548273
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_cal_median",
+    "spectrum_sha256": "b37678c5836380d86b47b72d1a5ee0ad6607a56f4c82a09377c96f694b777cdd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.6369517882665923,
+     "linear": 3.6369517882665923
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_val_a",
+    "spectrum_sha256": "8b6d90414c7e27c97959797113d8113b67823a3c347bbee2b4e2b6612f56162e",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -0.4408186116150983,
+     "linear": -0.4408186116150983
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_val_b",
+    "spectrum_sha256": "ac79a69bf508c165ba7d61e8f880947c7cca5368e177843eb5bf5f1f4c18c360",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.772088448438754,
+     "linear": 2.772088448438754
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_steps_join1830",
+    "spectrum_sha256": "32aa71ee6174f8244a09f1798a9d4fbf6e8260257964ad95db57c759689bb626",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1830.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.875093875501931,
+     "linear": 3.875093875501931
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_bison_28",
+    "spectrum_sha256": "6eec034385d09bd8b741a2acb157d8a43b7ac62318864f2f52209484f9a8955c",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.04118186453898165,
+     "linear": 0.04118186453898165
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_bison_33",
+    "spectrum_sha256": "bf391ad251be0c40ba44881bb6ce2791d60946de297a6ecfd66fd93dfdc674f8",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 6.613570284001458,
+     "linear": 6.613570284001458
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_dodo_19617_TMT_R_10",
+    "spectrum_sha256": "49534f016e933ac0fbfb7b38d5bfe277f0a9d8280039d0a87297f11830737dd5",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.9190035866569288,
+     "linear": 0.9190035866569288
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_dodo_19626_L_Femur_2",
+    "spectrum_sha256": "afa25626f5ca0ceca2eaa5a25f462c8e1d0e73211074058bf92d6c7191f458db",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 12.68112103999384,
+     "linear": 12.68112103999384
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_CF_98",
+    "spectrum_sha256": "c5a1fd5b302082dd74f1042c291d311c15513cf630507ad9a54dbc848b89007f",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": -0.7367146493157639,
+     "linear": -0.7367146493157639
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_CF_44",
+    "spectrum_sha256": "fa9b74715d155a565f422ba7e7f8273d8fddc0fbc15f5836ca283ee0e361fe71",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 7.360162050296006,
+     "linear": 7.360162050296006
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS79",
+    "spectrum_sha256": "604808f4d0a5727f1d1f6f10b31c7a6684c9d9e492e1a1caa30426941b5dd9a2",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 4.396444754753766,
+     "linear": 4.396444754753766
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS112",
+    "spectrum_sha256": "154f959e33e2a3dd1458e357aa819bd3c23d7742bd2cd2111f5265ab02255a35",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 15.903540171098378,
+     "linear": 15.903540171098378
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS44_join1830",
+    "spectrum_sha256": "20e1797178a18f2abefdb44ef94195924006a3eb9205720a0ee6f87901959424",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1830.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 3.131538426335905,
+     "linear": 3.131538426335905
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS3_clipvnir",
+    "spectrum_sha256": "56079ac7eab77fcdbc1004bb4e796a348dd0262927f30957fa377e0b83d2295d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": -0.7170629343064849,
+     "linear": -0.7170629343064849
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_above60",
+    "spectrum_sha256": "48924bd678ca86c006f8f12c2b4c1ae19e7cad75a5e088721b273cbaee800bdd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.5839638923761763,
+     "linear": 3.5839638923761763
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_below60",
+    "spectrum_sha256": "77ef55a3eb355056157975574d717da2b7dde09759674f8fde9654b8d43db696",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.5863221121707105,
+     "linear": 3.5863221121707105
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_15p6",
+    "spectrum_sha256": "7ada546edaee373a0b6833e7d87b221bb483d96faef4ab7b4bee43d1a0d1c24b",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.6219482137222196,
+     "linear": 3.6219482137222196
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_std",
+    "spectrum_sha256": "59e894856873cf0808e936c7439573263e474c3b21381f840f6fc60547edb1c2",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 10.781141546190579,
+     "linear": 10.781141546190579
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_hires",
+    "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 20.907385009272968,
+     "linear": 20.907385009272968
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_std",
+    "spectrum_sha256": "28431d2a7330915c7d70dcfab578247421b37bf7f056f57d081d3b7a83c478fd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 11.53904420048471,
+     "linear": 11.53904420048471
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_hires",
+    "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 18.100409653701142,
+     "linear": 18.100409653701142
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_std",
+    "spectrum_sha256": "d45ca81886bb691bfc7f85c462b5ebd34378b46f973c51c352a3b825c075a9cd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 9.242321991004177,
+     "linear": 9.242321991004177
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_hires",
+    "spectrum_sha256": "17e9ad8ea4576c88b0a02412672cff5119a44404e6ff433fb0cc6990ed2ebf0d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 18.127079739061475,
+     "linear": 18.127079739061475
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   }
+  ]
+ }
+}

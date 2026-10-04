@@ -1,0 +1,186 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://spyder-bone.org/schemas/spyder-noise-gains.schema.json",
+ "title": "SPYDER Bone noise-propagation gains (noise_gains.json)",
+ "type": "object",
+ "required": [
+  "format",
+  "format_version",
+  "id",
+  "version",
+  "engine_min",
+  "status",
+  "provisional",
+  "models",
+  "golden"
+ ],
+ "properties": {
+  "format_version": {
+   "const": 1
+  },
+  "id": {
+   "type": "string"
+  },
+  "version": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "engine_min": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+$"
+  },
+  "status": {
+   "enum": [
+    "active",
+    "experimental",
+    "demo",
+    "withdrawn"
+   ]
+  },
+  "licence": {
+   "type": "string"
+  },
+  "created": {
+   "type": "string"
+  },
+  "title": {
+   "type": "string"
+  },
+  "description": {
+   "type": "string"
+  },
+  "provenance": {
+   "type": "object"
+  },
+  "format": {
+   "const": "spyder-bone/noise_gains"
+  },
+  "provisional": {
+   "type": "boolean"
+  },
+  "n2": {
+   "type": "object"
+  },
+  "transfer_keys": {
+   "type": "object"
+  },
+  "golden": {
+   "type": "object",
+   "required": [
+    "spectra_file",
+    "cases"
+   ],
+   "properties": {
+    "spectra_file": {
+     "type": "string"
+    },
+    "tolerance": {
+     "type": "object"
+    },
+    "cases": {
+     "type": "array",
+     "minItems": 3,
+     "items": {
+      "type": "object",
+      "required": [
+       "spectrum_sha256",
+       "transfer_key",
+       "expected"
+      ],
+      "properties": {
+       "spectrum_sha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+       },
+       "transfer_key": {
+        "type": "string",
+        "pattern": "^(none|[0-9a-f]{64})$",
+        "description": "'none' or the sha256 of a transfer FILE"
+       },
+       "expected": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": {
+         "type": "number"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "models": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "propertyNames": {
+     "type": "string",
+     "pattern": "^(none|[0-9a-f]{64})$",
+     "description": "'none' or the sha256 of a transfer FILE"
+    },
+    "additionalProperties": {
+     "type": "object",
+     "required": [
+      "terms"
+     ],
+     "properties": {
+      "terms": {
+       "type": "array",
+       "minItems": 1,
+       "items": {
+        "type": "object",
+        "required": [
+         "window_nm",
+         "gain"
+        ],
+        "properties": {
+         "window_nm": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+           "type": "number"
+          }
+         },
+         "gain": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "detector": {
+          "type": "string"
+         }
+        }
+       }
+      },
+      "note": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "consensus": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "required": [
+     "factor",
+     "components"
+    ],
+    "properties": {
+     "factor": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "components": {
+      "type": "object",
+      "minProperties": 3,
+      "additionalProperties": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  }
+ }
+}

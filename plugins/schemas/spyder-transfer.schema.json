@@ -1,0 +1,128 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://spyder-bone.org/schemas/spyder-transfer.schema.json",
+ "title": "SPYDER Bone instrument transfer file (format 1)",
+ "description": "Maps a scan from source_class (optionally one source_serial) to target_class, before any model preprocessing. Selected automatically: scan instrument class -> model instrument.trained_on_class.",
+ "type": "object",
+ "required": [
+  "format",
+  "format_version",
+  "engine_min",
+  "id",
+  "version",
+  "status",
+  "title",
+  "source_class",
+  "target_class",
+  "input_quantity",
+  "operator",
+  "provenance",
+  "golden",
+  "provisional"
+ ],
+ "properties": {
+  "format": {
+   "const": "spyder-bone/transfer"
+  },
+  "format_version": {
+   "const": 1
+  },
+  "id": {
+   "type": "string"
+  },
+  "version": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+   "description": "integer-parsable semver (selection compares integer tuples)"
+  },
+  "status": {
+   "enum": [
+    "active",
+    "experimental",
+    "demo",
+    "withdrawn"
+   ]
+  },
+  "title": {
+   "type": "string"
+  },
+  "input_quantity": {
+   "enum": [
+    "reflectance"
+   ]
+  },
+  "grid": {
+   "$ref": "spyder-model.schema.json#/$defs/grid"
+  },
+  "operator": {
+   "type": "array",
+   "minItems": 1,
+   "items": {
+    "$ref": "spyder-model.schema.json#/$defs/op"
+   },
+   "description": "Ordered ops (a 'sequence'): gaussian_blur, affine_reflectance, pds_banded, resample, ... Large matrices go to .npy sidecars."
+  },
+  "provenance": {
+   "type": "object"
+  },
+  "validation": {
+   "type": "object",
+   "description": "Paired-scan evidence: n pairs, residual RMS before/after, model prediction agreement before/after."
+  },
+  "golden": {
+   "allOf": [
+    {
+     "$ref": "spyder-model.schema.json#/$defs/golden"
+    },
+    {
+     "properties": {
+      "cases": {
+       "items": {
+        "properties": {
+         "expected": {
+          "required": [
+           "transferred_at"
+          ],
+          "properties": {
+           "transferred_at": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+             "type": "number"
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  "engine_min": {
+   "type": "string"
+  },
+  "source_class": {
+   "type": "string"
+  },
+  "target_class": {
+   "type": "string"
+  },
+  "source_serial": {
+   "type": [
+    "string",
+    "integer",
+    "null"
+   ],
+   "description": "null = whole class; a serial makes the transfer unit-specific (most specific wins)."
+  },
+  "provisional": {
+   "type": "boolean",
+   "description": "true: label every result 'provisional' (v1 transfers)"
+  },
+  "licence": {
+   "type": "string"
+  }
+ }
+}

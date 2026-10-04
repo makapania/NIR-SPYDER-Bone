@@ -1,0 +1,1447 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://spyder-bone.org/schemas/spyder-model.schema.json",
+ "title": "SPYDER Bone model file (format 1; engine 1.1)",
+ "type": "object",
+ "required": [
+  "format",
+  "format_version",
+  "engine_min",
+  "id",
+  "version",
+  "status",
+  "title",
+  "kind",
+  "role",
+  "citation",
+  "created",
+  "exported",
+  "provenance",
+  "instrument",
+  "input",
+  "preprocessing",
+  "features",
+  "golden"
+ ],
+ "properties": {
+  "format": {
+   "const": "spyder-bone/model"
+  },
+  "format_version": {
+   "const": 1
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[a-z0-9]+(\\.[a-z0-9_]+)+$",
+   "description": "Stable, never reused. Same id = same scientific model; numbers may change only with a major version bump."
+  },
+  "version": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+   "description": "MAJOR: any change to predictions. MINOR: new golden cases / domain stats / error stats. PATCH: text only."
+  },
+  "status": {
+   "enum": [
+    "active",
+    "experimental",
+    "demo",
+    "withdrawn"
+   ]
+  },
+  "supersedes": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "title": {
+   "type": "string"
+  },
+  "short_name": {
+   "type": "string"
+  },
+  "description": {
+   "type": "string"
+  },
+  "kind": {
+   "enum": [
+    "regression",
+    "classifier",
+    "rule",
+    "consensus"
+   ]
+  },
+  "role": {
+   "enum": [
+    "collagen_percent",
+    "collagen_class",
+    "organics_index",
+    "contamination_warning",
+    "other"
+   ]
+  },
+  "citation": {
+   "type": "object",
+   "required": [
+    "text"
+   ],
+   "properties": {
+    "text": {
+     "type": "string"
+    },
+    "doi": {
+     "type": "string"
+    }
+   }
+  },
+  "authors": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "created": {
+   "type": "string"
+  },
+  "exported": {
+   "type": "string"
+  },
+  "provenance": {
+   "type": "object",
+   "description": "Free-form but should carry: source_spec (+sha256), source_script, git commit, training_data, n_train, model_algorithm, exporter, environment, verification."
+  },
+  "instrument": {
+   "type": "object",
+   "required": [
+    "trained_on_class"
+   ],
+   "properties": {
+    "also_valid_for": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "Classes the model may be applied to without a transfer (e.g. a band-depth rule that is resolution-robust)."
+    },
+    "grid": {
+     "$ref": "#/$defs/grid"
+    },
+    "training_splices_nm": {
+     "$ref": "#/$defs/range",
+     "description": "Detector joins of the training instrument(s); lets the app note when a scan's joins differ near a model window."
+    },
+    "description": {
+     "type": "string"
+    },
+    "trained_on_class": {
+     "type": "string",
+     "description": "Instrument class id (instrument plug-in), e.g. asd.labspec4.std. Transfers are looked up by (scan class -> this)."
+    }
+   }
+  },
+  "input": {
+   "type": "object",
+   "properties": {
+    "quantity": {
+     "enum": [
+      "reflectance",
+      "absorbance"
+     ]
+    },
+    "scale": {
+     "enum": [
+      "fraction",
+      "percent"
+     ]
+    },
+    "range_nm": {
+     "$ref": "#/$defs/range"
+    }
+   }
+  },
+  "preprocessing": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/op"
+   }
+  },
+  "features": {
+   "type": "object",
+   "required": [
+    "wavelengths_nm"
+   ],
+   "properties": {
+    "wavelengths_nm": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "description": "Explicit, ordered list of the processed-spectrum points the coefficients apply to. Authoritative; windows/exclude are documentation."
+    },
+    "windows_nm": {
+     "type": [
+      "array",
+      "null"
+     ],
+     "items": {
+      "$ref": "#/$defs/range"
+     }
+    },
+    "exclude_nm": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/range"
+     }
+    }
+   }
+  },
+  "regression": {
+   "type": "object",
+   "required": [
+    "coefficients",
+    "offset"
+   ],
+   "properties": {
+    "coefficients": {
+     "$ref": "#/$defs/vec"
+    },
+    "x_center": {
+     "$ref": "#/$defs/vec",
+     "description": "If present: y = offset + sum_i b_i (x_i - c_i). If absent: y = offset + sum_i b_i x_i."
+    },
+    "offset": {
+     "type": "number"
+    }
+   }
+  },
+  "classifier": {
+   "type": "object",
+   "required": [
+    "scores",
+    "decision"
+   ],
+   "properties": {
+    "x_center": {
+     "$ref": "#/$defs/vec"
+    },
+    "scores": {
+     "type": "array",
+     "minItems": 1,
+     "items": {
+      "type": "object",
+      "required": [
+       "name",
+       "coefficients",
+       "offset"
+      ],
+      "properties": {
+       "name": {
+        "type": "string"
+       },
+       "coefficients": {
+        "$ref": "#/$defs/vec"
+       },
+       "offset": {
+        "type": "number"
+       }
+      }
+     }
+    },
+    "decision": {
+     "oneOf": [
+      {
+       "type": "object",
+       "required": [
+        "type",
+        "labels"
+       ],
+       "properties": {
+        "type": {
+         "const": "argmax"
+        },
+        "labels": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        }
+       }
+      },
+      {
+       "type": "object",
+       "required": [
+        "type",
+        "score",
+        "cuts",
+        "labels"
+       ],
+       "properties": {
+        "type": {
+         "const": "cuts"
+        },
+        "score": {
+         "type": "string"
+        },
+        "cuts": {
+         "type": "array",
+         "items": {
+          "type": "number"
+         }
+        },
+        "labels": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     ]
+    },
+    "probability": {
+     "enum": [
+      "none",
+      "logistic",
+      "softmax"
+     ]
+    }
+   }
+  },
+  "rule": {
+   "type": "object",
+   "required": [
+    "features",
+    "score",
+    "levels"
+   ],
+   "properties": {
+    "features": {
+     "type": "object",
+     "additionalProperties": {
+      "$ref": "#/$defs/rule_feature"
+     }
+    },
+    "score": {
+     "$ref": "#/$defs/expr"
+    },
+    "levels": {
+     "$ref": "#/$defs/levels"
+    },
+    "message": {
+     "type": "string"
+    }
+   }
+  },
+  "output": {
+   "type": "object",
+   "properties": {
+    "name": {
+     "type": "string"
+    },
+    "units": {
+     "type": "string"
+    },
+    "y_transform": {
+     "type": "object",
+     "properties": {
+      "type": {
+       "enum": [
+        "none",
+        "log10",
+        "ln",
+        "sqrt"
+       ]
+      },
+      "offset": {
+       "type": "number"
+      }
+     }
+    },
+    "clip": {
+     "type": "object",
+     "properties": {
+      "min": {
+       "type": [
+        "number",
+        "null"
+       ]
+      },
+      "max": {
+       "type": [
+        "number",
+        "null"
+       ]
+      }
+     }
+    },
+    "decimals": {
+     "type": "integer"
+    },
+    "reading_rule": {
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   }
+  },
+  "error": {
+   "type": "object",
+   "properties": {
+    "rmsecv": {
+     "type": [
+      "number",
+      "null"
+     ]
+    },
+    "rmsep": {
+     "type": [
+      "number",
+      "null"
+     ]
+    },
+    "rmsec": {
+     "type": [
+      "number",
+      "null"
+     ]
+    },
+    "units": {
+     "type": "string"
+    },
+    "display": {
+     "enum": [
+      "approx",
+      "none"
+     ]
+    },
+    "note": {
+     "type": "string"
+    }
+   }
+  },
+  "domain": {
+   "oneOf": [
+    {
+     "type": "object",
+     "required": [
+      "method"
+     ],
+     "properties": {
+      "method": {
+       "const": "none"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "required": [
+      "method",
+      "components",
+      "t2_limit",
+      "q_limit",
+      "levels"
+     ],
+     "properties": {
+      "method": {
+       "const": "pls_t2_q"
+      },
+      "x_center": {
+       "$ref": "#/$defs/vec"
+      },
+      "components": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "required": [
+         "weights_r",
+         "loadings_p",
+         "score_var"
+        ],
+        "properties": {
+         "weights_r": {
+          "$ref": "#/$defs/vec"
+         },
+         "loadings_p": {
+          "$ref": "#/$defs/vec"
+         },
+         "score_var": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         }
+        }
+       }
+      },
+      "t2_limit": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "q_limit": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "confidence": {
+       "type": "number"
+      },
+      "levels": {
+       "$ref": "#/$defs/levels"
+      },
+      "policy": {
+       "type": "string"
+      }
+     }
+    }
+   ]
+  },
+  "golden": {
+   "$ref": "#/$defs/golden"
+  },
+  "engine_min": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+$"
+  },
+  "licence": {
+   "type": "string"
+  },
+  "statistics": {
+   "type": "object"
+  },
+  "consensus": {
+   "type": "object",
+   "required": [
+    "combine",
+    "components"
+   ],
+   "additionalProperties": false,
+   "description": "kind 'consensus' (engine 1.1): value = median of an odd number (>= 3) of components; each component is a shipped model folded exactly into one linear functional of the processed spectrum. Outputs: value, component:<name>.",
+   "properties": {
+    "combine": {
+     "const": "median"
+    },
+    "components": {
+     "type": "array",
+     "minItems": 3,
+     "items": {
+      "type": "object",
+      "required": [
+       "name",
+       "id",
+       "version",
+       "sha256",
+       "feature"
+      ],
+      "properties": {
+       "name": {
+        "type": "string",
+        "minLength": 1
+       },
+       "label": {
+        "type": "string"
+       },
+       "id": {
+        "type": "string"
+       },
+       "version": {
+        "type": "string",
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+       },
+       "sha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+       },
+       "file": {
+        "type": "string"
+       },
+       "feature": {
+        "type": "object",
+        "required": [
+         "type",
+         "wavelengths_nm",
+         "weights"
+        ],
+        "properties": {
+         "type": {
+          "const": "linear"
+         },
+         "wavelengths_nm": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+           "type": "number"
+          }
+         },
+         "weights": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+           "type": "number"
+          }
+         },
+         "offset": {
+          "type": "number"
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "allOf": [
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "regression"
+     }
+    }
+   },
+   "then": {
+    "required": [
+     "regression",
+     "output"
+    ],
+    "properties": {
+     "golden": {
+      "properties": {
+       "cases": {
+        "items": {
+         "properties": {
+          "expected": {
+           "required": [
+            "value"
+           ]
+          }
+         }
+        },
+        "contains": {
+         "required": [
+          "features"
+         ]
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "classifier"
+     }
+    }
+   },
+   "then": {
+    "required": [
+     "classifier"
+    ],
+    "properties": {
+     "golden": {
+      "properties": {
+       "cases": {
+        "items": {
+         "properties": {
+          "expected": {
+           "required": [
+            "scores",
+            "label"
+           ]
+          }
+         }
+        },
+        "contains": {
+         "required": [
+          "features"
+         ]
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "rule"
+     }
+    }
+   },
+   "then": {
+    "required": [
+     "rule"
+    ],
+    "properties": {
+     "golden": {
+      "properties": {
+       "cases": {
+        "items": {
+         "properties": {
+          "expected": {
+           "required": [
+            "value",
+            "label"
+           ]
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "consensus"
+     }
+    }
+   },
+   "then": {
+    "required": [
+     "consensus"
+    ]
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "regression"
+     }
+    }
+   },
+   "then": {
+    "required": [
+     "regression"
+    ]
+   }
+  }
+ ],
+ "$defs": {
+  "range": {
+   "type": "array",
+   "items": {
+    "type": "number"
+   },
+   "minItems": 2,
+   "maxItems": 2
+  },
+  "grid": {
+   "type": "object",
+   "required": [
+    "start_nm",
+    "step_nm",
+    "n"
+   ],
+   "properties": {
+    "start_nm": {
+     "type": "number"
+    },
+    "step_nm": {
+     "type": "number"
+    },
+    "n": {
+     "type": "integer"
+    }
+   }
+  },
+  "levels": {
+   "type": "array",
+   "minItems": 1,
+   "description": "Ordered; a value gets the first label whose 'below' it is under; the last entry has no 'below'.",
+   "items": {
+    "type": "object",
+    "required": [
+     "label"
+    ],
+    "properties": {
+     "label": {
+      "type": "string"
+     },
+     "below": {
+      "type": "number"
+     }
+    }
+   }
+  },
+  "op": {
+   "type": "object",
+   "required": [
+    "op"
+   ],
+   "oneOf": [
+    {
+     "properties": {
+      "op": {
+       "const": "splice_correct"
+      },
+      "joins": {
+       "oneOf": [
+        {
+         "const": "from_scan"
+        },
+        {
+         "$ref": "#/$defs/range"
+        }
+       ]
+      },
+      "fit_points_lower": {
+       "type": "integer",
+       "minimum": 2
+      },
+      "fit_points_upper": {
+       "type": "integer",
+       "minimum": 2
+      },
+      "note": {
+       "type": "string"
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "properties": {
+      "op": {
+       "const": "crop"
+      },
+      "range_nm": {
+       "$ref": "#/$defs/range"
+      },
+      "note": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "range_nm"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "properties": {
+      "op": {
+       "const": "absorbance"
+      },
+      "clip_min": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "note": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "clip_min"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "properties": {
+      "op": {
+       "const": "savgol"
+      },
+      "window": {
+       "type": "integer",
+       "minimum": 3
+      },
+      "polyorder": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "deriv": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "delta": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "mode": {
+       "enum": [
+        "interp",
+        "mirror",
+        "nearest",
+        "constant",
+        "wrap",
+        "zero_edges",
+        "valid"
+       ]
+      },
+      "note": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "window",
+      "polyorder",
+      "deriv",
+      "delta",
+      "mode"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "properties": {
+      "op": {
+       "const": "snv"
+      },
+      "ddof": {
+       "enum": [
+        0,
+        1
+       ]
+      },
+      "blocks_nm": {
+       "type": "array",
+       "minItems": 1,
+       "items": {
+        "$ref": "#/$defs/range"
+       },
+       "description": "Op set 1.1 (A18): SNV separately inside each block (sorted, non-overlapping, one detector each); output grid = the block points. Absent = whole current grid (legacy, not in the v1 subset)."
+      },
+      "note": {
+       "type": "string"
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "properties": {
+      "op": {
+       "const": "msc"
+      },
+      "reference": {
+       "$ref": "#/$defs/vec"
+      },
+      "note": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "reference"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "properties": {
+      "op": {
+       "const": "detrend"
+      },
+      "degree": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 3
+      },
+      "note": {
+       "type": "string"
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "properties": {
+      "op": {
+       "const": "resample"
+      },
+      "to_grid": {
+       "oneOf": [
+        {
+         "$ref": "#/$defs/grid"
+        },
+        {
+         "type": "object",
+         "required": [
+          "wavelengths_nm"
+         ],
+         "properties": {
+          "wavelengths_nm": {
+           "type": "array",
+           "items": {
+            "type": "number"
+           }
+          }
+         }
+        }
+       ]
+      },
+      "note": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "to_grid"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "properties": {
+      "op": {
+       "const": "gaussian_blur"
+      },
+      "fwhm_nm": {
+       "$ref": "#/$defs/fwhm"
+      },
+      "truncate": {
+       "type": "number"
+      },
+      "segments": {
+       "enum": [
+        "from_scan",
+        "none"
+       ]
+      },
+      "note": {
+       "type": "string"
+      },
+      "sigma_nm": {
+       "oneOf": [
+        {
+         "type": "number",
+         "minimum": 0
+        },
+        {
+         "type": "array",
+         "items": {
+          "type": "number",
+          "minimum": 0
+         }
+        }
+       ],
+       "description": "sigma in nm: one value, or one per detector segment"
+      },
+      "radius": {
+       "enum": [
+        "round",
+        "ceil"
+       ],
+       "description": "round = floor(truncate*sigma/step + 0.5) (scipy); ceil = ceil(truncate*sigma/step)"
+      }
+     },
+     "additionalProperties": false,
+     "oneOf": [
+      {
+       "required": [
+        "fwhm_nm"
+       ]
+      },
+      {
+       "required": [
+        "sigma_nm"
+       ]
+      }
+     ]
+    },
+    {
+     "properties": {
+      "op": {
+       "const": "pds_banded"
+      },
+      "wavelengths_nm": {
+       "$ref": "#/$defs/vec"
+      },
+      "B": {
+       "$ref": "#/$defs/mat"
+      },
+      "offset": {
+       "$ref": "#/$defs/vec"
+      },
+      "note": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "wavelengths_nm",
+      "B"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "properties": {
+      "op": {
+       "const": "affine_reflectance"
+      },
+      "joins": {
+       "oneOf": [
+        {
+         "const": "from_scan"
+        },
+        {
+         "$ref": "#/$defs/range"
+        }
+       ]
+      },
+      "segments": {
+       "type": "array",
+       "minItems": 1,
+       "items": {
+        "type": "object",
+        "required": [
+         "a",
+         "b"
+        ],
+        "additionalProperties": false,
+        "properties": {
+         "a": {
+          "type": "number"
+         },
+         "b": {
+          "type": "number"
+         }
+        }
+       }
+      },
+      "note": {
+       "type": "string",
+       "description": "Optional op type; the transfer agent rejected it for the LabSpec hi-res transfer (unstable between unit pairs)."
+      }
+     },
+     "required": [
+      "segments"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "properties": {
+      "op": {
+       "const": "absorbance_affine"
+      },
+      "gain": {
+       "oneOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "array",
+         "items": {
+          "type": "number"
+         }
+        }
+       ]
+      },
+      "offset": {
+       "oneOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "array",
+         "items": {
+          "type": "number"
+         }
+        }
+       ]
+      },
+      "clip_min": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "note": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "gain",
+      "clip_min"
+     ],
+     "additionalProperties": false
+    }
+   ]
+  },
+  "fwhm": {
+   "oneOf": [
+    {
+     "type": "number",
+     "minimum": 0
+    },
+    {
+     "type": "object",
+     "required": [
+      "type",
+      "knots_nm",
+      "values_nm"
+     ],
+     "properties": {
+      "type": {
+       "const": "piecewise_linear"
+      },
+      "knots_nm": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       }
+      },
+      "values_nm": {
+       "type": "array",
+       "items": {
+        "type": "number",
+        "minimum": 0
+       }
+      }
+     }
+    }
+   ]
+  },
+  "rule_feature": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "oneOf": [
+    {
+     "properties": {
+      "type": {
+       "const": "mean"
+      },
+      "range_nm": {
+       "$ref": "#/$defs/range"
+      }
+     },
+     "required": [
+      "range_nm"
+     ]
+    },
+    {
+     "properties": {
+      "type": {
+       "const": "value"
+      },
+      "wavelength_nm": {
+       "type": "number"
+      }
+     },
+     "required": [
+      "wavelength_nm"
+     ]
+    },
+    {
+     "properties": {
+      "type": {
+       "const": "linear"
+      },
+      "wavelengths_nm": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       }
+      },
+      "weights": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       }
+      },
+      "offset": {
+       "type": "number"
+      }
+     },
+     "required": [
+      "wavelengths_nm",
+      "weights"
+     ]
+    },
+    {
+     "properties": {
+      "type": {
+       "const": "band_depth"
+      },
+      "centre_nm": {
+       "$ref": "#/$defs/range"
+      },
+      "left_nm": {
+       "$ref": "#/$defs/range"
+      },
+      "right_nm": {
+       "$ref": "#/$defs/range"
+      },
+      "form": {
+       "enum": [
+        "difference",
+        "ratio"
+       ]
+      }
+     },
+     "required": [
+      "centre_nm",
+      "left_nm",
+      "right_nm"
+     ]
+    }
+   ]
+  },
+  "expr": {
+   "oneOf": [
+    {
+     "type": "number"
+    },
+    {
+     "type": "object",
+     "required": [
+      "ref"
+     ],
+     "properties": {
+      "ref": {
+       "type": "string"
+      }
+     },
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "required": [
+      "op",
+      "args"
+     ],
+     "properties": {
+      "op": {
+       "enum": [
+        "add",
+        "sub",
+        "mul",
+        "div",
+        "neg",
+        "abs",
+        "min",
+        "max"
+       ]
+      },
+      "args": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/expr"
+       }
+      }
+     },
+     "additionalProperties": false
+    }
+   ]
+  },
+  "golden": {
+   "type": "object",
+   "required": [
+    "spectra_file",
+    "tolerance",
+    "cases"
+   ],
+   "properties": {
+    "spectra_file": {
+     "type": "string"
+    },
+    "tolerance": {
+     "type": "object",
+     "required": [
+      "abs",
+      "rel"
+     ],
+     "properties": {
+      "abs": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 1e-09,
+       "description": "Cannot exceed the engine's maximum for the kind (spyder_ref.GOLDEN_MAX_TOL)."
+      },
+      "rel": {
+       "type": "number",
+       "minimum": 0,
+       "maximum": 1e-09,
+       "description": "Cannot exceed the engine's maximum for the kind (spyder_ref.GOLDEN_MAX_TOL)."
+      }
+     }
+    },
+    "cases": {
+     "type": "array",
+     "minItems": 3,
+     "items": {
+      "type": "object",
+      "required": [
+       "spectrum_sha256",
+       "expected"
+      ],
+      "properties": {
+       "name": {
+        "type": "string"
+       },
+       "spectrum_sha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+       },
+       "scan_context": {
+        "type": "object"
+       },
+       "expected": {
+        "type": "object",
+        "minProperties": 1,
+        "description": "Required keys depend on the kind (regression: value; classifier: scores, label; rule: value, label; transfer: transferred_at)."
+       },
+       "features": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+         "type": "number"
+        }
+       },
+       "generated_by": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "description": "Golden cases run on load. Hardened in Phase 0a (A10): the engine owns the maximum tolerance per kind (1e-9 abs and rel in engine 1.0), so a file may tighten but never loosen it; every case has a non-empty 'expected' block; the runner also rejects zero-comparison runs, unknown or non-finite outputs and wrong dimensions (spyder_ref.run_goldens)."
+  },
+  "npy": {
+   "type": "object",
+   "required": [
+    "npy",
+    "sha256"
+   ],
+   "additionalProperties": false,
+   "description": "Binary sidecar: a .npy file (little-endian float64, no pickles) next to the JSON, checked by sha256.",
+   "properties": {
+    "npy": {
+     "type": "string",
+     "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*)*\\.npy$",
+     "description": "Relative path inside the plug-in's own folder: no absolute path, drive, backslash or '..'. The loader also resolves symlinks and enforces a size limit (spyder_ref.SIDECAR_MAX_BYTES, 16 MiB)."
+    },
+    "sha256": {
+     "type": "string",
+     "pattern": "^[0-9a-f]{64}$"
+    }
+   }
+  },
+  "vec": {
+   "oneOf": [
+    {
+     "type": "array",
+     "items": {
+      "type": "number"
+     }
+    },
+    {
+     "$ref": "#/$defs/npy"
+    }
+   ]
+  },
+  "mat": {
+   "oneOf": [
+    {
+     "type": "array",
+     "items": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      }
+     }
+    },
+    {
+     "$ref": "#/$defs/npy"
+    }
+   ]
+  }
+ }
+}

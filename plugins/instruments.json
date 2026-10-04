@@ -1,0 +1,81 @@
+{
+ "format": "spyder-bone/instrument",
+ "format_version": 1,
+ "id": "instruments.asd.labspec4",
+ "version": "1.1.0",
+ "engine_min": "1.0",
+ "status": "active",
+ "licence": "CC-BY-4.0",
+ "created": "2026-10-03",
+ "title": "Instrument registry: ASD LabSpec 4 classes and serial presets",
+ "description": "The user's Standard / High-res switch decides the class (DECISIONS 50). This registry only PRESETS the switch for a new folder when a file's serial is listed, and lets the app show a gentle note when a file's serial is known to be the other class. The switch always wins. Unknown serials: the header's SWIR detector gains may preset it instead (header_hint; a heuristic), else the switch keeps its current (or default) position. Exports record the class and whether the user set it or a serial preset it. Per-unit details (per-lab transfer files) come later with the calibration kit.",
+ "default_class": "asd.labspec4.std",
+ "switch": {
+  "labels": {
+   "asd.labspec4.std": "Standard",
+   "asd.labspec4.hires": "High-res"
+  },
+  "remembered": "per watched folder / session",
+  "preset_from_serial": true,
+  "mismatch_note": "This file's instrument (serial {serial}) is listed as {other}. Results use the {current} setting; change the switch if that is wrong.",
+  "preset_from_header": true
+ },
+ "classes": {
+  "asd.labspec4.std": {
+   "display_name": "Standard",
+   "long_name": "ASD LabSpec 4 Standard-Res",
+   "nominal_fwhm_nm": {
+    "VNIR": 3,
+    "SWIR1": 10,
+    "SWIR2": 10
+   },
+   "serials": [
+    28404,
+    28011,
+    28058
+   ],
+   "header_hint": {
+    "swir_gain": [
+     150,
+     65535
+    ]
+   }
+  },
+  "asd.labspec4.hires": {
+   "display_name": "High-res",
+   "long_name": "ASD LabSpec 4 Hi-Res",
+   "nominal_fwhm_nm": {
+    "VNIR": 3,
+    "SWIR1": 6,
+    "SWIR2": 6
+   },
+   "serials": [
+    28313,
+    28247
+   ],
+   "header_hint": {
+    "swir_gain": [
+     1,
+     60
+    ]
+   }
+  }
+ },
+ "accepted_input": {
+  "file_version": "as8",
+  "grid": {
+   "start_nm": 350,
+   "step_nm": 1,
+   "n": 2151
+  },
+  "joins_nm": [
+   1000,
+   1800
+  ]
+ },
+ "provenance": {
+  "serials": "units whose files were used in development; no lab or owner is named",
+  "fwhm": "published instrument bandwidths (manufacturer specifications)",
+  "header_hint": "SWIR1 and SWIR2 gains (header bytes 436/438) across 681 distinct files from all five units: standard 284-694 (three units, 2014-2026), high-res 16-21 (two units, 2025-2026). Ranges are padded; both gains must agree. Five units only: a hint, never a rule."
+ }
+}

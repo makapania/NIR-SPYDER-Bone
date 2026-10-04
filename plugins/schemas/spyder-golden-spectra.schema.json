@@ -1,0 +1,56 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://spyder-bone.org/schemas/spyder-golden-spectra.schema.json",
+ "title": "SPYDER Bone golden spectra file",
+ "type": "object",
+ "required": [
+  "format",
+  "format_version",
+  "id",
+  "spectra"
+ ],
+ "properties": {
+  "format": {
+   "const": "spyder-bone/golden_spectra"
+  },
+  "format_version": {
+   "const": 1
+  },
+  "id": {
+   "type": "string"
+  },
+  "spectra": {
+   "type": "array",
+   "minItems": 1,
+   "items": {
+    "type": "object",
+    "required": [
+     "name",
+     "wl_start_nm",
+     "wl_step_nm",
+     "values",
+     "sha256"
+    ],
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+     },
+     "values": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+       "type": "number"
+      }
+     },
+     "scan_context": {
+      "type": "object"
+     }
+    }
+   }
+  }
+ }
+}

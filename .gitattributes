@@ -1,0 +1,11 @@
+* text=auto eol=lf
+*.asd binary
+*.png binary
+*.icns binary
+*.ico binary
+# Plug-in and golden files are identified by their SHA-256: keep their bytes exact (no line-ending conversion).
+plugins/** -text
+reference/oracle/goldens/** -text
+crates/spyder-core/tests/goldens/** -text
+*.npy binary
+crates/spyder-core/tests/fixtures/** -text

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spyder-ref"
+version = "1.1.0"
+description = "Frozen Python reference engine for SPYDER Bone plug-in files (models, consensus, transfers, shared tables)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+# developer tools and tests only: the golden generator / exporter (scipy), schema validation (jsonschema), test runner
+test = ["scipy>=1.10", "jsonschema>=4.18", "referencing>=0.30", "pytest>=7", "scikit-learn>=1.3"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["spyder_ref*", "oracle*"]
+
+[tool.setuptools.package-data]
+spyder_ref = ["schemas/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

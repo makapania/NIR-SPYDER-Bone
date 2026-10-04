@@ -1,0 +1,410 @@
+{
+ "format": "spyder-bone/engine_check",
+ "format_version": 1,
+ "check": "signs",
+ "id": "check.signs",
+ "version": "1.0.0",
+ "engine_min": "1.1",
+ "status": "active",
+ "title": "Contamination signs: plaster, wax, ester consolidant, burnt",
+ "description": "On the standard-resolution stream (high-res transferred first); each sign only when it passes its own B6b gate (check.acquisition, per sign; else that sign is 'gated: noise in <window>'). Kernel: -1e5 x SG17 quadratic 2nd derivative of log10(1/max(R,1e-3)). sharp(c, h, f0, f1) = mean N[c-h..c+h] - 0.5 x (mean N[c-f1..c-f0] + mean N[c+f0..c+f1]). Plaster: joint load = min over the two gypsum bands of (sharp - fauna median) / plaster contrast, fires above the cut. Wax: both sharp tests. Ester: one sharp test. Burnt: the heat check (check.heat). Signs add a FLAG (badge + text) and block an evidence lift (plaster, wax, ester; burnt does not block); they never change the verdict (DECISIONS 53). No clay sign (DECISIONS 41). Soft tier ('possible thin coating', a note only): when no hard contaminant sign fired (plaster, wax, ester, C1) and the scan is eligible (standard-resolution class always; other classes only when N2(2000-2100) <= the eligibility cut), the note fires if any CHECKED sign's statistic reaches its soft line (ester sharp, plaster joint load here; C1 excess in check.c1). It changes no verdict, blocks no lift and is not a flag.",
+ "licence": "CC-BY-4.0",
+ "created": "2026-10-03",
+ "provenance": {
+  "basis": "Plaster screen v3 and heat screen v1 frozen on an unreleased archaeological fauna series (statistics only, no site named); wax and ester tests from the SPYDER Bone warnings study (07). Clean pool false alarms: plaster 1, wax 0, ester 0 of 1,201 scans.",
+  "soft_tier": "Phase 0c (DECISIONS 74, 76), design A at a 2% clean false-alarm budget: one common quantile of the in-pool clean statistics (C1 excess, ester, plaster load) so the union false-alarm rate in the pool is 2%: C1 6.6 (C1 truncated 6.1, the same offset below its cut), ester 13.1, plaster 0.026. Independent clean sets: about 1.4% pooled; coats at the applied thickness (standard-resolution): PVA 80%, acrylic 95%, cellulose nitrate 36%; protein glue 3-8% (no shippable tier). High-resolution scans noisier than N2(2000-2100) 60 are not eligible (ester noise gives 7.5-25% false alarms)."
+ },
+ "parameters": {
+  "kernel": {
+   "absorbance_clip": 0.001,
+   "savgol": {
+    "window": 17,
+    "polyorder": 2,
+    "deriv": 2,
+    "delta": 1.0,
+    "mode": "interp"
+   },
+   "scale": -100000.0
+  },
+  "plaster": {
+   "bands": [
+    {
+     "sharp": [
+      1446,
+      2,
+      8,
+      12
+     ],
+     "fauna_median": -3.471468164711178,
+     "plaster_contrast": 136.7924929430862
+    },
+    {
+     "sharp": [
+      1945,
+      3,
+      10,
+      15
+     ],
+     "fauna_median": -2.4107746203449807,
+     "plaster_contrast": 165.2875517115569
+    }
+   ],
+   "fires_if_joint_load_above": 0.04859387541885367
+  },
+  "wax": {
+   "all_of": [
+    {
+     "sharp": [
+      1766,
+      3,
+      9,
+      15
+     ],
+     "at_least": 10.0
+    },
+    {
+     "sharp": [
+      1217,
+      3,
+      9,
+      15
+     ],
+     "at_least": 4.0
+    }
+   ]
+  },
+  "ester": {
+   "sharp": [
+    2254,
+    3,
+    9,
+    15
+   ],
+   "at_least": 35.0
+  },
+  "burnt": {
+   "check": "heat"
+  },
+  "gate": "B6b",
+  "blocks_lift": [
+   "plaster",
+   "wax",
+   "ester"
+  ],
+  "flag_only": [
+   "burnt"
+  ],
+  "soft_tier": {
+   "ester": {
+    "at_least": 13.1
+   },
+   "plaster": {
+    "joint_load_at_least": 0.026
+   },
+   "c1": "check.c1 soft_tier (full and truncated)",
+   "requires_no_hard_sign": [
+    "plaster",
+    "wax",
+    "ester",
+    "C1"
+   ],
+   "eligibility": {
+    "always_classes": [
+     "asd.labspec4.std"
+    ],
+    "otherwise_n2_window_nm": [
+     2000,
+     2100
+    ],
+    "otherwise_n2_at_most": 60.0
+   },
+   "note_key": "possible_thin_coating"
+  }
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_checks_v1.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "rc_good_positive_all_six",
+    "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
+    "inputs": {
+     "gates": {
+      "plaster": null,
+      "wax": null,
+      "ester": null,
+      "burnt": null
+     }
+    },
+    "expected": {
+     "plaster.status": "assessed",
+     "plaster.joint_load": -0.03704496055217154,
+     "plaster.fired": false,
+     "plaster.gated": false,
+     "wax.status": "assessed",
+     "wax.sharp.1766": 2.302712485817569,
+     "wax.sharp.1217": -1.9591214274462505,
+     "wax.fired": false,
+     "wax.gated": false,
+     "ester.status": "assessed",
+     "ester.sharp": 11.745223573688726,
+     "ester.fired": false,
+     "ester.gated": false,
+     "burnt.status": "assessed",
+     "burnt.edge50_nm": 493.0,
+     "burnt.OH1433": 10.381130207764118,
+     "burnt.OH979": 1.6786727438561986,
+     "burnt.R_vis": 0.5976829972111554,
+     "burnt.charred": false,
+     "burnt.calcined": false,
+     "burnt.fired": false,
+     "burnt.gated": false
+    }
+   },
+   {
+    "name": "rc_lift_blocked_ester",
+    "spectrum_sha256": "8fdec54e7ffddd3d99865211ffbc578077fd86c8fce848899634c9127cb0b41c",
+    "inputs": {
+     "gates": {
+      "plaster": null,
+      "wax": null,
+      "ester": null,
+      "burnt": null
+     }
+    },
+    "expected": {
+     "plaster.status": "assessed",
+     "plaster.joint_load": -0.06961540535693408,
+     "plaster.fired": false,
+     "plaster.gated": false,
+     "wax.status": "assessed",
+     "wax.sharp.1766": 1.4680156937081432,
+     "wax.sharp.1217": -1.462815711513815,
+     "wax.fired": false,
+     "wax.gated": false,
+     "ester.status": "assessed",
+     "ester.sharp": 45.00000000000017,
+     "ester.fired": true,
+     "ester.gated": false,
+     "burnt.status": "assessed",
+     "burnt.edge50_nm": 450.0,
+     "burnt.OH1433": 17.864100394895697,
+     "burnt.OH979": 2.5735228882227053,
+     "burnt.R_vis": 0.5508031430278885,
+     "burnt.charred": false,
+     "burnt.calcined": false,
+     "burnt.fired": false,
+     "burnt.gated": false
+    }
+   },
+   {
+    "name": "rc_lift_blocked_gated",
+    "spectrum_sha256": "f2eff45c7ac2e08166f6155676b5e1b8f709302569a3a0c2a1208031f6058ff2",
+    "inputs": {
+     "gates": {
+      "plaster": "noise in 2000-2100 nm",
+      "wax": "noise in 2000-2100 nm",
+      "ester": "noise in 2000-2100 nm",
+      "burnt": "noise in 2000-2100 nm"
+     }
+    },
+    "expected": {
+     "plaster.status": "gated: noise in 2000-2100 nm",
+     "plaster.fired": null,
+     "plaster.gated": true,
+     "wax.status": "gated: noise in 2000-2100 nm",
+     "wax.fired": null,
+     "wax.gated": true,
+     "ester.status": "gated: noise in 2000-2100 nm",
+     "ester.fired": null,
+     "ester.gated": true,
+     "burnt.status": "gated: noise in 2000-2100 nm",
+     "burnt.fired": null,
+     "burnt.gated": true
+    }
+   },
+   {
+    "name": "rc_flag_on_good_wax",
+    "spectrum_sha256": "c6e4e1c91a8a53d5d9d2893097c55ff13237f33ef87bdf858d3c8526518a145d",
+    "inputs": {
+     "gates": {
+      "plaster": null,
+      "wax": null,
+      "ester": null,
+      "burnt": null
+     }
+    },
+    "expected": {
+     "plaster.status": "assessed",
+     "plaster.joint_load": -0.03704496055217146,
+     "plaster.fired": false,
+     "plaster.gated": false,
+     "wax.status": "assessed",
+     "wax.sharp.1766": 15.999999999999726,
+     "wax.sharp.1217": 7.000000000000059,
+     "wax.fired": true,
+     "wax.gated": false,
+     "ester.status": "assessed",
+     "ester.sharp": 11.745223573688701,
+     "ester.fired": false,
+     "ester.gated": false,
+     "burnt.status": "assessed",
+     "burnt.edge50_nm": 492.0,
+     "burnt.OH1433": 10.381131704104716,
+     "burnt.OH979": 1.6786727438561986,
+     "burnt.R_vis": 0.5976829972111553,
+     "burnt.charred": false,
+     "burnt.calcined": false,
+     "burnt.fired": false,
+     "burnt.gated": false
+    }
+   },
+   {
+    "name": "rc_flag_on_borderline_plaster",
+    "spectrum_sha256": "b850d333b661423b6cc2309fc9f0d464d4b6ec24d20adde872feac0bf85713d0",
+    "inputs": {
+     "gates": {
+      "plaster": null,
+      "wax": null,
+      "ester": null,
+      "burnt": null
+     }
+    },
+    "expected": {
+     "plaster.status": "assessed",
+     "plaster.joint_load": 0.16583689658722342,
+     "plaster.fired": true,
+     "plaster.gated": false,
+     "wax.status": "assessed",
+     "wax.sharp.1766": 0.36294555360515285,
+     "wax.sharp.1217": -0.4633060644936683,
+     "wax.fired": false,
+     "wax.gated": false,
+     "ester.status": "assessed",
+     "ester.sharp": 4.97490814791602,
+     "ester.fired": false,
+     "ester.gated": false,
+     "burnt.status": "assessed",
+     "burnt.edge50_nm": 518.0,
+     "burnt.OH1433": -7.323741750888684,
+     "burnt.OH979": 1.968594428273805,
+     "burnt.R_vis": 0.6383666466135459,
+     "burnt.charred": false,
+     "burnt.calcined": false,
+     "burnt.fired": false,
+     "burnt.gated": false
+    }
+   },
+   {
+    "name": "rc_burnt_only_borderline",
+    "spectrum_sha256": "69955f800328513081feb1c55b83763d4343ba5c847473647f1ac0a9dc1e5d7f",
+    "inputs": {
+     "gates": {
+      "plaster": null,
+      "wax": null,
+      "ester": null,
+      "burnt": null
+     }
+    },
+    "expected": {
+     "plaster.status": "assessed",
+     "plaster.joint_load": -0.03554033288583167,
+     "plaster.fired": false,
+     "plaster.gated": false,
+     "wax.status": "assessed",
+     "wax.sharp.1766": 0.3629455536051932,
+     "wax.sharp.1217": -0.4633060644936168,
+     "wax.fired": false,
+     "wax.gated": false,
+     "ester.status": "assessed",
+     "ester.sharp": 4.974908147916056,
+     "ester.fired": false,
+     "ester.gated": false,
+     "burnt.status": "assessed",
+     "burnt.edge50_nm": 991.0,
+     "burnt.OH1433": 10.589702659615737,
+     "burnt.OH979": -213.87402488249512,
+     "burnt.R_vis": 0.19150999398406368,
+     "burnt.charred": true,
+     "burnt.calcined": false,
+     "burnt.fired": true,
+     "burnt.gated": false
+    }
+   },
+   {
+    "name": "hires_c1_gated_plaster_checked",
+    "spectrum_sha256": "ed351b2226448b432a07f72cb76e8bb09e4468b336a584006b4a6222a5cdc88e",
+    "inputs": {
+     "gates": {
+      "plaster": null,
+      "wax": null,
+      "ester": null,
+      "burnt": null
+     }
+    },
+    "expected": {
+     "plaster.status": "assessed",
+     "plaster.joint_load": -0.030734467554008427,
+     "plaster.fired": false,
+     "plaster.gated": false,
+     "wax.status": "assessed",
+     "wax.sharp.1766": 1.909087746252359,
+     "wax.sharp.1217": -1.7642526582021807,
+     "wax.fired": false,
+     "wax.gated": false,
+     "ester.status": "assessed",
+     "ester.sharp": 9.506702367265152,
+     "ester.fired": false,
+     "ester.gated": false,
+     "burnt.status": "assessed",
+     "burnt.edge50_nm": 498.0,
+     "burnt.OH1433": 8.519717087172424,
+     "burnt.OH979": 1.6786727438561768,
+     "burnt.R_vis": 0.5976829972111553,
+     "burnt.charred": false,
+     "burnt.calcined": false,
+     "burnt.fired": false,
+     "burnt.gated": false
+    }
+   },
+   {
+    "name": "hires_ester_gated",
+    "spectrum_sha256": "c597349622d9463609bb4066fd4610825490831bed6a762c5a180c82eb96d65a",
+    "inputs": {
+     "gates": {
+      "plaster": null,
+      "wax": null,
+      "ester": "noise in 2220-2245 nm",
+      "burnt": null
+     }
+    },
+    "expected": {
+     "plaster.status": "assessed",
+     "plaster.joint_load": -0.030734467554008427,
+     "plaster.fired": false,
+     "plaster.gated": false,
+     "wax.status": "assessed",
+     "wax.sharp.1766": 1.909087746252359,
+     "wax.sharp.1217": -1.7642526582021807,
+     "wax.fired": false,
+     "wax.gated": false,
+     "ester.status": "gated: noise in 2220-2245 nm",
+     "ester.fired": null,
+     "ester.gated": true,
+     "burnt.status": "assessed",
+     "burnt.edge50_nm": 498.0,
+     "burnt.OH1433": 8.519717087172424,
+     "burnt.OH979": 1.6786727438561768,
+     "burnt.R_vis": 0.5976829972111553,
+     "burnt.charred": false,
+     "burnt.calcined": false,
+     "burnt.fired": false,
+     "burnt.gated": false
+    }
+   }
+  ]
+ }
+}

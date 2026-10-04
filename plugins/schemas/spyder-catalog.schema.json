@@ -1,0 +1,74 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://spyder-bone.org/schemas/spyder-catalog.schema.json",
+ "title": "SPYDER Bone catalog of shipped plug-in files",
+ "type": "object",
+ "required": [
+  "format",
+  "format_version",
+  "created",
+  "entries"
+ ],
+ "properties": {
+  "format": {
+   "const": "spyder-bone/catalog"
+  },
+  "format_version": {
+   "const": 1
+  },
+  "created": {
+   "type": "string"
+  },
+  "note": {
+   "type": "string"
+  },
+  "licence": {
+   "type": "string"
+  },
+  "entries": {
+   "type": "array",
+   "minItems": 1,
+   "items": {
+    "type": "object",
+    "required": [
+     "file",
+     "sha256",
+     "format"
+    ],
+    "properties": {
+     "file": {
+      "type": "string"
+     },
+     "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+     },
+     "format": {
+      "type": "string"
+     },
+     "id": {
+      "type": "string"
+     },
+     "version": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "kind": {
+      "type": "string"
+     },
+     "role": {
+      "type": "string"
+     },
+     "bytes": {
+      "type": "integer"
+     },
+     "provisional": {
+      "type": "boolean"
+     }
+    }
+   }
+  }
+ }
+}

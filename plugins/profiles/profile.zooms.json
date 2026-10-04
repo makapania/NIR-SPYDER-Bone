@@ -1,0 +1,273 @@
+{
+ "format": "spyder-bone/analysis_profile",
+ "format_version": 1,
+ "analysis": "zooms",
+ "id": "profile.zooms",
+ "version": "1.0.0",
+ "engine_min": "1.1",
+ "status": "active",
+ "title": "ZooMS: verdict profile",
+ "description": "The ZooMS verdict is the band-pattern verdict of check.zooms_patterns (DECISIONS 17; no % cut), including its 1545 nm vote (DECISIONS 75). CONS3 is shown as support. Contaminant and burnt signs are flags only. Notes: above_bone_range (m > above_bone_range_m_above) and possible_thin_coating (one shown); c1_reduced details-only.",
+ "licence": "CC-BY-4.0",
+ "created": "2026-10-03",
+ "provenance": {
+  "basis": "Phase 0a A17; DECISIONS 17, 46, 53, 72, 75, 76."
+ },
+ "parameters": {
+  "kind": "zooms_pattern",
+  "verdict_from_check": "zooms_patterns",
+  "models": [
+   {
+    "key": "cons3",
+    "model_id": "collagen.spyder.consensus3_median",
+    "role": "verdict_input",
+    "components": [
+     "wc2045",
+     "wc1500",
+     "F05"
+    ],
+    "shown_for_classes": [
+     "asd.labspec4.std",
+     "asd.labspec4.hires"
+    ]
+   },
+   {
+    "key": "ryder2045",
+    "model_id": "collagen.ryder2026.2045",
+    "role": "published",
+    "shown_for_classes": [
+     "asd.labspec4.std",
+     "asd.labspec4.hires"
+    ]
+   },
+   {
+    "key": "s1_r2",
+    "model_id": "collagen.spyder.1500_snv_transfer_free",
+    "role": "second_opinion",
+    "shown_for_classes": [
+     "asd.labspec4.hires"
+    ]
+   }
+  ],
+  "support_model_key": "cons3",
+  "flags": {
+   "contaminant": [
+    "plaster",
+    "wax",
+    "ester",
+    "C1"
+   ],
+   "burnt": [
+    "burnt"
+   ],
+   "keys": [
+    "flag_contaminant",
+    "flag_burnt"
+   ]
+  },
+  "notes": {
+   "precedence_supporting": [
+    "above_bone_range",
+    "possible_thin_coating"
+   ],
+   "max_shown": 2,
+   "above_bone_range_m_above": 20.0,
+   "details_only": [
+    "c1_reduced"
+   ],
+   "keys": [
+    "above_bone_range",
+    "possible_thin_coating",
+    "c1_reduced",
+    "second_opinion_differs"
+   ]
+  },
+  "sort": {
+   "verdict_order": [
+    "Good",
+    "Borderline",
+    "Can't tell",
+    "Unlikely",
+    "Rescan",
+    "Doesn't look like bone"
+   ],
+   "within": {
+    "Good": "S",
+    "Borderline": "S",
+    "Can't tell": "S",
+    "Unlikely": "S"
+   },
+   "descending": true,
+   "unrounded": true
+  },
+  "second_opinion": {
+   "classes": [
+    "asd.labspec4.hires"
+   ],
+   "gap_points": 4.1
+  },
+  "domain_note_ratio_above": 3.0
+ },
+ "golden": {
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "zooms_good",
+    "inputs": {
+     "m": 4.0,
+     "components": {},
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "zooms_pattern",
+     "model_verdict": null,
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zooms_good_glue_flag",
+    "inputs": {
+     "m": 4.0,
+     "components": {},
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [
+      "C1"
+     ],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "zooms_pattern",
+     "model_verdict": null,
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "zooms_borderline_D",
+    "inputs": {
+     "m": 1.0,
+     "components": {},
+     "evidence_level": "clear",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "zooms_pattern",
+     "model_verdict": null,
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zooms_unlikely_B_burnt",
+    "inputs": {
+     "m": 0.1,
+     "components": {},
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [
+      "burnt"
+     ],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "zooms_pattern",
+     "model_verdict": null,
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": "flag_burnt"
+    }
+   },
+   {
+    "name": "zooms_cant_tell",
+    "inputs": {
+     "m": 0.3,
+     "components": {},
+     "evidence_level": "can't tell",
+     "zooms_verdict": "Can't tell",
+     "zooms_pattern": "A",
+     "signs_fired": [],
+     "c1_status": "gated",
+     "gated": true
+    },
+    "expected": {
+     "verdict": "Can't tell",
+     "rule_step": "zooms_pattern",
+     "model_verdict": null,
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zooms_above_bone_range",
+    "inputs": {
+     "m": 21.0,
+     "components": {},
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "zooms_pattern",
+     "model_verdict": null,
+     "notes_shown": "above_bone_range",
+     "notes_all": "above_bone_range",
+     "flags": ""
+    }
+   },
+   {
+    "name": "zooms_soft_and_c1_reduced",
+    "inputs": {
+     "m": 2.0,
+     "components": {},
+     "evidence_level": "clear",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed: truncated (long-wave region too noisy)",
+     "gated": false,
+     "soft_components": [
+      "C1t"
+     ]
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "zooms_pattern",
+     "model_verdict": null,
+     "notes_shown": "possible_thin_coating",
+     "notes_all": "possible_thin_coating,c1_reduced",
+     "flags": ""
+    }
+   }
+  ]
+ }
+}

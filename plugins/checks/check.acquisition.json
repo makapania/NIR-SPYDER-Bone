@@ -1,0 +1,483 @@
+{
+ "format": "spyder-bone/engine_check",
+ "format_version": 1,
+ "check": "acquisition",
+ "id": "check.acquisition",
+ "version": "1.0.0",
+ "engine_min": "1.0",
+ "status": "active",
+ "title": "Acquisition checks B1-B8 and the per-sign B6b gates (as-measured scan)",
+ "description": "Supported-input matrix (B1) and the bad-scan checks on the AS-MEASURED reflectance (PLAN v3.2 Step 1-2). Unusable (B1-B4) replaces every verdict with Rescan. B6 is a Check only (never Unusable until calibrated on same-spot repeats). B6b gates each contaminant sign (and C1) on the noise in its own window, with cuts keyed by the transfer applied to the stream. N2 is the canonical noise measure (1e-5 absorbance).",
+ "licence": "CC-BY-4.0",
+ "created": "2026-10-03",
+ "provenance": {
+  "basis": "SPYDER Bone planning reports 03 (reader), 07 (warnings), Phase 0a A1-A2 (canonical N2, B6b cut 60, correlated-noise gains). B8 thresholds from the relative splice steps of every file in hand (standard-resolution files <= 1.7%, high-resolution sessions <= 6.8%).",
+  "per_sign_gates": "Phase 0c (high-resolution noise study): clean false alarms of each sign on 1,201 clean standard-resolution scans with high-resolution-like noise injected, after the v0.2 transfer, as a function of the noise in the sign's own window; cut = the largest N2 at which the false-alarm rate stays within +0.25 points of the noiseless rate (model noise shape; measured shape as the pessimistic bound): wax 80 / 59 -> 60, ester 306 / 215 -> 250, plaster 174 / 125 -> 150, C1 125 / 50 -> 125. Burnt (visible-range edge and short-wave OH bands) is ungated on v0.2; the 'none' table keeps the shipped gate so standard-resolution behaviour is unchanged."
+ },
+ "parameters": {
+  "input_matrix": {
+   "file_magic": [
+    "as8"
+   ],
+   "data_type_raw": 0,
+   "require_dark_corrected": true,
+   "grid": {
+    "start_nm": 350.0,
+    "step_nm": 1.0,
+    "n": 2151
+   },
+   "reference_range_nm": [
+    1000,
+    2450
+   ],
+   "accepted_joins_nm": [
+    1000.0,
+    1800.0
+   ]
+  },
+  "integrity_range_nm": [
+   1000,
+   2450
+  ],
+  "B2_saturation": {
+   "dn_at_least": 65000,
+   "note": "raw sample DN in the integrity range"
+  },
+  "B3_impossible": {
+   "r_at_most": 0.0
+  },
+  "B4_panel_or_empty": {
+   "panel_mean_range": [
+    0.95,
+    1.05
+   ],
+   "panel_sd_below": 0.03,
+   "empty_mean_below": 0.03
+  },
+  "B5_dark": {
+   "mean_R_below": 0.08
+  },
+  "B6_noise": {
+   "check_if_implied_sd_above": 0.5,
+   "unusable": null,
+   "note": "implied SD (% collagen) = gain x N2, gains keyed by model and transfer (noise_gains.json)"
+  },
+  "B6b_signs_gate": {
+   "n2_window_nm": [
+    2000,
+    2100
+   ],
+   "signs": [
+    "plaster",
+    "wax",
+    "ester",
+    "burnt",
+    "C1"
+   ],
+   "contaminant_signs": [
+    "plaster",
+    "wax",
+    "ester",
+    "C1"
+   ],
+   "by_transfer_key": {
+    "none": {
+     "plaster": {
+      "n2_window_nm": [
+       2000,
+       2100
+      ],
+      "n2_above": 60.0
+     },
+     "wax": {
+      "n2_window_nm": [
+       2000,
+       2100
+      ],
+      "n2_above": 60.0
+     },
+     "ester": {
+      "n2_window_nm": [
+       2000,
+       2100
+      ],
+      "n2_above": 60.0
+     },
+     "burnt": {
+      "n2_window_nm": [
+       2000,
+       2100
+      ],
+      "n2_above": 60.0
+     },
+     "C1": {
+      "n2_window_nm": [
+       2000,
+       2100
+      ],
+      "n2_above": 60.0
+     }
+    },
+    "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": {
+     "plaster": {
+      "n2_window_nm": [
+       2000,
+       2100
+      ],
+      "n2_above": 150.0
+     },
+     "wax": {
+      "n2_window_nm": [
+       1500,
+       1600
+      ],
+      "n2_above": 60.0
+     },
+     "ester": {
+      "n2_window_nm": [
+       2220,
+       2245
+      ],
+      "n2_above": 250.0
+     },
+     "burnt": null,
+     "C1": {
+      "n2_window_nm": [
+       2000,
+       2100
+      ],
+      "n2_above": 125.0
+     }
+    }
+   },
+   "unknown_transfer_key_uses": "none",
+   "note": "A sign is gated (not checked) when N2 of its own window on the AS-MEASURED scan exceeds its cut; the table is picked by the transfer key of the standard-resolution stream ('none' or the transfer file's sha256); a key with no entry uses the 'none' table; a null gate means the sign is never gated (burnt on v0.2: it reads the visible edge, not the noisy SWIR2). The record keeps check.B6b as a summary: n2 = N2(n2_window_nm), gated = every contaminant sign gated, signs_gated = the gated contaminant signs, outcome Note when any contaminant sign is gated."
+  },
+  "B7_above_one": {
+   "range_nm": [
+    1001,
+    1800
+   ],
+   "max_R_above": 1.0
+  },
+  "B8_splice_step": {
+   "fits": [
+    {
+     "join_nm": 1000,
+     "fit_nm": [
+      1001,
+      1005
+     ],
+     "extrapolate_to_nm": 1000,
+     "compare_nm": 1000,
+     "denominator_nm": 1001
+    },
+    {
+     "join_nm": 1800,
+     "fit_nm": [
+      1795,
+      1800
+     ],
+     "extrapolate_to_nm": 1801,
+     "compare_nm": 1801,
+     "denominator_nm": 1800
+    }
+   ],
+   "note_above": 0.05,
+   "check_above": 0.15,
+   "definition": "relative step = |line fitted on the SWIR1 side, extrapolated one channel across the join - the neighbouring channel| / R at the SWIR1 channel next to the join"
+  }
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_checks_v1.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "rc_good_positive_all_six",
+    "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
+    "inputs": {
+     "transfer_key": "none"
+    },
+    "expected": {
+     "B2.status": "not assessed: no raw DN (spectrum input)",
+     "B2.outcome": null,
+     "B3.status": "assessed",
+     "B3.outcome": "ok",
+     "B4.status": "assessed",
+     "B4.mean_R": 0.28406759676085463,
+     "B4.sd_R": 0.24986207945003158,
+     "B4.outcome": "ok",
+     "B4.reason": null,
+     "B5.status": "assessed",
+     "B5.mean_R": 0.28406759676085463,
+     "B5.outcome": "ok",
+     "B7.status": "assessed",
+     "B7.max_R": 0.7616169,
+     "B7.outcome": "ok",
+     "B8.status": "assessed",
+     "B8.relative_steps.n": 2,
+     "B8.relative_steps.0": 0.0004504889531730842,
+     "B8.relative_steps.1": 0.007125227728534362,
+     "B8.outcome": "ok",
+     "B6b.status": "assessed",
+     "B6b.n2": 9.876748127923124,
+     "B6b.outcome": "ok",
+     "B6b.gated": false,
+     "B6b.signs_gated.n": 0
+    }
+   },
+   {
+    "name": "rc_lift_blocked_gated",
+    "spectrum_sha256": "f2eff45c7ac2e08166f6155676b5e1b8f709302569a3a0c2a1208031f6058ff2",
+    "inputs": {
+     "transfer_key": "none"
+    },
+    "expected": {
+     "B2.status": "not assessed: no raw DN (spectrum input)",
+     "B2.outcome": null,
+     "B3.status": "assessed",
+     "B3.outcome": "ok",
+     "B4.status": "assessed",
+     "B4.mean_R": 0.32765038673887864,
+     "B4.sd_R": 0.21276223857559584,
+     "B4.outcome": "ok",
+     "B4.reason": null,
+     "B5.status": "assessed",
+     "B5.mean_R": 0.32765038673887864,
+     "B5.outcome": "ok",
+     "B7.status": "assessed",
+     "B7.max_R": 0.6530303395139899,
+     "B7.outcome": "ok",
+     "B8.status": "assessed",
+     "B8.relative_steps.n": 2,
+     "B8.relative_steps.0": 0.0006789449929507491,
+     "B8.relative_steps.1": 0.003243775786800503,
+     "B8.outcome": "ok",
+     "B6b.status": "assessed",
+     "B6b.n2": 76.58682042470585,
+     "B6b.outcome": "Note",
+     "B6b.gated": true,
+     "B6b.signs_gated.n": 4,
+     "B6b.signs_gated.0": "plaster",
+     "B6b.signs_gated.1": "wax",
+     "B6b.signs_gated.2": "ester",
+     "B6b.signs_gated.3": "C1"
+    }
+   },
+   {
+    "name": "rescan_white_panel",
+    "spectrum_sha256": "be72fa0b546abd093689c8c79d3b8c3d475cc67501d04821a20aa53f5d5a5300",
+    "inputs": {
+     "transfer_key": "none"
+    },
+    "expected": {
+     "B2.status": "not assessed: no raw DN (spectrum input)",
+     "B2.outcome": null,
+     "B3.status": "assessed",
+     "B3.outcome": "ok",
+     "B4.status": "assessed",
+     "B4.mean_R": 1.0000314326842108,
+     "B4.sd_R": 0.0019778950590644846,
+     "B4.outcome": "Unusable",
+     "B4.reason": "white panel",
+     "B5.status": "assessed",
+     "B5.mean_R": 1.0000314326842108,
+     "B5.outcome": "ok",
+     "B7.status": "assessed",
+     "B7.max_R": 1.0063825425190556,
+     "B7.outcome": "Note",
+     "B8.status": "assessed",
+     "B8.relative_steps.n": 2,
+     "B8.relative_steps.0": 0.0009975198808439523,
+     "B8.relative_steps.1": 0.0007300288500216806,
+     "B8.outcome": "ok",
+     "B6b.status": "assessed",
+     "B6b.n2": 246.59777555227024,
+     "B6b.outcome": "Note",
+     "B6b.gated": true,
+     "B6b.signs_gated.n": 4,
+     "B6b.signs_gated.0": "plaster",
+     "B6b.signs_gated.1": "wax",
+     "B6b.signs_gated.2": "ester",
+     "B6b.signs_gated.3": "C1"
+    }
+   },
+   {
+    "name": "rescan_impossible_R",
+    "spectrum_sha256": "3518cab57b25d180e81be4d9ed0c59f6d9bfe29cb709a831dadbf6ad614cabeb",
+    "inputs": {
+     "transfer_key": "none"
+    },
+    "expected": {
+     "B2.status": "not assessed: no raw DN (spectrum input)",
+     "B2.outcome": null,
+     "B3.status": "assessed",
+     "B3.outcome": "Unusable",
+     "B4.status": "assessed",
+     "B4.mean_R": 0.5127633507236389,
+     "B4.sd_R": 0.2812165588308555,
+     "B4.outcome": "ok",
+     "B4.reason": null,
+     "B5.status": "assessed",
+     "B5.mean_R": 0.5127633507236389,
+     "B5.outcome": "ok",
+     "B7.status": "assessed",
+     "B7.max_R": 0.983691,
+     "B7.outcome": "ok",
+     "B8.status": "assessed",
+     "B8.relative_steps.n": 2,
+     "B8.relative_steps.0": 0.02901237222183268,
+     "B8.relative_steps.1": 0.03449945434006124,
+     "B8.outcome": "ok",
+     "B6b.status": "assessed",
+     "B6b.n2": 3.4894252671959767,
+     "B6b.outcome": "ok",
+     "B6b.gated": false,
+     "B6b.signs_gated.n": 0
+    }
+   },
+   {
+    "name": "notes_B7_B8",
+    "spectrum_sha256": "2360abff93a20a5bca4d17ea95745f2d189f3af0680b42a5b252c55bbc86be5e",
+    "inputs": {
+     "transfer_key": "none"
+    },
+    "expected": {
+     "B2.status": "not assessed: no raw DN (spectrum input)",
+     "B2.outcome": null,
+     "B3.status": "assessed",
+     "B3.outcome": "ok",
+     "B4.status": "assessed",
+     "B4.mean_R": 0.9543813049476222,
+     "B4.sd_R": 0.48118277072563215,
+     "B4.outcome": "ok",
+     "B4.reason": null,
+     "B5.status": "assessed",
+     "B5.mean_R": 0.9543813049476222,
+     "B5.outcome": "ok",
+     "B7.status": "assessed",
+     "B7.max_R": 1.7706438,
+     "B7.outcome": "Note",
+     "B8.status": "assessed",
+     "B8.relative_steps.n": 2,
+     "B8.relative_steps.0": 0.029012372221832325,
+     "B8.relative_steps.1": 0.11026013378099066,
+     "B8.outcome": "Note",
+     "B6b.status": "assessed",
+     "B6b.n2": 3.489425267212437,
+     "B6b.outcome": "ok",
+     "B6b.gated": false,
+     "B6b.signs_gated.n": 0
+    }
+   },
+   {
+    "name": "note_B5_dark",
+    "spectrum_sha256": "023055a3093c4796caa98f3778a15ac99d89bf41cb52dea7bb5710619f50906a",
+    "inputs": {
+     "transfer_key": "none"
+    },
+    "expected": {
+     "B2.status": "not assessed: no raw DN (spectrum input)",
+     "B2.outcome": null,
+     "B3.status": "assessed",
+     "B3.outcome": "ok",
+     "B4.status": "assessed",
+     "B4.mean_R": 0.06324087343004824,
+     "B4.sd_R": 0.047515673788026284,
+     "B4.outcome": "ok",
+     "B4.reason": null,
+     "B5.status": "assessed",
+     "B5.mean_R": 0.06324087343004824,
+     "B5.outcome": "Note",
+     "B7.status": "assessed",
+     "B7.max_R": 0.15144795,
+     "B7.outcome": "ok",
+     "B8.status": "assessed",
+     "B8.relative_steps.n": 2,
+     "B8.relative_steps.0": 0.01937021303569682,
+     "B8.relative_steps.1": 0.032909721929524675,
+     "B8.outcome": "ok",
+     "B6b.status": "assessed",
+     "B6b.n2": 4.24195112141322,
+     "B6b.outcome": "ok",
+     "B6b.gated": false,
+     "B6b.signs_gated.n": 0
+    }
+   },
+   {
+    "name": "b6_check_hires_noisy",
+    "spectrum_sha256": "d9e57838a0cf77fd6ca9210a46b951f9512bff58383eefc64cd7a449aecb0b61",
+    "inputs": {
+     "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
+    },
+    "expected": {
+     "B2.status": "not assessed: no raw DN (spectrum input)",
+     "B2.outcome": null,
+     "B3.status": "assessed",
+     "B3.outcome": "ok",
+     "B4.status": "assessed",
+     "B4.mean_R": 0.7420772193132981,
+     "B4.sd_R": 0.7810287773702309,
+     "B4.outcome": "ok",
+     "B4.reason": null,
+     "B5.status": "assessed",
+     "B5.mean_R": 0.7420772193132981,
+     "B5.outcome": "ok",
+     "B7.status": "assessed",
+     "B7.max_R": 2.350032374560297,
+     "B7.outcome": "Note",
+     "B8.status": "assessed",
+     "B8.relative_steps.n": 2,
+     "B8.relative_steps.0": 0.030707888716488274,
+     "B8.relative_steps.1": 0.05136135530002409,
+     "B8.outcome": "Note",
+     "B6b.status": "assessed",
+     "B6b.n2": 220.0000000000164,
+     "B6b.outcome": "Note",
+     "B6b.gated": false,
+     "B6b.signs_gated.n": 2,
+     "B6b.signs_gated.0": "plaster",
+     "B6b.signs_gated.1": "C1"
+    }
+   },
+   {
+    "name": "hires_c1_gated_plaster_checked",
+    "spectrum_sha256": "5d34f818ba8e6af3464051ee73b3db86a835e0b0459c24992b70cdaf879ae129",
+    "inputs": {
+     "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
+    },
+    "expected": {
+     "B2.status": "not assessed: no raw DN (spectrum input)",
+     "B2.outcome": null,
+     "B3.status": "assessed",
+     "B3.outcome": "ok",
+     "B4.status": "assessed",
+     "B4.mean_R": 0.42651240562597065,
+     "B4.sd_R": 0.5101171638537152,
+     "B4.outcome": "ok",
+     "B4.reason": null,
+     "B5.status": "assessed",
+     "B5.mean_R": 0.42651240562597065,
+     "B5.outcome": "ok",
+     "B7.status": "assessed",
+     "B7.max_R": 1.506777562369015,
+     "B7.outcome": "Note",
+     "B8.status": "assessed",
+     "B8.relative_steps.n": 2,
+     "B8.relative_steps.0": 0.0007101300482095413,
+     "B8.relative_steps.1": 0.011207614944155309,
+     "B8.outcome": "ok",
+     "B6b.status": "assessed",
+     "B6b.n2": 135.00000000000296,
+     "B6b.outcome": "Note",
+     "B6b.gated": false,
+     "B6b.signs_gated.n": 1,
+     "B6b.signs_gated.0": "C1"
+    }
+   }
+  ]
+ }
+}

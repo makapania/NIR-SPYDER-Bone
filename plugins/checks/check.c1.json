@@ -1,0 +1,225 @@
+{
+ "format": "spyder-bone/engine_check",
+ "format_version": 1,
+ "check": "c1",
+ "id": "check.c1",
+ "version": "1.0.0",
+ "engine_min": "1.1",
+ "status": "active",
+ "title": "C1: generic foreign organic (C-H excess over the collagen line)",
+ "description": "excess = (r1728 + r1762 + r2262 + r2350) - (a + b x (r1510 + r2044 + r2175)), r = mean E (evidence kernel) over centre +- 2 nm. Fires if excess > the cut. Runs only when no plaster, wax or ester sign fired and C1 passes its B6b gate; when the long-wave tail is unreliable for C1 (check.longwave) the truncated variant runs. Adds a flag; blocks an evidence lift. soft_tier: the soft line of the 'possible thin coating' note (check.signs soft_tier), full and truncated.",
+ "licence": "CC-BY-4.0",
+ "created": "2026-10-03",
+ "provenance": {
+  "basis": "Phase 0a A5: (a, b) least squares on 1,201 clean bone scans (public reference bones and unreleased archaeological fauna; statistics only); cut = 99.5th percentile of the specimen-grouped out-of-fold excess (8.00), rounded. False alarms 6/1,201 (0.50%) out of fold; held out across sources 0.30-0.80%."
+ },
+ "parameters": {
+  "kernel": {
+   "absorbance_clip": 1e-06,
+   "savgol": {
+    "window": 31,
+    "polyorder": 3,
+    "deriv": 2,
+    "delta": 1.0,
+    "mode": "interp"
+   },
+   "scale": -100000.0
+  },
+  "read_half_width_nm": 2,
+  "ch_bands_nm": [
+   1728,
+   1762,
+   2262,
+   2350
+  ],
+  "nh_bands_nm": [
+   1510,
+   2044,
+   2175
+  ],
+  "a": 2.048979435668694,
+  "b": 0.7237030866308519,
+  "fires_if_excess_above": 8.0,
+  "runs_only_if_not_fired": [
+   "plaster",
+   "wax",
+   "ester"
+  ],
+  "gate": "B6b",
+  "soft_tier": {
+   "excess_at_least": 6.6
+  },
+  "truncated": {
+   "ch_bands_nm": [
+    1728,
+    1762,
+    2262
+   ],
+   "nh_bands_nm": [
+    1510,
+    2044,
+    2175
+   ],
+   "a": 3.7984583230957534,
+   "b": 0.6310989707028958,
+   "fires_if_excess_above": 7.5,
+   "soft_tier": {
+    "excess_at_least": 6.1
+   },
+   "derivation": "same construction without r2350 (least squares on the clean pool; T = rounded 99.5th percentile of the grouped out-of-fold excess); out-of-fold false alarms 0.50%"
+  }
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_checks_v1.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "rc_good_positive_all_six",
+    "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
+    "inputs": {
+     "gate": null,
+     "specific_fired": false,
+     "tail_unreliable": false,
+     "longwave_mode": "truncated"
+    },
+    "expected": {
+     "status": "assessed",
+     "excess": 0.9543831825967786,
+     "fired": false,
+     "gated": false
+    }
+   },
+   {
+    "name": "rc_lift_blocked_gated",
+    "spectrum_sha256": "f2eff45c7ac2e08166f6155676b5e1b8f709302569a3a0c2a1208031f6058ff2",
+    "inputs": {
+     "gate": "noise in 2000-2100 nm",
+     "specific_fired": false,
+     "tail_unreliable": false,
+     "longwave_mode": "truncated"
+    },
+    "expected": {
+     "status": "gated: noise in 2000-2100 nm",
+     "excess": null,
+     "fired": null,
+     "gated": true
+    }
+   },
+   {
+    "name": "rc_flag_on_good_wax",
+    "spectrum_sha256": "c6e4e1c91a8a53d5d9d2893097c55ff13237f33ef87bdf858d3c8526518a145d",
+    "inputs": {
+     "gate": null,
+     "specific_fired": true,
+     "tail_unreliable": false,
+     "longwave_mode": "truncated"
+    },
+    "expected": {
+     "status": "skipped: a specific sign fired",
+     "excess": null,
+     "fired": null,
+     "gated": false
+    }
+   },
+   {
+    "name": "rc_flag_on_unlikely_c1",
+    "spectrum_sha256": "3365fdd81606e124862fc4033a2a97798f46abbfb6526b1bed51f869eb98356d",
+    "inputs": {
+     "gate": null,
+     "specific_fired": false,
+     "tail_unreliable": false,
+     "longwave_mode": "truncated"
+    },
+    "expected": {
+     "status": "assessed",
+     "excess": 14.999999999999975,
+     "fired": true,
+     "gated": false
+    }
+   },
+   {
+    "name": "hires_longwave_not_assessed",
+    "spectrum_sha256": "4b41f6f40c740d17d3e5d796fae5babb1d0a8c01c6e9da38552f25ad4924636f",
+    "inputs": {
+     "gate": null,
+     "specific_fired": false,
+     "tail_unreliable": false,
+     "longwave_mode": "truncated"
+    },
+    "expected": {
+     "status": "assessed",
+     "excess": -0.12237444653969831,
+     "fired": false,
+     "gated": false
+    }
+   },
+   {
+    "name": "hires_c1_gated_plaster_checked",
+    "spectrum_sha256": "ed351b2226448b432a07f72cb76e8bb09e4468b336a584006b4a6222a5cdc88e",
+    "inputs": {
+     "gate": "noise in 2000-2100 nm",
+     "specific_fired": false,
+     "tail_unreliable": false,
+     "longwave_mode": "truncated"
+    },
+    "expected": {
+     "status": "gated: noise in 2000-2100 nm",
+     "excess": null,
+     "fired": null,
+     "gated": true
+    }
+   },
+   {
+    "name": "hires_longwave_300_c1_truncated",
+    "spectrum_sha256": "27fafdc3918d78f06150f70f55453f722ca25d4590a9b62ff400b54b742fd3dd",
+    "inputs": {
+     "gate": null,
+     "specific_fired": false,
+     "tail_unreliable": true,
+     "longwave_mode": "truncated"
+    },
+    "expected": {
+     "status": "assessed: truncated (long-wave region too noisy)",
+     "excess": 0.9183681871140905,
+     "fired": false,
+     "gated": false
+    }
+   },
+   {
+    "name": "hires_longwave_300_c1_truncated [longwave mode not_assessed]",
+    "spectrum_sha256": "27fafdc3918d78f06150f70f55453f722ca25d4590a9b62ff400b54b742fd3dd",
+    "inputs": {
+     "gate": null,
+     "specific_fired": false,
+     "tail_unreliable": true,
+     "longwave_mode": "not_assessed"
+    },
+    "expected": {
+     "status": "not assessed: long-wave region too noisy",
+     "excess": null,
+     "fired": null,
+     "gated": false
+    }
+   },
+   {
+    "name": "soft_c1_just_over",
+    "spectrum_sha256": "59acd100c001b833d8bafe5e6ddb30a896a9f6b953ef339319e822841473d65a",
+    "inputs": {
+     "gate": null,
+     "specific_fired": false,
+     "tail_unreliable": false,
+     "longwave_mode": "truncated"
+    },
+    "expected": {
+     "status": "assessed",
+     "excess": 6.700000000000065,
+     "fired": false,
+     "gated": false
+    }
+   }
+  ]
+ }
+}

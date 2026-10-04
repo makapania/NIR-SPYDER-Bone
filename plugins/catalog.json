@@ -1,0 +1,268 @@
+{
+ "format": "spyder-bone/catalog",
+ "format_version": 1,
+ "created": "2026-10-03",
+ "licence": "CC-BY-4.0 (see LICENSE.md)",
+ "note": "The shipped plug-in set. The verdict input is collagen.spyder.consensus3_median; Ryder 2045 ships as collagen.ryder2026.2045@2.0.0 (the n = 140 refit; the 1.0.0 research prototype does not ship). Files are identified by file sha256; same id and version with a different hash is rejected.",
+ "entries": [
+  {
+   "file": "bands.json",
+   "sha256": "69f072df8184e190e4d67add8c5a60dc0ff3f9334bcae2a461d768d9e8dd3aa3",
+   "bytes": 38389,
+   "format": "spyder-bone/bands",
+   "id": "bands.core",
+   "version": "1.0.0",
+   "status": "active"
+  },
+  {
+   "file": "checks/b9_prototypes_trunc_v1.npy",
+   "sha256": "2983d0f43cddf3a99bb9131a0ae995824d0dc780a9e5723f68ae694286e69425",
+   "bytes": 26608,
+   "format": "npy sidecar"
+  },
+  {
+   "file": "checks/b9_prototypes_v1.npy",
+   "sha256": "89a0a43e0655bab8becec64213940e62380f528b3df69ce0ec82abe2aaa19172",
+   "bytes": 30608,
+   "format": "npy sidecar"
+  },
+  {
+   "file": "checks/check.acquisition.json",
+   "sha256": "d509447961b4b919a10a73e0fecc85ebf1f003e748ff25c21a5b25da43eb27bd",
+   "bytes": 14530,
+   "format": "spyder-bone/engine_check",
+   "id": "check.acquisition",
+   "version": "1.0.0",
+   "status": "active"
+  },
+  {
+   "file": "checks/check.b9.json",
+   "sha256": "ce175c36753068949a7b9d55923cbf8639ae66128ea27d548131f57f8a268927",
+   "bytes": 5015,
+   "format": "spyder-bone/engine_check",
+   "id": "check.b9",
+   "version": "1.0.0",
+   "status": "active"
+  },
+  {
+   "file": "checks/check.c1.json",
+   "sha256": "a37a0998493d7f18ac2c8db9567609e80a53aa1c9c87999ab70840dbd5d9c710",
+   "bytes": 6290,
+   "format": "spyder-bone/engine_check",
+   "id": "check.c1",
+   "version": "1.0.0",
+   "status": "active"
+  },
+  {
+   "file": "checks/check.evidence_levels.json",
+   "sha256": "4d96ce43939d0d1a257140cb066144a1094097112a5810353a1ac170ac6ee2a1",
+   "bytes": 17144,
+   "format": "spyder-bone/engine_check",
+   "id": "check.evidence_levels",
+   "version": "1.0.0",
+   "status": "active"
+  },
+  {
+   "file": "checks/check.heat.json",
+   "sha256": "f793298154d17c162f48ecd3511c8a222c77eddc02c3f0bc38081bb80cc35c00",
+   "bytes": 2832,
+   "format": "spyder-bone/engine_check",
+   "id": "check.heat",
+   "version": "1.0.0",
+   "status": "active"
+  },
+  {
+   "file": "checks/check.longwave.json",
+   "sha256": "4552de2191aad03002517c0494b675a143c4a73ffe38855a60817f97b6046c94",
+   "bytes": 3977,
+   "format": "spyder-bone/engine_check",
+   "id": "check.longwave",
+   "version": "1.0.0",
+   "status": "active"
+  },
+  {
+   "file": "checks/check.signs.json",
+   "sha256": "8977a7d95a08182d8619e2b4008096628bb791a2f21415dda8a5d8a325535e7c",
+   "bytes": 12417,
+   "format": "spyder-bone/engine_check",
+   "id": "check.signs",
+   "version": "1.0.0",
+   "status": "active"
+  },
+  {
+   "file": "checks/check.zooms_patterns.json",
+   "sha256": "214107a6a875a5148cc2582088b0e2184500263e933ede41ed5394237cd6ef6a",
+   "bytes": 19337,
+   "format": "spyder-bone/engine_check",
+   "id": "check.zooms_patterns",
+   "version": "1.0.0",
+   "status": "active"
+  },
+  {
+   "file": "checks/golden_spectra_checks_v1.json",
+   "sha256": "3c1c84ecf0af4ff6980f0faf041aa955b9d6d6959a7fad9e1aad2a2ed92ff0ee",
+   "bytes": 1347038,
+   "format": "spyder-bone/golden_spectra",
+   "id": "spyder.checks.spectra.public.v1"
+  },
+  {
+   "file": "collagen_1500_oh_corrected.spyder-model.json",
+   "sha256": "07b4709f825b89c1f56cad44d22f35d47a55183ab9554f540f484712154b5541",
+   "bytes": 24809,
+   "format": "spyder-bone/model",
+   "id": "collagen.spyder.1500_oh_corrected",
+   "version": "1.0.0",
+   "status": "active",
+   "kind": "regression",
+   "role": "collagen_percent"
+  },
+  {
+   "file": "collagen_1500_snv_transfer_free.spyder-model.json",
+   "sha256": "4ad952093e9a8e15d0e02661ba28ad0ce1a09c188bcaf349252bf2594df14db9",
+   "bytes": 28772,
+   "format": "spyder-bone/model",
+   "id": "collagen.spyder.1500_snv_transfer_free",
+   "version": "1.0.0",
+   "status": "active",
+   "kind": "regression",
+   "role": "collagen_percent"
+  },
+  {
+   "file": "collagen_2045_oh_corrected.spyder-model.json",
+   "sha256": "b3ad281dab292156c484476da3b67848092c96ada131febe3422d2a6008b23b1",
+   "bytes": 22555,
+   "format": "spyder-bone/model",
+   "id": "collagen.spyder.2045_oh_corrected",
+   "version": "1.0.0",
+   "status": "active",
+   "kind": "regression",
+   "role": "collagen_percent"
+  },
+  {
+   "file": "collagen_2045_ryder2026_n140.spyder-model.json",
+   "sha256": "e1ebe4b6eb557bd3c4e14e70260d8329e1e3a93906568c40a9dfb373a1e37ba5",
+   "bytes": 28081,
+   "format": "spyder-bone/model",
+   "id": "collagen.ryder2026.2045",
+   "version": "2.0.0",
+   "status": "active",
+   "kind": "regression",
+   "role": "collagen_percent"
+  },
+  {
+   "file": "collagen_consensus3_median.spyder-model.json",
+   "sha256": "fb9f2281d7e8b2d4c8030d891114ab189da89aaa424bda2a47a9c4dbaafbbf30",
+   "bytes": 38867,
+   "format": "spyder-bone/model",
+   "id": "collagen.spyder.consensus3_median",
+   "version": "1.0.0",
+   "status": "active",
+   "kind": "consensus",
+   "role": "collagen_percent"
+  },
+  {
+   "file": "collagen_nh3_1500_2045_2175.spyder-model.json",
+   "sha256": "bb1e0a21ae6cb42daafe238d0b74dbcced929f9a7834be43aadb69f1d2c8f603",
+   "bytes": 43671,
+   "format": "spyder-bone/model",
+   "id": "collagen.spyder.nh3_1500_2045_2175",
+   "version": "1.0.0",
+   "status": "withdrawn",
+   "kind": "regression",
+   "role": "collagen_percent"
+  },
+  {
+   "file": "collagen_nh3_oh_corrected.spyder-model.json",
+   "sha256": "61760e82a243ccb30a33c9dac90334ca3b6a91b232e37b924beaa398c53f520b",
+   "bytes": 39160,
+   "format": "spyder-bone/model",
+   "id": "collagen.spyder.nh3_oh_corrected",
+   "version": "1.0.0",
+   "status": "active",
+   "kind": "regression",
+   "role": "collagen_percent"
+  },
+  {
+   "file": "golden_spectra_public_v2.json",
+   "sha256": "b5a496a63385e5a02ca25730a9c4ffd252fbe8afe3fa9f03dc6673a5b2e3ec68",
+   "bytes": 1427670,
+   "format": "spyder-bone/golden_spectra",
+   "id": "spyder.golden.public.v2"
+  },
+  {
+   "file": "hires_to_std_v0_1.spyder-transfer.json",
+   "sha256": "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff",
+   "bytes": 521233,
+   "format": "spyder-bone/transfer",
+   "id": "transfer.labspec4.hires_to_std",
+   "version": "0.1.0",
+   "status": "active",
+   "provisional": true
+  },
+  {
+   "file": "hires_to_std_v0_2.spyder-transfer.json",
+   "sha256": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f",
+   "bytes": 524607,
+   "format": "spyder-bone/transfer",
+   "id": "transfer.labspec4.hires_to_std",
+   "version": "0.2.0",
+   "status": "active",
+   "provisional": true
+  },
+  {
+   "file": "instruments.json",
+   "sha256": "58621dcfc1a0fb566b87746b2bc8a1552ea9e4e9ae923edd85b6f9d7fa88a8a1",
+   "bytes": 2601,
+   "format": "spyder-bone/instrument",
+   "id": "instruments.asd.labspec4",
+   "version": "1.1.0",
+   "status": "active"
+  },
+  {
+   "file": "noise_gains.json",
+   "sha256": "817dde3e8245bbb42f2cb2eeb74869bdd7ff7427418e5da20e025bc42c9175ee",
+   "bytes": 24666,
+   "format": "spyder-bone/noise_gains",
+   "id": "noise_gains.core",
+   "version": "1.0.0",
+   "status": "active",
+   "provisional": true
+  },
+  {
+   "file": "profiles/profile.isotopes.json",
+   "sha256": "56eaaf5145114d48f4d1be497bc862328e626b678c567fa9b210841fa9a4d500",
+   "bytes": 57442,
+   "format": "spyder-bone/analysis_profile",
+   "id": "profile.isotopes",
+   "version": "1.0.0",
+   "status": "active"
+  },
+  {
+   "file": "profiles/profile.radiocarbon.json",
+   "sha256": "cc21255ec103c318cbd0801bb14286b5900089605d770624804286b4a555c816",
+   "bytes": 57451,
+   "format": "spyder-bone/analysis_profile",
+   "id": "profile.radiocarbon",
+   "version": "1.0.0",
+   "status": "active"
+  },
+  {
+   "file": "profiles/profile.zooms.json",
+   "sha256": "f0eeaf939d9f1df0a1e8cd400d46c207fbc644177c9aa6e10e52a4a03b3cd170",
+   "bytes": 6151,
+   "format": "spyder-bone/analysis_profile",
+   "id": "profile.zooms",
+   "version": "1.0.0",
+   "status": "active"
+  },
+  {
+   "file": "reference_set_mmc2_v1.json",
+   "sha256": "b23442883269b6c1f2d8ec3551d9f7ab962cab5fa2d5ea403ee0037fdf8459df",
+   "bytes": 176149,
+   "format": "spyder-bone/reference_set",
+   "id": "reference_set.ryder2026.mmc2",
+   "version": "1.0.0",
+   "status": "active"
+  }
+ ]
+}

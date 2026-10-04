@@ -1,0 +1,276 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://spyder-bone.org/schemas/spyder-bands.schema.json",
+ "title": "SPYDER Bone shared band table (bands.json)",
+ "type": "object",
+ "required": [
+  "format",
+  "format_version",
+  "id",
+  "version",
+  "engine_min",
+  "status",
+  "kernels",
+  "bands",
+  "golden"
+ ],
+ "properties": {
+  "format_version": {
+   "const": 1
+  },
+  "id": {
+   "type": "string"
+  },
+  "version": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "engine_min": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+$"
+  },
+  "status": {
+   "enum": [
+    "active",
+    "experimental",
+    "demo",
+    "withdrawn"
+   ]
+  },
+  "licence": {
+   "type": "string"
+  },
+  "created": {
+   "type": "string"
+  },
+  "title": {
+   "type": "string"
+  },
+  "description": {
+   "type": "string"
+  },
+  "provenance": {
+   "type": "object"
+  },
+  "format": {
+   "const": "spyder-bone/bands"
+  },
+  "n2": {
+   "type": "object"
+  },
+  "transfer_keys": {
+   "type": "object"
+  },
+  "golden": {
+   "type": "object",
+   "required": [
+    "spectra_file",
+    "cases"
+   ],
+   "properties": {
+    "spectra_file": {
+     "type": "string"
+    },
+    "tolerance": {
+     "type": "object"
+    },
+    "cases": {
+     "type": "array",
+     "minItems": 3,
+     "items": {
+      "type": "object",
+      "required": [
+       "spectrum_sha256",
+       "transfer_key",
+       "expected"
+      ],
+      "properties": {
+       "spectrum_sha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+       },
+       "transfer_key": {
+        "type": "string",
+        "pattern": "^(none|[0-9a-f]{64})$",
+        "description": "'none' or the sha256 of a transfer FILE"
+       },
+       "expected": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": {
+         "type": "number"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "projections": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "required": [
+     "window_nm",
+     "kernel",
+     "direction",
+     "centre"
+    ],
+    "properties": {
+     "window_nm": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+       "type": "number"
+      }
+     },
+     "kernel": {
+      "type": "string"
+     },
+     "direction": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+       "type": "number"
+      }
+     },
+     "centre": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+       "type": "number"
+      }
+     },
+     "source": {
+      "type": "object"
+     }
+    }
+   }
+  },
+  "kernels": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "required": [
+     "absorbance_clip_min",
+     "savgol",
+     "scale"
+    ],
+    "properties": {
+     "absorbance_clip_min": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "savgol": {
+      "type": "object",
+      "required": [
+       "window",
+       "polyorder",
+       "deriv"
+      ]
+     },
+     "scale": {
+      "type": "number"
+     }
+    }
+   }
+  },
+  "bands": {
+   "type": "object",
+   "minProperties": 1,
+   "additionalProperties": {
+    "type": "object",
+    "required": [
+     "centre_nm",
+     "half_width_nm",
+     "kernel",
+     "detector",
+     "roles"
+    ],
+    "properties": {
+     "centre_nm": {
+      "type": "number"
+     },
+     "half_width_nm": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "kernel": {
+      "type": "string"
+     },
+     "detector": {
+      "enum": [
+       "VNIR",
+       "SWIR1",
+       "SWIR2"
+      ]
+     },
+     "roles": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "weight": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "faint_u": {
+      "type": "number"
+     },
+     "projection": {
+      "type": "string"
+     },
+     "u_sign": {
+      "enum": [
+       -1,
+       1
+      ]
+     },
+     "noise_window_nm": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+       "type": "number"
+      }
+     },
+     "readability": {
+      "type": "object",
+      "required": [
+       "noise_window_nm",
+       "gain_E_per_N2"
+      ],
+      "properties": {
+       "noise_window_nm": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+         "type": "number"
+        }
+       },
+       "gain_E_per_N2": {
+        "type": "object",
+        "minProperties": 1,
+        "propertyNames": {
+         "type": "string",
+         "pattern": "^(none|[0-9a-f]{64})$",
+         "description": "'none' or the sha256 of a transfer FILE"
+        },
+        "additionalProperties": {
+         "type": "number",
+         "exclusiveMinimum": 0
+        }
+       },
+       "n2_cut_equivalent": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

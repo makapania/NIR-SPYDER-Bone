@@ -1,0 +1,460 @@
+{
+ "format": "spyder-bone/engine_check",
+ "format_version": 1,
+ "check": "evidence_levels",
+ "id": "check.evidence_levels",
+ "version": "1.0.0",
+ "engine_min": "1.1",
+ "status": "active",
+ "title": "Organic-evidence level (none / trace / clear / strong / can't tell) and score S",
+ "description": "Normative rule of the frozen evidence study (PLAN v3.2 Step 7). E = -1e5 x SG31 cubic 2nd derivative of log10(1/max(R,1e-6)); band reading = mean E over centre +- half width; u_b = E_b / w_b (band centres, weights, faint thresholds and noise windows from bands.json). Band state: can't tell if sd_u > sd_max_u and u < unreadable_only_if_u_below; else strong (u >= strong), clear (u >= clear), faint (u > faint_b), flat. Lit = faint, clear or strong. S = median u over readable core bands (null if none readable). none: every core band flat or unreadable, the must-be-readable bands readable, >= min_readable_core readable, the extra band <= extra_band_max_u or unreadable (sd only), guard max E < max_E_below. can't tell: not none, no core band lit, guard passes, extra band not resolved-and-readable. strong: S >= strong, every readable core band lit, an N-H type band >= nh_type_min_u. clear: S >= clear, >= clear_min_lit_core lit, an N-H type band >= nh_type_min_u. trace: otherwise. Never a %. A band with a 'projection' in bands.json (NH1545c: the OH-corrected 1545 nm trough) is read on the projected window and u = u_sign x E / w.",
+ "licence": "CC-BY-4.0",
+ "created": "2026-10-03",
+ "provenance": {
+  "basis": "Frozen 2026-10-02 (Phase 0a A3; rule script hash 355dd063...). Weights = median band ratios over the 140 Ryder et al. 2026 reference bones >= 1% (public mmc2). Faint thresholds = 99th percentile of collagen-free archaeological fauna (unreleased data; statistics only, no site named). Guard set on bison bone (Ryder et al. 2026b, Archaeometry SI). Validation per spectrum: 0 of 72 spectra >= 3% yield called 'none' (one-sided 95% bound 4.1%).",
+  "nh1545c": "Phase 0c (DECISIONS 75): the OH-corrected 1545 nm trough is a 5th core band (in S and in lit / flat, never an N-H-type band), lit line 1.5 u set on true-zero archaeological bone (no scan of the collagen-free reference layers exceeds 1.5 u). Across 3,280 scans it changes one verdict (a false evidence lift on an unflagged alkyd-coated scan) and no 'none' call on true-zero bone; the stress test (none at >= 3% / >= 1%) is unchanged."
+ },
+ "parameters": {
+  "kernel": {
+   "absorbance_clip": 1e-06,
+   "savgol": {
+    "window": 31,
+    "polyorder": 3,
+    "deriv": 2,
+    "delta": 1.0,
+    "mode": "interp"
+   },
+   "scale": -100000.0
+  },
+  "core_bands": [
+   "CH1728",
+   "CH1689",
+   "CH2262",
+   "AM2175",
+   "NH1545c"
+  ],
+  "extra_band": "NH2044",
+  "extra_band_faint_u": 0.0,
+  "readability": {
+   "sd_max_u": 0.25,
+   "unreadable_only_if_u_below": 1.5
+  },
+  "thresholds_u": {
+   "clear": 1.5,
+   "strong": 4.0
+  },
+  "guard": {
+   "window_nm": [
+    1675,
+    1770
+   ],
+   "max_E_below": 1.5
+  },
+  "none_rule": {
+   "must_be_readable": [
+    "CH1728",
+    "AM2175"
+   ],
+   "min_readable_core": 3,
+   "extra_band_max_u": 0.0
+  },
+  "nh_type_bands": [
+   "AM2175",
+   "NH2044"
+  ],
+  "nh_type_min_u": 1.5,
+  "clear_min_lit_core": 3,
+  "levels": [
+   "none",
+   "can't tell",
+   "strong",
+   "clear",
+   "trace"
+  ]
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_checks_v1.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "rc_flat_none_low_m",
+    "spectrum_sha256": "ef8ddf9e2c7d95bc6ca3d426aca0859ecb56e566fc930cb047d336251ebf75ea",
+    "inputs": {
+     "sd_E": {
+      "AM2175": 0.03420185584992439,
+      "CH1689": 0.019345506199095877,
+      "CH1728": 0.021891118674307174,
+      "CH2262": 0.03322667720171559,
+      "CH2284": 0.04032597013706744,
+      "NH1545c": 0.012727344493237749,
+      "NH2044": 0.03420185584992439
+     }
+    },
+    "expected": {
+     "status": "assessed",
+     "level": "none",
+     "S": -0.37415380690967764,
+     "n_readable_core": 5,
+     "n_lit_core": 0,
+     "guard_max_E": 1.0249117368665177,
+     "bands.CH1728.E": -0.36117454540948507,
+     "bands.CH1728.u": -0.36117454540948507,
+     "bands.CH1728.sd_u": 0.021891118674307174,
+     "bands.CH1728.state": "flat",
+     "bands.CH1689.E": -0.318030735873226,
+     "bands.CH1689.u": -0.37415380690967764,
+     "bands.CH1689.sd_u": 0.022759419057759855,
+     "bands.CH1689.state": "flat",
+     "bands.CH2262.E": -0.7967160577950156,
+     "bands.CH2262.u": -0.49794753612188475,
+     "bands.CH2262.sd_u": 0.020766673251072242,
+     "bands.CH2262.state": "flat",
+     "bands.AM2175.E": -0.759554649876217,
+     "bands.AM2175.u": -0.6905042271601972,
+     "bands.AM2175.sd_u": 0.03109259622720399,
+     "bands.AM2175.state": "flat",
+     "bands.NH1545c.E": -0.573485655594834,
+     "bands.NH1545c.u": 0.9558094259913901,
+     "bands.NH1545c.sd_u": 0.021212240822062915,
+     "bands.NH1545c.state": "flat",
+     "bands.NH2044.E": -1.6463560447242114,
+     "bands.NH2044.u": -1.028972527952632,
+     "bands.NH2044.sd_u": 0.021376159906202744,
+     "bands.NH2044.state": "flat"
+    }
+   },
+   {
+    "name": "rc_good_positive_all_six",
+    "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
+    "inputs": {
+     "sd_E": {
+      "AM2175": 0.17510486755994908,
+      "CH1689": 0.0742695364336214,
+      "CH1728": 0.08404242407625244,
+      "CH2262": 0.22943019018670174,
+      "CH2284": 0.27845080450996557,
+      "NH1545c": 0.04886168218167114,
+      "NH2044": 0.17510486755994908
+     }
+    },
+    "expected": {
+     "status": "assessed",
+     "level": "strong",
+     "S": 8.102166238285102,
+     "n_readable_core": 5,
+     "n_lit_core": 5,
+     "guard_max_E": 7.940387831911451,
+     "bands.CH1728.E": 7.775438032989515,
+     "bands.CH1728.u": 7.775438032989515,
+     "bands.CH1728.sd_u": 0.08404242407625244,
+     "bands.CH1728.state": "strong",
+     "bands.CH1689.E": 6.947031646489213,
+     "bands.CH1689.u": 8.17297840763437,
+     "bands.CH1689.sd_u": 0.08737592521602518,
+     "bands.CH1689.state": "strong",
+     "bands.CH2262.E": 12.963465981256164,
+     "bands.CH2262.u": 8.102166238285102,
+     "bands.CH2262.sd_u": 0.1433938688666886,
+     "bands.CH2262.state": "strong",
+     "bands.AM2175.E": 10.441046382642527,
+     "bands.AM2175.u": 9.491860347856843,
+     "bands.AM2175.sd_u": 0.15918624323631733,
+     "bands.AM2175.state": "strong",
+     "bands.NH1545c.E": -4.651582575859624,
+     "bands.NH1545c.u": 7.7526376264327075,
+     "bands.NH1545c.sd_u": 0.0814361369694519,
+     "bands.NH1545c.state": "strong",
+     "bands.NH2044.E": 16.07168393065053,
+     "bands.NH2044.u": 10.04480245665658,
+     "bands.NH2044.sd_u": 0.10944054222496817,
+     "bands.NH2044.state": "strong"
+    }
+   },
+   {
+    "name": "rc_borderline_1p2_positive_all_six",
+    "spectrum_sha256": "fe3e8c7c72ce41350ae8886815487e910ad88cc9cb7e013a6caeb3970661f3c8",
+    "inputs": {
+     "sd_E": {
+      "AM2175": 0.06743732457795379,
+      "CH1689": 0.035601268487235646,
+      "CH1728": 0.040285924048158075,
+      "CH2262": 0.13821310158505526,
+      "CH2284": 0.16774405015686092,
+      "NH1545c": 0.02342195669475289,
+      "NH2044": 0.06743732457795379
+     }
+    },
+    "expected": {
+     "status": "assessed",
+     "level": "clear",
+     "S": 2.0997920638013965,
+     "n_readable_core": 5,
+     "n_lit_core": 5,
+     "guard_max_E": 2.062163335484781,
+     "bands.CH1728.E": 2.033612812404246,
+     "bands.CH1728.u": 2.033612812404246,
+     "bands.CH1728.sd_u": 0.040285924048158075,
+     "bands.CH1728.state": "clear",
+     "bands.CH1689.E": 1.7955005174943495,
+     "bands.CH1689.u": 2.1123535499933523,
+     "bands.CH1689.sd_u": 0.04188384527910076,
+     "bands.CH1689.state": "clear",
+     "bands.CH2262.E": 2.978002745914264,
+     "bands.CH2262.u": 1.861251716196415,
+     "bands.CH2262.sd_u": 0.08638318849065953,
+     "bands.CH2262.state": "clear",
+     "bands.AM2175.E": 2.3097712701815363,
+     "bands.AM2175.u": 2.0997920638013965,
+     "bands.AM2175.sd_u": 0.06130665870723071,
+     "bands.AM2175.state": "clear",
+     "bands.NH1545c.E": -1.4493512155803678,
+     "bands.NH1545c.u": 2.4155853593006134,
+     "bands.NH1545c.sd_u": 0.03903659449125482,
+     "bands.NH1545c.state": "clear",
+     "bands.NH2044.E": 2.3155408962850226,
+     "bands.NH2044.u": 1.447213060178139,
+     "bands.NH2044.sd_u": 0.042148327861221115,
+     "bands.NH2044.state": "faint"
+    }
+   },
+   {
+    "name": "rc_plus_d",
+    "spectrum_sha256": "0d746f7d2523970323c9a784eb4702ee9ca2089fe8d30d09d44e137bb2e2a9b7",
+    "inputs": {
+     "sd_E": {
+      "AM2175": 0.14672350230946427,
+      "CH1689": 0.1441362209290143,
+      "CH1728": 0.16310263919435067,
+      "CH2262": 0.22250023472659916,
+      "CH2284": 0.27004017785480083,
+      "NH1545c": 0.09482674264696804,
+      "NH2044": 0.14672350230946427
+     }
+    },
+    "expected": {
+     "status": "assessed",
+     "level": "trace",
+     "S": 4.56176871350317,
+     "n_readable_core": 5,
+     "n_lit_core": 3,
+     "guard_max_E": 5.583435059315102,
+     "bands.CH1728.E": 5.45821185529002,
+     "bands.CH1728.u": 5.45821185529002,
+     "bands.CH1728.sd_u": 0.16310263919435067,
+     "bands.CH1728.state": "strong",
+     "bands.CH1689.E": 4.9884095641985295,
+     "bands.CH1689.u": 5.868717134351211,
+     "bands.CH1689.sd_u": 0.16957202462236975,
+     "bands.CH1689.state": "strong",
+     "bands.CH2262.E": 7.298829941605073,
+     "bands.CH2262.u": 4.56176871350317,
+     "bands.CH2262.sd_u": 0.13906264670412447,
+     "bands.CH2262.state": "strong",
+     "bands.AM2175.E": -0.4999999999998842,
+     "bands.AM2175.u": -0.4545454545453492,
+     "bands.AM2175.sd_u": 0.13338500209951296,
+     "bands.AM2175.state": "flat",
+     "bands.NH1545c.E": -1.0800249583553522e-13,
+     "bands.NH1545c.u": 1.8000415972589204e-13,
+     "bands.NH1545c.sd_u": 0.15804457107828007,
+     "bands.NH1545c.state": "flat",
+     "bands.NH2044.E": -0.49999999999984956,
+     "bands.NH2044.u": -0.31249999999990596,
+     "bands.NH2044.sd_u": 0.09170218894341516,
+     "bands.NH2044.state": "flat"
+    }
+   },
+   {
+    "name": "rc_s_null_bands_too_noisy",
+    "spectrum_sha256": "a1e6c29ce88433b9a3c7682663096ebb7b244db34f7164aa59a4f9c2902eb5bb",
+    "inputs": {
+     "sd_E": {
+      "AM2175": 0.9750950000002917,
+      "CH1689": 1.0779200000005946,
+      "CH1728": 1.2197600000006728,
+      "CH2262": 1.037150000000124,
+      "CH2284": 1.2587500000001504,
+      "NH1545c": 0.7091600000003913,
+      "NH2044": 0.9750950000002917
+     }
+    },
+    "expected": {
+     "status": "assessed",
+     "level": "can't tell",
+     "S": null,
+     "n_readable_core": 0,
+     "n_lit_core": 0,
+     "guard_max_E": 1.0249117368665177,
+     "bands.CH1728.E": -0.36117454540948507,
+     "bands.CH1728.u": -0.36117454540948507,
+     "bands.CH1728.sd_u": 1.2197600000006728,
+     "bands.CH1728.state": "can't tell",
+     "bands.CH1689.E": -0.318030735873226,
+     "bands.CH1689.u": -0.37415380690967764,
+     "bands.CH1689.sd_u": 1.2681411764712878,
+     "bands.CH1689.state": "can't tell",
+     "bands.CH2262.E": -0.7915970082605699,
+     "bands.CH2262.u": -0.4947481301628562,
+     "bands.CH2262.sd_u": 0.6482187500000774,
+     "bands.CH2262.state": "can't tell",
+     "bands.AM2175.E": -0.759554649876217,
+     "bands.AM2175.u": -0.6905042271601972,
+     "bands.AM2175.sd_u": 0.8864500000002651,
+     "bands.AM2175.state": "can't tell",
+     "bands.NH1545c.E": -0.5870345650783012,
+     "bands.NH1545c.u": 0.9783909417971687,
+     "bands.NH1545c.sd_u": 1.1819333333339854,
+     "bands.NH1545c.state": "can't tell",
+     "bands.NH2044.E": -1.7201433449477679,
+     "bands.NH2044.u": -1.0750895905923548,
+     "bands.NH2044.sd_u": 0.6094343750001823,
+     "bands.NH2044.state": "can't tell"
+    }
+   },
+   {
+    "name": "zooms_pattern_B",
+    "spectrum_sha256": "8b6d90414c7e27c97959797113d8113b67823a3c347bbee2b4e2b6612f56162e",
+    "inputs": {
+     "sd_E": {
+      "AM2175": 0.07359408437893168,
+      "CH1689": 0.020037468901220844,
+      "CH1728": 0.02267413450622786,
+      "CH2262": 0.11109581206012964,
+      "CH2284": 0.13483281437659758,
+      "NH1545c": 0.013182584464514781,
+      "NH2044": 0.07359408437893168
+     }
+    },
+    "expected": {
+     "status": "assessed",
+     "level": "trace",
+     "S": 0.6907379399714642,
+     "n_readable_core": 5,
+     "n_lit_core": 2,
+     "guard_max_E": 1.2144658984171874,
+     "bands.CH1728.E": 1.0580078786792462,
+     "bands.CH1728.u": 1.0580078786792462,
+     "bands.CH1728.sd_u": 0.02267413450622786,
+     "bands.CH1728.state": "faint",
+     "bands.CH1689.E": 0.48526531010203816,
+     "bands.CH1689.u": 0.5709003648259272,
+     "bands.CH1689.sd_u": 0.023573492824965698,
+     "bands.CH1689.state": "faint",
+     "bands.CH2262.E": 1.1051807039543426,
+     "bands.CH2262.u": 0.6907379399714642,
+     "bands.CH2262.sd_u": 0.06943488253758102,
+     "bands.CH2262.state": "flat",
+     "bands.AM2175.E": -0.8021413999615866,
+     "bands.AM2175.u": -0.7292194545105333,
+     "bands.AM2175.sd_u": 0.06690371307175606,
+     "bands.AM2175.state": "flat",
+     "bands.NH1545c.E": -0.5481214224125758,
+     "bands.NH1545c.u": 0.9135357040209596,
+     "bands.NH1545c.sd_u": 0.021970974107524636,
+     "bands.NH1545c.state": "flat",
+     "bands.NH2044.E": -1.898619551650772,
+     "bands.NH2044.u": -1.1866372197817325,
+     "bands.NH2044.sd_u": 0.0459963027368323,
+     "bands.NH2044.state": "flat"
+    }
+   },
+   {
+    "name": "pair22_hires",
+    "spectrum_sha256": "59ea97683b48fa14ae7d6e6de942aca02edcd717a10b0307c2151b9cb69bfa92",
+    "inputs": {
+     "sd_E": {
+      "AM2175": 4.223480015200863,
+      "CH1689": 0.4459703188249988,
+      "CH1728": 0.5046448624897507,
+      "CH2262": 5.911975388992343,
+      "CH2284": 7.1747097402694715,
+      "NH1545c": 0.29340399473296264,
+      "NH2044": 4.223480015200863
+     }
+    },
+    "expected": {
+     "status": "assessed",
+     "level": "strong",
+     "S": 10.612412153613036,
+     "n_readable_core": 5,
+     "n_lit_core": 5,
+     "guard_max_E": 11.012511490719616,
+     "bands.CH1728.E": 10.812880723034642,
+     "bands.CH1728.u": 10.812880723034642,
+     "bands.CH1728.sd_u": 0.5046448624897507,
+     "bands.CH1728.state": "strong",
+     "bands.CH1689.E": 9.02055033057108,
+     "bands.CH1689.u": 10.612412153613036,
+     "bands.CH1689.sd_u": 0.524670963323528,
+     "bands.CH1689.state": "strong",
+     "bands.CH2262.E": 15.963762978272474,
+     "bands.CH2262.u": 9.977351861420296,
+     "bands.CH2262.sd_u": 3.6949846181202144,
+     "bands.CH2262.state": "strong",
+     "bands.AM2175.E": 13.558017081245689,
+     "bands.AM2175.u": 12.325470073859716,
+     "bands.AM2175.sd_u": 3.839527286546239,
+     "bands.AM2175.state": "strong",
+     "bands.NH1545c.E": -6.195297779158862,
+     "bands.NH1545c.u": 10.325496298598104,
+     "bands.NH1545c.sd_u": 0.4890066578882711,
+     "bands.NH1545c.state": "strong",
+     "bands.NH2044.E": 19.55391361806,
+     "bands.NH2044.u": 12.2211960112875,
+     "bands.NH2044.sd_u": 2.6396750095005395,
+     "bands.NH2044.state": "strong"
+    }
+   },
+   {
+    "name": "ev_1545_lit_blocks_none",
+    "spectrum_sha256": "ddb61516eded83a402192244a7814e6c91076fee8eb94fd046ae9e9de5b7374f",
+    "inputs": {
+     "sd_E": {
+      "AM2175": 0.03452897806458829,
+      "CH1689": 0.035669972475613855,
+      "CH1728": 0.04036366857174443,
+      "CH2262": 0.03322975604176904,
+      "CH2284": 0.04032970680960013,
+      "NH1545c": 0.023467156821291305,
+      "NH2044": 0.03452897806458829
+     }
+    },
+    "expected": {
+     "status": "assessed",
+     "level": "trace",
+     "S": -0.37415380690964456,
+     "n_readable_core": 5,
+     "n_lit_core": 1,
+     "guard_max_E": 0.9491606721701018,
+     "bands.CH1728.E": -0.36117454540951976,
+     "bands.CH1728.u": -0.36117454540951976,
+     "bands.CH1728.sd_u": 0.04036366857174443,
+     "bands.CH1728.state": "flat",
+     "bands.CH1689.E": -0.31803073587319786,
+     "bands.CH1689.u": -0.37415380690964456,
+     "bands.CH1689.sd_u": 0.04196467350072219,
+     "bands.CH1689.state": "flat",
+     "bands.CH2262.E": -0.7967160577950155,
+     "bands.CH2262.u": -0.4979475361218847,
+     "bands.CH2262.sd_u": 0.02076859752610565,
+     "bands.CH2262.state": "flat",
+     "bands.AM2175.E": -0.75955464987623,
+     "bands.AM2175.u": -0.690504227160209,
+     "bands.AM2175.sd_u": 0.03138998005871662,
+     "bands.AM2175.state": "flat",
+     "bands.NH1545c.E": -0.9599999999999922,
+     "bands.NH1545c.u": 1.599999999999987,
+     "bands.NH1545c.sd_u": 0.03911192803548551,
+     "bands.NH1545c.state": "clear",
+     "bands.NH2044.E": -1.6463560447243197,
+     "bands.NH2044.u": -1.0289725279526998,
+     "bands.NH2044.sd_u": 0.021580611290367677,
+     "bands.NH2044.state": "flat"
+    }
+   }
+  ]
+ }
+}

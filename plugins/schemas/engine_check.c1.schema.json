@@ -1,0 +1,216 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://spyder-bone.org/schemas/engine_check.c1.schema.json",
+ "title": "SPYDER Bone engine-check parameter file: c1",
+ "type": "object",
+ "required": [
+  "format",
+  "format_version",
+  "check",
+  "id",
+  "version",
+  "engine_min",
+  "status",
+  "title",
+  "licence",
+  "provenance",
+  "parameters",
+  "golden"
+ ],
+ "properties": {
+  "format": {
+   "const": "spyder-bone/engine_check"
+  },
+  "format_version": {
+   "const": 1
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[a-z0-9_.]+$"
+  },
+  "version": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+  "engine_min": {
+   "type": "string",
+   "pattern": "^[0-9]+\\.[0-9]+$"
+  },
+  "status": {
+   "enum": [
+    "active",
+    "experimental",
+    "demo",
+    "withdrawn"
+   ]
+  },
+  "title": {
+   "type": "string"
+  },
+  "description": {
+   "type": "string"
+  },
+  "licence": {
+   "type": "string"
+  },
+  "created": {
+   "type": "string"
+  },
+  "provenance": {
+   "type": "object"
+  },
+  "check": {
+   "const": "c1"
+  },
+  "parameters": {
+   "type": "object",
+   "required": [
+    "kernel",
+    "read_half_width_nm",
+    "ch_bands_nm",
+    "nh_bands_nm",
+    "a",
+    "b",
+    "fires_if_excess_above",
+    "runs_only_if_not_fired"
+   ],
+   "properties": {
+    "kernel": {
+     "type": "object",
+     "required": [
+      "absorbance_clip",
+      "savgol",
+      "scale"
+     ],
+     "properties": {
+      "absorbance_clip": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "savgol": {
+       "type": "object",
+       "required": [
+        "window",
+        "polyorder",
+        "deriv",
+        "delta",
+        "mode"
+       ],
+       "properties": {
+        "window": {
+         "type": "integer"
+        },
+        "polyorder": {
+         "type": "integer"
+        },
+        "deriv": {
+         "type": "integer"
+        },
+        "delta": {
+         "type": "number"
+        },
+        "mode": {
+         "enum": [
+          "interp",
+          "mirror",
+          "nearest",
+          "constant",
+          "wrap",
+          "zero_edges",
+          "valid"
+         ],
+         "description": "stated per PLAN section 7; the engine checks read interior points only, so the edge mode never enters a reading"
+        }
+       }
+      },
+      "scale": {
+       "type": "number"
+      }
+     }
+    },
+    "soft_tier": {
+     "type": "object",
+     "required": [
+      "excess_at_least"
+     ],
+     "properties": {
+      "excess_at_least": {
+       "type": "number"
+      }
+     }
+    },
+    "truncated": {
+     "type": "object",
+     "required": [
+      "ch_bands_nm",
+      "nh_bands_nm",
+      "a",
+      "b",
+      "fires_if_excess_above"
+     ],
+     "properties": {
+      "soft_tier": {
+       "type": "object",
+       "required": [
+        "excess_at_least"
+       ],
+       "properties": {
+        "excess_at_least": {
+         "type": "number"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "golden": {
+   "type": "object",
+   "required": [
+    "cases"
+   ],
+   "properties": {
+    "spectra_file": {
+     "type": "string"
+    },
+    "tolerance": {
+     "type": "object",
+     "required": [
+      "abs",
+      "rel"
+     ],
+     "properties": {
+      "abs": {
+       "type": "number",
+       "maximum": 1e-09
+      },
+      "rel": {
+       "type": "number",
+       "maximum": 1e-09
+      }
+     }
+    },
+    "cases": {
+     "type": "array",
+     "minItems": 3,
+     "items": {
+      "type": "object",
+      "required": [
+       "name",
+       "expected"
+      ],
+      "properties": {
+       "name": {
+        "type": "string"
+       },
+       "expected": {
+        "type": "object",
+        "minProperties": 1
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

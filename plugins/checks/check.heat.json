@@ -1,0 +1,108 @@
+{
+ "format": "spyder-bone/engine_check",
+ "format_version": 1,
+ "check": "heat",
+ "id": "check.heat",
+ "version": "1.0.0",
+ "engine_min": "1.1",
+ "status": "active",
+ "title": "Heat (burnt) check: charred by the visible edge alone; calcined",
+ "description": "edge50 = first wavelength from 450 nm up where R / mean R(1250-1300) >= 0.5 (none -> not charred). Charred: edge50 >= the cut (visible edge alone; scale-free). Calcined: not charred AND OH1433 sharp, OH979 sharp and mean R(450-700) at or above their cuts (sharp on the signs kernel). The only VNIR use in v1. Burnt adds a flag only.",
+ "licence": "CC-BY-4.0",
+ "created": "2026-10-03",
+ "provenance": {
+  "basis": "Heat screen v1 frozen on an unreleased archaeological fauna series plus a furnace series (statistics only); charred by edge50 alone (07 section 12.3). Charred bone 40/41, calcined 3/3 detected; clean pool 1 of 1,201."
+ },
+ "parameters": {
+  "charred": {
+   "edge50": {
+    "scan_from_nm": 450,
+    "reference_nm": [
+     1250,
+     1300
+    ],
+    "fraction": 0.5
+   },
+   "edge50_at_least_nm": 969.1812
+  },
+  "calcined": {
+   "OH1433": {
+    "sharp": [
+     1433,
+     2,
+     9,
+     13
+    ],
+    "at_least": 90.02670822216136
+   },
+   "OH979": {
+    "sharp": [
+     979,
+     2,
+     8,
+     12
+    ],
+    "at_least": 4.475763472609483
+   },
+   "R_vis": {
+    "range_nm": [
+     450,
+     700
+    ],
+    "at_least": 0.103380825435112
+   }
+  },
+  "kernel": "signs"
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_checks_v1.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "rc_good_positive_all_six",
+    "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
+    "inputs": {},
+    "expected": {
+     "edge50_nm": 493.0,
+     "OH1433": 10.381130207764118,
+     "OH979": 1.6786727438561986,
+     "R_vis": 0.5976829972111554,
+     "charred": false,
+     "calcined": false,
+     "fired": false
+    }
+   },
+   {
+    "name": "rc_lift_burnt_still_lifts",
+    "spectrum_sha256": "0e67657cc622926c975939edc6fab7c1b006981a13a89aee7d69e85dcb9c7b21",
+    "inputs": {},
+    "expected": {
+     "edge50_nm": 991.0,
+     "OH1433": 17.86410040680638,
+     "OH979": -213.26909642254623,
+     "R_vis": 0.1652409429083665,
+     "charred": true,
+     "calcined": false,
+     "fired": true
+    }
+   },
+   {
+    "name": "rc_burnt_only_borderline",
+    "spectrum_sha256": "69955f800328513081feb1c55b83763d4343ba5c847473647f1ac0a9dc1e5d7f",
+    "inputs": {},
+    "expected": {
+     "edge50_nm": 991.0,
+     "OH1433": 10.589702659615737,
+     "OH979": -213.87402488249512,
+     "R_vis": 0.19150999398406368,
+     "charred": true,
+     "calcined": false,
+     "fired": true
+    }
+   }
+  ]
+ }
+}

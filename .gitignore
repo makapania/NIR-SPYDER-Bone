@@ -1,0 +1,31 @@
+# --- PRIVATE: never commit (see DECISIONS.md / CLAUDE.md) ---
+/planning/
+/data/
+/Papers/
+/*.zip
+/idea.txt
+/CLAUDE.md
+cache/
+results/
+**/per_scan*
+*.asd
+*.asd.*
+# ...except the public paired test scans (neutral names, no sample identifiers; DECISIONS 85)
+!/testdata/scans/**/*.asd
+
+# --- build / tooling ---
+node_modules/
+target/
+dist/
+build/
+.svelte-kit/
+src-tauri/gen/
+__pycache__/
+*.pyc
+.venv*/
+.env
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/
