@@ -11,8 +11,8 @@ Apple Silicon and Intel, macOS 13 or newer).
 The macOS installer is signed and notarized by Apple. Open the disk image, drag SPYDER Bone to Applications, and open
 the app. macOS may ask you to confirm the first launch of an app downloaded from the internet.
 
-The Windows installer is still unsigned while Microsoft verifies the developer identity. If Windows shows "Windows
-protected your PC", choose **More info → Run anyway** after downloading it from this repository's release page.
+The Windows installer is digitally signed. Windows may still show a SmartScreen warning while this new app builds a
+download history. Check that you downloaded it from the release page above and verify the publisher before proceeding.
 
 How to use it: [USER_GUIDE.md](USER_GUIDE.md) (also inside the app: **?** or F1).
 

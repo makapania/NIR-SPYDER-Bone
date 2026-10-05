@@ -7,7 +7,7 @@ name: Release
 # PUBLIC REPO ONLY: in a private repo every job is skipped, so macOS minutes (billed at 10x on private repos) are
 # never spent by accident.
 #
-# macOS releases require all Apple secrets below; the workflow stops before creating a draft if any are absent.
+# Releases require all Apple and Azure settings below; the workflow stops before creating a draft if any are absent.
 #   macOS (signs + notarises + staples):
 #     APPLE_CERTIFICATE            base64 of the "Developer ID Application" .p12
 #     APPLE_CERTIFICATE_PASSWORD   password the .p12 was exported with
@@ -49,10 +49,14 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v5
-      - name: Require macOS signing credentials
+      - name: Require signing credentials
         run: |
           if [ "$MACOS_SIGNING" != "true" ]; then
             echo '::error::Set all six APPLE_* repository secrets before creating a release.'
+            exit 1
+          fi
+          if [ "$WINDOWS_SIGNING" != "true" ]; then
+            echo '::error::Set all six AZURE_* repository secrets before creating a release.'
             exit 1
           fi
       - id: tag
@@ -69,14 +73,11 @@ jobs:
           cat > notes.md <<'EOF'
           **Windows:** download the `.exe` and run it.
           **macOS (Apple Silicon or Intel):** download the `.dmg`, open it and drag SPYDER Bone to Applications.
-          EOF
-          if [ "$WINDOWS_SIGNING" != "true" ]; then
-          cat >> notes.md <<'EOF'
 
-          This Windows build is not signed yet, so the first run shows "Windows protected your PC": click
-          **More info**, then **Run anyway**.
+          The Windows installer is digitally signed, and the macOS app is signed and notarized. Windows may still
+          show a SmartScreen warning while this new app builds a download history. Verify the publisher before
+          proceeding.
           EOF
-          fi
           gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "SPYDER Bone $TAG" --notes-file notes.md
 
   installers:
@@ -186,6 +187,18 @@ jobs:
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
+
+      - name: Verify Windows installer signature
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem 'target/release/bundle/nsis/*.exe')
+          if ($installers.Count -ne 1) { throw "Expected exactly one Windows installer; found $($installers.Count)." }
+          $signature = Get-AuthenticodeSignature -LiteralPath $installers[0].FullName
+          if ($signature.Status -ne 'Valid') { throw "Installer signature is $($signature.Status): $($signature.StatusMessage)" }
+          if ($signature.SignerCertificate.Subject -notmatch 'CN=matt sponheimer') {
+            throw "Installer signer does not match the release publisher: $($signature.SignerCertificate.Subject)"
+          }
 
       - name: Attach to the draft release
         env:

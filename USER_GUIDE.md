@@ -31,8 +31,8 @@ result". If one spot says Unlikely and another says Borderline, that is normal a
 `.exe` for Windows, the `.dmg` for a Mac (one file for both Apple Silicon and Intel Macs).
 
 **Windows.** Run the installer. It installs for your user account only and includes the web component it needs. The
-installer is currently unsigned while Microsoft verifies the developer identity. If Windows shows "Windows protected
-your PC", choose **More info → Run anyway** after downloading it from this repository's release page.
+installer is digitally signed. Windows may still show a SmartScreen warning while this new app builds a download
+history. Check that you downloaded it from the release page above and verify the publisher before proceeding.
 
 **macOS.** Open the disk image and drag SPYDER Bone to Applications. It needs macOS 13 or newer. The app is signed and
 notarized by Apple; macOS may ask you to confirm the first launch of an app downloaded from the internet.
