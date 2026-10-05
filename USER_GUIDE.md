@@ -30,19 +30,12 @@ result". If one spot says Unlikely and another says Borderline, that is normal a
 **Download** the installer for your computer from https://github.com/makapania/NIR-SPYDER-Bone/releases/latest: the
 `.exe` for Windows, the `.dmg` for a Mac (one file for both Apple Silicon and Intel Macs).
 
-**Windows.** Run the installer. It installs for your user account only and includes the web component it needs.
+**Windows.** Run the installer. It installs for your user account only and includes the web component it needs. The
+installer is currently unsigned while Microsoft verifies the developer identity. If Windows shows "Windows protected
+your PC", choose **More info → Run anyway** after downloading it from this repository's release page.
 
-**macOS.** Open the disk image and drag SPYDER Bone to Applications. It needs macOS 13 or newer.
-
-Version 0.1.0 was built before code signing was set up, so the first run/open warns:
-
-- **Windows** shows "Windows protected your PC": choose **More info → Run anyway**.
-- **macOS** refuses the first open: click **Done**, then go to **System Settings → Privacy & Security**, scroll down
-  and click **Open Anyway** next to SPYDER Bone. (On macOS 14 or older, Control-click the app and choose **Open** also
-  works.) If macOS says the app "is damaged and can't be opened", run
-  `xattr -cr "/Applications/SPYDER Bone.app"` in Terminal and open it again.
-
-Future macOS releases will be signed and notarised before they are attached to GitHub Releases.
+**macOS.** Open the disk image and drag SPYDER Bone to Applications. It needs macOS 13 or newer. The app is signed and
+notarized by Apple; macOS may ask you to confirm the first launch of an app downloaded from the internet.
 
 **Starting.** The window opens ready to work, in a dark theme by default, with a light-theme button and a
 **Colour-blind safe** button in the toolbar. There are no set-up screens. On macOS there is a small File menu (Open

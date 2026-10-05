@@ -1,7 +1,7 @@
 {
   "name": "spyder-bone-ui",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "SPYDER Bone desktop UI (Svelte 5 + TypeScript + Vite). api.ts is the only IPC boundary.",
   "license": "MIT",
