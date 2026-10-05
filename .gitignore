@@ -24,6 +24,12 @@ __pycache__/
 *.pyc
 .venv*/
 .env
+# Local signing material must never enter the public repository.
+/signing/
+/*.pem
+/*.p12
+/*.certSigningRequest
+/*.p8
 .DS_Store
 Thumbs.db
 .vscode/

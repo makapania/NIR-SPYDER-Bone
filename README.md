@@ -8,12 +8,14 @@ standard- or high-resolution.
 **Download:** https://github.com/makapania/NIR-SPYDER-Bone/releases/latest (Windows installer `.exe`; macOS `.dmg` for
 Apple Silicon and Intel, macOS 13 or newer). Current version: 0.1.0.
 
-The installers are not yet code-signed, so both systems warn the first time:
+Version 0.1.0 was released before code signing was set up. On first use:
 
 - **Windows:** "Windows protected your PC" → **More info** → **Run anyway**.
 - **macOS:** the first open is refused. Click **Done**, then **System Settings → Privacy & Security → Open Anyway**
   (on macOS 14 or older, right-click the app → **Open** also works). If macOS says the app "is damaged", run
   `xattr -cr "/Applications/SPYDER Bone.app"` in Terminal and open it again.
+
+Future macOS releases will be signed and notarised before they are attached to GitHub Releases.
 
 How to use it: [USER_GUIDE.md](USER_GUIDE.md) (also inside the app: **?** or F1).
 

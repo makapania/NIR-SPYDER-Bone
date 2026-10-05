@@ -7,9 +7,20 @@ name: Release
 # PUBLIC REPO ONLY: in a private repo every job is skipped, so macOS minutes (billed at 10x on private repos) are
 # never spent by accident.
 #
-# Unsigned for now: Windows SmartScreen and macOS Gatekeeper warn on first open (the release text says how to get
-# past it). Signing is added later with repository secrets (Apple Developer ID + notarisation; a Windows
-# code-signing service), without changing the rest of this file.
+# macOS releases require all Apple secrets below; the workflow stops before creating a draft if any are absent.
+#   macOS (signs + notarises + staples):
+#     APPLE_CERTIFICATE            base64 of the "Developer ID Application" .p12
+#     APPLE_CERTIFICATE_PASSWORD   password the .p12 was exported with
+#     APPLE_SIGNING_IDENTITY       "Developer ID Application: Your Name (TEAMID)"
+#     APPLE_ID                     your Apple ID email
+#     APPLE_PASSWORD               app-specific password from appleid.apple.com (not the account password)
+#     APPLE_TEAM_ID                10-character team ID (developer.apple.com/account > Membership)
+#   Windows (Azure Artifact Signing, formerly Trusted Signing; SmartScreen reputation builds over the first weeks):
+#     AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET   service principal with the Certificate Profile
+#                                                             Signer role on the signing account/profile
+#     AZURE_SIGNING_ENDPOINT       e.g. https://eus.codesigning.azure.net
+#     AZURE_SIGNING_ACCOUNT        Trusted Signing account name
+#     AZURE_SIGNING_PROFILE        certificate profile name
 
 on:
   push:
@@ -23,6 +34,9 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
   NODE_VERSION: '24'
+  # Secrets cannot be read directly in step conditions.
+  MACOS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
+  WINDOWS_SIGNING: ${{ secrets.AZURE_CLIENT_SECRET != '' }}
 
 jobs:
   draft:
@@ -33,6 +47,12 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v5
+      - name: Require macOS signing credentials
+        run: |
+          if [ "$MACOS_SIGNING" != "true" ]; then
+            echo '::error::Set all six APPLE_* repository secrets before creating a release.'
+            exit 1
+          fi
       - id: tag
         run: |
           if [ "${{ github.ref_type }}" = tag ]; then tag="${{ github.ref_name }}"
@@ -47,15 +67,14 @@ jobs:
           cat > notes.md <<'EOF'
           **Windows:** download the `.exe` and run it.
           **macOS (Apple Silicon or Intel):** download the `.dmg`, open it and drag SPYDER Bone to Applications.
-
-          These test builds are not yet signed, so both systems warn the first time:
-
-          - **Windows** shows "Windows protected your PC": click **More info**, then **Run anyway**.
-          - **macOS** refuses the first open. Click **Done**, then open **System Settings > Privacy & Security**, scroll
-            down and click **Open Anyway** next to SPYDER Bone. (On macOS 14 or older, right-click the app and choose
-            **Open** also works.) If macOS says the app "is damaged", run
-            `xattr -cr "/Applications/SPYDER Bone.app"` in Terminal and open it again.
           EOF
+          if [ "$WINDOWS_SIGNING" != "true" ]; then
+          cat >> notes.md <<'EOF'
+
+          This Windows build is not signed yet, so the first run shows "Windows protected your PC": click
+          **More info**, then **Run anyway**.
+          EOF
+          fi
           gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "SPYDER Bone $TAG" --notes-file notes.md
 
   installers:
@@ -98,9 +117,64 @@ jobs:
       - run: npm ci
         working-directory: app/ui
 
-      - name: tauri build
+      - name: tauri build (Windows)
+        if: runner.os == 'Windows'
         working-directory: app/src-tauri
         run: ../ui/node_modules/.bin/tauri build ${{ matrix.args }}
+
+      # Tauri imports the certificate, signs and notarises the app bundle.
+      - name: tauri build (signed + notarised)
+        if: runner.os == 'macOS'
+        working-directory: app/src-tauri
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: ../ui/node_modules/.bin/tauri build ${{ matrix.args }}
+
+      - name: Notarize, staple and verify disk image
+        if: runner.os == 'macOS'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          shopt -s nullglob
+          images=(target/universal-apple-darwin/release/bundle/dmg/*.dmg)
+          apps=(target/universal-apple-darwin/release/bundle/macos/*.app)
+          if [ "${#images[@]}" -ne 1 ]; then
+            echo '::error::Expected exactly one macOS disk image.'
+            exit 1
+          fi
+          if [ "${#apps[@]}" -ne 1 ]; then
+            echo '::error::Expected exactly one macOS app bundle.'
+            exit 1
+          fi
+          codesign --verify --deep --strict "${apps[0]}"
+          xcrun stapler validate "${apps[0]}"
+          xcrun notarytool submit "${images[0]}" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "${images[0]}"
+          xcrun stapler validate "${images[0]}"
+          spctl --assess --type open --context context:primary-signature --verbose "${images[0]}"
+
+      - name: Sign installer (Azure Artifact Signing)
+        if: runner.os == 'Windows' && env.WINDOWS_SIGNING == 'true'
+        uses: Azure/trusted-signing-action@v0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}/target/release/bundle/nsis
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
 
       - name: Attach to the draft release
         env:
