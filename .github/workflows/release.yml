@@ -15,12 +15,14 @@ name: Release
 #     APPLE_ID                     your Apple ID email
 #     APPLE_PASSWORD               app-specific password from appleid.apple.com (not the account password)
 #     APPLE_TEAM_ID                10-character team ID (developer.apple.com/account > Membership)
-#   Windows (Azure Artifact Signing, formerly Trusted Signing; SmartScreen reputation builds over the first weeks):
-#     AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET   service principal with the Certificate Profile
-#                                                             Signer role on the signing account/profile
-#     AZURE_SIGNING_ENDPOINT       e.g. https://eus.codesigning.azure.net
-#     AZURE_SIGNING_ACCOUNT        Trusted Signing account name
-#     AZURE_SIGNING_PROFILE        certificate profile name
+#   Windows (Azure Artifact Signing; SmartScreen reputation builds over the first weeks):
+#     AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_SUBSCRIPTION_ID   GitHub OIDC app with Certificate Profile Signer
+#                                                               role on this signing account
+#     AZURE_SIGNING_ENDPOINT       https://cus.codesigning.azure.net/
+#     AZURE_SIGNING_ACCOUNT        sponheimer-spyderbone
+#     AZURE_SIGNING_PROFILE        spyder-bone-public
+#   The Azure app trusts only this repo's windows-signing GitHub environment. Restrict that
+#   environment to v* tags in GitHub Settings > Environments.
 
 on:
   push:
@@ -36,7 +38,7 @@ env:
   NODE_VERSION: '24'
   # Secrets cannot be read directly in step conditions.
   MACOS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
-  WINDOWS_SIGNING: ${{ secrets.AZURE_CLIENT_SECRET != '' }}
+  WINDOWS_SIGNING: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_TENANT_ID != '' && secrets.AZURE_SUBSCRIPTION_ID != '' && secrets.AZURE_SIGNING_ENDPOINT != '' && secrets.AZURE_SIGNING_ACCOUNT != '' && secrets.AZURE_SIGNING_PROFILE != '' }}
 
 jobs:
   draft:
@@ -80,6 +82,10 @@ jobs:
   installers:
     name: Installer (${{ matrix.name }})
     needs: draft
+    environment: ${{ matrix.name == 'Windows' && 'windows-signing' || 'mac-release' }}
+    permissions:
+      contents: write
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -160,13 +166,18 @@ jobs:
           xcrun stapler validate "${images[0]}"
           spctl --assess --type open --context context:primary-signature --verbose "${images[0]}"
 
+      - name: Azure login for Windows signing
+        if: runner.os == 'Windows' && env.WINDOWS_SIGNING == 'true'
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Sign installer (Azure Artifact Signing)
         if: runner.os == 'Windows' && env.WINDOWS_SIGNING == 'true'
         uses: Azure/artifact-signing-action@v2
         with:
-          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
           endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
           signing-account-name: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
           certificate-profile-name: ${{ secrets.AZURE_SIGNING_PROFILE }}
