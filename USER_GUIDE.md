@@ -2,13 +2,15 @@
 
 SPYDER Bone scores ASD LabSpec 4 near-infrared scans of bone, one scan at a time. It tells you how promising each scan
 looks for destructive sampling (radiocarbon dating, ZooMS, stable isotopes) before you commit powder to it. It runs on
-Windows and macOS.
+Windows and macOS. It also reads scans from other ASD instruments (a FieldSpec 3 and a Trek-type handheld so far); for
+those, see section 4 for what is still provisional.
 
 ---
 
 ## 1. What SPYDER Bone does, and does not do
 
-**What it does.** You give it `.asd` files from an ASD LabSpec 4. For every scan it gives a verdict, a collagen reading,
+**What it does.** You give it `.asd` files from an ASD LabSpec 4 (or scan files from another ASD instrument, section 4).
+For every scan it gives a verdict, a collagen reading,
 a picture of the spectrum against reference bones of known collagen content, and short notes in plain words. You can
 list scans newest first or most promising first.
 
@@ -47,8 +49,14 @@ this guide.
 ## 3. Two ways to work
 
 **Open files or a folder.** Use **Open files** (Ctrl+O, ⌘O on a Mac) or **Open folder** (Ctrl+Shift+O, ⇧⌘O) and pick
-`.asd` files or a folder of them. Every `.asd` file gets its own row and its own verdict. Sub-folders are not read, only
-the folder itself. You can also drag `.asd` files, or one folder, onto the window.
+scan files or a folder of them. Scan files are `.asd` files and, from a FieldSpec 3, numbered files (`name.000`,
+`name.001` ...) and ViewSpec `.sco` files. Every scan gets its own row and its own verdict. Sub-folders are not read, only
+the folder itself. You can also drag scan files, or one folder, onto the window. (In the Open files dialog, choose
+"All files" to see FieldSpec 3 numbered files.)
+
+A ViewSpec `.sco` file is the same scan as the numbered file it was made from, with ViewSpec's splice correction applied.
+When both are in the folder (or opened together) only the numbered file is scored, so a scan is never counted twice. A
+`.sco` on its own is scored; the collagen models read the same from either.
 
 **Watch a folder live.** Click the **Watch folder…** pill and pick a folder: the LabSpec's save folder, or a drop
 folder that scans are copied into (for example a shared or synced folder on a Mac, including network shares). New
@@ -82,6 +90,32 @@ The switch applies to every scan in the list, so keep scans from a standard and 
 folders and open them separately.
 
 If you are not sure which kind of LabSpec 4 you have, ask whoever runs the instrument.
+
+### Other ASD instruments (provisional)
+
+The models were built on a standard-resolution LabSpec 4, but other ASD full-range instruments save very similar data,
+and the app reads them:
+
+| Instrument | Files | What is stored |
+|---|---|---|
+| LabSpec 4 (standard or high-res) | `.asd` (format "as8") | raw counts and the white reference |
+| Trek-type handheld (ASD mineral-identification line) | `.asd` (format "as7") | raw counts and the white reference |
+| FieldSpec 3 | `name.000`, `name.001` ... and ViewSpec `.sco` (legacy format) | reflectance only |
+
+- **Use the Standard setting** for these instruments. Their detector settings point to Standard, so the switch is preset
+  that way. Their spectral resolution is like a standard LabSpec 4 (FieldSpec 3: 3/10/10 nm at 700/1400/2100 nm; the
+  Trek-type handheld is rated 3/9.8/8.1 nm), so no conversion is applied.
+- **Detector joins are found per file.** The joins between the instrument's three detectors are not always at 1000 and
+  1800 nm (the Trek-type handheld switches at about 1785 nm and leaves the header blank). The app uses the joins in the
+  file header when they look right, otherwise finds them in the white reference, otherwise assumes 1000/1800 nm. The
+  scan's details say which. The collagen models do not depend on the joins.
+- **FieldSpec 3 files hold reflectance only**, so the saturation check cannot run on them ("not assessed"). A saved white
+  panel is still caught as a white-panel scan.
+- **How well the readings carry over is still being tested.** On a first test set (15 bones scanned on a FieldSpec 3 and
+  on a Trek-type handheld, with measured collagen yields), the models ranked the bones well on both instruments and read
+  the near-zero bones below 0.5%, but the readings ran low against the yields, by about half at high yields (an 18%
+  bone read about 10%). Whether that comes from the instruments or from how the yields were measured is not settled.
+  Until it is, treat readings from these instruments as provisional, especially in the 1–5% range.
 
 ---
 
@@ -121,7 +155,11 @@ The details panel shows:
   scan exactly as measured. It does not set the verdict; if it differs from the main reading, a note says so.
 
 "OH-corrected" means the model allows for differences in the OH/water bands at 1450 and 1930 nm, which vary between
-bones as the bone's bound water and OH groups are altered over time. These bands are shaded on the charts.
+bones as the bone's bound water and OH groups are altered over time. These bands are shaded on the charts. The
+correction is a standard chemometric method, External Parameter Orthogonalization (EPO; Roger et al. 2003): the
+direction in which altered OH/water moves the spectrum, measured on collagen-free bone, is removed before the model
+reads the scan. At 2045 and 2175 nm it is mostly water held in the bone (the 1930 nm band comes only from water); at
+1545 nm, water and OH together (the 1450 nm band).
 
 ### The ZooMS line
 
@@ -143,19 +181,26 @@ reads.
 The **Evidence of organics** section judges the bands directly, with no model: a level (**None / Trace / Clear /
 Strong / Can't tell**), a row of dots (one per band), and a **ZooMS band check** that describes the band pattern in words
 (for example "All six collagen bands resolved", or "Too noisy to read at 2044/2175 nm"). The bands are C–H at 1689 and
-1728 nm, 2262 and 2284 nm, N–H at 2044 nm, the amide band at 2175 nm, and the N–H band at 1545 nm read on the
-OH-corrected window.
+1728 nm; N–H with amide II at 2044 nm; the amide envelope at 2175 nm (several amide combination bands together);
+protein O–H at 2262 nm (the O–H of hydroxyproline and the water bound to the protein: part of the collagen signal,
+not a C–H band and not the altered OH/water bands that the OH correction allows for); amide III with CH₂ at 2284 nm;
+and the bonded N–H band at 1545 nm, read on the OH-corrected window. The protein bands named in the ZooMS check are
+2044 and 2175 nm; the 1545 nm band adds a separate vote.
 
 Band evidence works both ways. Flat protein bands lower a verdict ("No protein signal at this spot"); strong, clean
 bands on a scan with no contaminant sign can raise one.
 
 ### Flags
 
-If the scan shows signs of **wax**, a **consolidant (ester)**, **plaster**, another **foreign organic**, or **heat**
+If the scan shows signs of a **lipid** (wax, for example, or fat; from any source: a coating, the bone itself or elsewhere), a
+**consolidant (ester)**, **plaster**, another **foreign organic** (more C–H than the bone's collagen explains, or an organic
+film such as a consolidant, marked on the spectrum where it was read), or **heat**
 (charring or calcining), a flag appears beside the verdict and in the scans list, and a marker on the spectrum shows
 where the heat sign came from. The flag tells you to check the spot. **Flags never change the verdict**: many collagen
-models still read well on treated bone. But wax, consolidant, plaster and foreign-organic signs stop the band evidence
-from *raising* a verdict, because coatings can create the bands it relies on.
+models still read well on treated bone. But lipid, consolidant, plaster and foreign-organic signs stop the band evidence
+from *raising* a verdict, because coatings can create the bands it relies on. For the same reason, in the **most
+promising first** order a scan with one of those signs comes after the clean scans of the same verdict (a heat sign
+does not move it).
 
 ### Notes
 
@@ -215,13 +260,15 @@ close-ups.
 - **The reading is an estimate.** Typical error is about ± 1 point below 3%, and larger on bone unlike the bones the
   models were built on. When a spectrum is outside that range, the model's row says "Less familiar spectrum": read that
   number with more caution.
+- **Other ASD instruments are provisional** (section 4): the readings ranked bones well in a first test but ran low
+  against measured yields; there is no per-instrument correction yet.
 - **The high-res conversion is approximate.** High-res scans are converted to standard resolution before the models read
   them, so the app also shows the 1545 nm model with no transfer needed as a cross-check.
 - **Coatings and glue can make bone look better.** Thin coats of glue or lacquer can raise every collagen reading by
-  1–4 points without tripping a sign, and animal (hide) glue cannot be detected at all: it looks like the bone's own
-  collagen. The contaminant checks are less certain on high-resolution scans. Treat "no sign found" as reassuring, not as
-  proof. On a bone that may have been glued or coated, check its history and treat a Borderline reading with extra
-  caution.
+  1–4 points, and the foreign-organic sign catches only about half of them. Animal (hide) glue reads as the bone's own
+  collagen: about half of glued scans trip the foreign-organic sign, but it is never named as glue. The contaminant
+  checks are less certain on high-resolution scans. Treat "no sign found" as reassuring, not as proof. On a bone that
+  may have been glued or coated, check its history and treat a Borderline reading with extra caution.
 - **Readings higher than archaeological bone normally holds** get a note: modern bone, glue or another protein may be
   present.
 - **The bands are suggestive, not proof.** Reading band patterns is a screening judgement.
@@ -270,8 +317,9 @@ holder) and rescan the spot.
 The probe is probably not on bone: plaster, a label, a coating or the holder. Move the probe and rescan.
 
 **My file is listed as "Not readable".**
-The app reads ASD LabSpec 4 `.asd` files and lists anything else with a reason. Re-save or re-export the scan on the
-instrument.
+The app reads ASD `.asd` files (LabSpec 4 and Trek-type handhelds) and FieldSpec 3 reflectance files (`.000` ... and
+`.sco`), and lists anything else with a reason. Re-save or re-export the scan on the instrument. FieldSpec 3 files saved
+as raw counts (not reflectance) cannot be scored: save them as reflectance.
 
 **The verdict says Can't tell, or the bands are too noisy.**
 Rescan with more averages (100–200), or pick a lighter or cleaner spot.

@@ -1,6 +1,7 @@
 // Scan ordering for the flat list. Uses unrounded values only (PLAN Step 9 "Sorting").
 // "Most promising first": Good, Borderline, Can't tell, Unlikely, then Rescan and "Doesn't look like
-// bone"; within Good, Borderline and Can't tell by CONS3; within Unlikely by the evidence score S.
+// bone"; within Good, Borderline and Can't tell by CONS3; within Unlikely by the evidence score S. Within each group,
+// scans with a contaminant flag (wax, ester, plaster, C1; not heat) come after the clean ones (DECISIONS 99).
 // One sort for every analysis (DECISIONS 80 amended: the ZooMS sort went with the ZooMS verdict).
 
 import { PROMISING_ORDER } from './verdict';
@@ -10,6 +11,8 @@ export type SortMode = 'newest' | 'promising';
 
 const cons3 = (s: ScanResult) => s.models.cons3?.value ?? -Infinity;
 const score = (s: ScanResult) => s.evidence.s ?? -Infinity;
+/** Mock fallback of the core's sort_penalty: a fired contaminant sign (heat is not one). */
+const contaminated = (s: ScanResult) => Number(s.signs.some((x) => x.fired && x.id !== 'burnt'));
 
 /** Newest first. While a folder is watched, "newest" is arrival order, so a scan that just arrived is always on
  *  top (a file copied in keeps its old modification time); otherwise acquisition time. */
@@ -27,6 +30,8 @@ export const isUnscored = (s: ScanResult) =>
 function byCoreKey(a: ScanResult, b: ScanResult): number {
   const g = (a.sortGroup ?? Infinity) - (b.sortGroup ?? Infinity);
   if (g) return g;
+  const p = (a.sortPenalty ?? 0) - (b.sortPenalty ?? 0);
+  if (p) return p;
   const va = a.sortValue ?? -Infinity;
   const vb = b.sortValue ?? -Infinity;
   return va === vb ? 0 : vb > va ? 1 : -1;
@@ -38,6 +43,8 @@ export function byPromising(a: ScanResult, b: ScanResult): number {
   if (a.sortGroup != null && b.sortGroup != null) return byCoreKey(a, b) || byNewest(a, b);
   const g = PROMISING_ORDER[a.verdict] - PROMISING_ORDER[b.verdict];
   if (g) return g;
+  const p = contaminated(a) - contaminated(b);
+  if (p) return p;
   const key = a.verdict === 'unlikely' ? score : cons3;
   const d = key(b) - key(a);
   if (d && Number.isFinite(d)) return d;

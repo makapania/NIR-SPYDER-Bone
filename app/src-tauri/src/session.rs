@@ -160,13 +160,17 @@ impl Entry {
         }
     }
 
-    /// The header's SWIR1 and SWIR2 gains (u16 at bytes 436 and 438 of the 484-byte ASD header); None: not an
-    /// `as8` file (the only version the core reads; older versions' gains may mean something else) or too short. Read from the header alone, so a hint never depends on the rest of the file.
+    /// The header's SWIR1 and SWIR2 gains (u16 at bytes 436 and 438 of the 484-byte ASD header); None: not a
+    /// version the core reads (`as8`, `as7`, legacy `ASD`; the FieldSpec 3 (633/206) and Trek-type (390/396) files
+    /// carry standard-range gains, DECISIONS 87-88) or too short. Read from the header alone, so a hint never
+    /// depends on the rest of the file.
     pub fn swir_gains(&self) -> Option<(u64, u64)> {
         let Input::Asd(b) = &self.input else {
             return None;
         };
-        if b.len() < 484 || !b.starts_with(b"as8") {
+        if b.len() < 484
+            || !(b.starts_with(b"as8") || b.starts_with(b"as7") || b.starts_with(b"ASD"))
+        {
             return None;
         }
         let g = |o: usize| u64::from(u16::from_le_bytes([b[o], b[o + 1]]));

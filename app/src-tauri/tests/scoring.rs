@@ -1,6 +1,6 @@
 //! The app's scoring path (session -> spyder-core -> `ScanResult`) against `spyder analyse`.
 //!
-//! Public (always): the 54 end-to-end oracle golden scans are put through
+//! Public (always): the 61 end-to-end oracle golden scans are put through
 //! the app's session for both instrument classes and all three analysis types; every mapped verdict, rule step,
 //! shown note, flag, evidence level and ZooMS pattern equals the record `spyder analyse` produces (the same
 //! `Engine` call), which the core's own gate holds equal to the frozen oracle. The display arrays are checked
@@ -290,7 +290,7 @@ fn compare(r: &ScanResult, rec: &Obj, a: &str, label: &str) -> Vec<String> {
 fn app_scoring_equals_spyder_analyse_on_the_public_goldens() {
     let core = core();
     let cases = golden_cases();
-    assert_eq!(cases.len(), 54);
+    assert_eq!(cases.len(), 61);
     let (mut bad, mut n) = (Vec::new(), 0usize);
     for class in [CLASS_STD, CLASS_HIRES] {
         let mut s = Session::new(1, Some("goldens".into()), false, Some(class));

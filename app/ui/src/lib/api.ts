@@ -274,7 +274,10 @@ class TauriApi extends BrowserApi {
   }
 
   override async openFiles(): Promise<OpenResult | null> {
-    const sel = await open({ multiple: true, directory: false, filters: [{ name: 'ASD scans', extensions: ['asd'] }] });
+    const sel = await open({ multiple: true, directory: false, filters: [
+        { name: 'ASD scans (.asd, .sco)', extensions: ['asd', 'sco'] },
+        { name: 'All files (FieldSpec 3 .000, .001 ...)', extensions: ['*'] },
+      ] });
     if (!sel) return null;
     return this.openPaths(Array.isArray(sel) ? sel : [sel], false);
   }

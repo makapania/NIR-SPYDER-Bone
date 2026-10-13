@@ -244,6 +244,7 @@ fn count_candidates(folder: &Path) -> usize {
         .map(|rd| {
             rd.flatten()
                 .filter(|e| spyder_watch::filter::is_candidate_name(&e.file_name()))
+                .filter(|e| !spyder_watch::filter::is_shadowed_sco(&e.path()))
                 .filter(|e| {
                     e.metadata()
                         .is_ok_and(|m| m.is_file() && !spyder_watch::filter::is_hidden_meta(&m))

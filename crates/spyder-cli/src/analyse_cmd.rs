@@ -253,16 +253,23 @@ pub fn run(args: &[OsString]) -> Result<(), (u8, String)> {
                 .and_then(|o| o.get("sort_group"))
                 .and_then(V::as_f64)
                 .unwrap_or(f64::INFINITY);
+            // DECISIONS 99: flagged scans after the clean ones of their verdict group
+            let pen = a
+                .and_then(|o| o.get("sort_penalty"))
+                .and_then(V::as_f64)
+                .unwrap_or(0.0);
             let v = a
                 .and_then(|o| o.get("sort_value"))
                 .and_then(V::as_f64)
                 .unwrap_or(f64::NEG_INFINITY);
-            (g, v)
+            (g, pen, v)
         };
         recs.sort_by(|(_, a), (_, b)| {
-            let (ga, va) = key(a);
-            let (gb, vb) = key(b);
-            ga.total_cmp(&gb).then(vb.total_cmp(&va))
+            let (ga, pa, va) = key(a);
+            let (gb, pb, vb) = key(b);
+            ga.total_cmp(&gb)
+                .then(pa.total_cmp(&pb))
+                .then(vb.total_cmp(&va))
         });
     }
     if let Some(c) = &csv {

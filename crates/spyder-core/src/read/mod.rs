@@ -1,5 +1,6 @@
-//! File readers. v1 reads ASD `.asd` files in the verified acquisition mode only (PLAN section 3 Step 1,
-//! DECISIONS 43). Every reader returns `Err` for any malformed input; none ever panics.
+//! File readers: ASD `as8` (LabSpec 4), `as7` (Trek-type handheld) and legacy v1 reflectance files (FieldSpec 3
+//! `.NNN` / ViewSpec `.sco`) in the verified acquisition modes (PLAN section 3 Step 1, DECISIONS 43, 87-88). Every
+//! reader returns `Err` for any malformed input; none ever panics.
 
 pub mod asd;
 
@@ -22,7 +23,7 @@ pub enum ReadError {
     /// Not an ASD file at all (wrong magic).
     #[error("not an ASD file (magic {magic:?})")]
     NotAsd { magic: String },
-    /// A real ASD file outside the supported-input matrix (e.g. other joins, as7, REF data type).
+    /// A real ASD file outside the supported-input matrix (e.g. an old version, the wrong data type).
     #[error("unsupported: {reason}")]
     Unsupported { reason: String },
     /// An ASD file in the supported layout whose content is unusable (e.g. reference not > 0).
@@ -48,7 +49,7 @@ impl ReadError {
 
 /// Read a scan from bytes (the watcher passes immutable snapshots).
 pub fn read_bytes(bytes: &[u8]) -> Result<Scan, ReadError> {
-    asd::read_as8(bytes)
+    asd::read_any(bytes)
 }
 
 /// Read a scan from a file on disk.
@@ -59,8 +60,36 @@ pub fn read_file(path: &Path) -> Result<Scan, ReadError> {
     read_bytes(&bytes)
 }
 
-/// `.asd` files (case-insensitive extension) directly inside `dir`, sorted by file name.
-/// Hidden files and macOS AppleDouble companions (`._name.asd`) are skipped.
+/// Whether a file name could be an ASD scan: `.asd`, `.sco` (ViewSpec) or a three-digit extension (`.000`, the
+/// FieldSpec 3 numbering), any case.
+pub fn is_scan_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    let Some((stem, ext)) = lower.rsplit_once('.') else {
+        return false;
+    };
+    !stem.is_empty()
+        && (ext == "asd"
+            || ext == "sco"
+            || (ext.len() == 3 && ext.bytes().all(|b| b.is_ascii_digit())))
+}
+
+/// A ViewSpec `X.sco` whose source `X` is in the same folder: the same scan, splice-corrected. The source (as
+/// measured) is scored and the `.sco` is skipped, so a scan is never counted twice (DECISIONS 88).
+pub fn is_shadowed_sco(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    if name.len() <= 4 || !name.to_ascii_lowercase().ends_with(".sco") {
+        return false;
+    }
+    let source = &name[..name.len() - 4];
+    is_scan_name(source)
+        && !source.to_ascii_lowercase().ends_with(".sco")
+        && path.with_file_name(source).is_file()
+}
+
+/// ASD scan files (see [`is_scan_name`]) directly inside `dir`, sorted by file name. Hidden files, macOS AppleDouble
+/// companions (`._name.asd`) and `.sco` files shadowed by their source ([`is_shadowed_sco`]) are skipped.
 pub fn list_asd_files(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
     let mut out = Vec::new();
     for entry in std::fs::read_dir(dir)? {
@@ -73,11 +102,7 @@ pub fn list_asd_files(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
         if name.starts_with('.') {
             continue;
         }
-        let is_asd = path
-            .extension()
-            .map(|e| e.to_string_lossy().eq_ignore_ascii_case("asd"))
-            .unwrap_or(false);
-        if is_asd {
+        if is_scan_name(&name) && !is_shadowed_sco(&path) {
             out.push(path);
         }
     }
@@ -105,7 +130,7 @@ pub fn is_link_or_junction(path: &Path) -> bool {
     }
 }
 
-/// `.asd` files in `dir` and, recursively, its sub-folders (sorted per folder, folder by folder). Symlinked and
+/// ASD scan files in `dir` and, recursively, its sub-folders (sorted per folder, folder by folder). Symlinked and
 /// junction directories are never followed and each real directory is visited once (Codex Phase 1 review,
 /// MEDIUM 4: no directory cycles).
 pub fn list_asd_files_recursive(dir: &Path) -> std::io::Result<Vec<PathBuf>> {

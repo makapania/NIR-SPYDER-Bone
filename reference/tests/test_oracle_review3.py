@@ -87,6 +87,6 @@ def test_rescan_and_rejected_records_have_sort_keys():
     rec = ORACLE.analyse_spectrum(WL, panel, CTX)
     assert rec["radiocarbon"]["verdict"] == "Rescan"
     assert order[rec["radiocarbon"]["sort_group"]] == "Rescan" and rec["radiocarbon"]["sort_value"] is None
-    rec = ORACLE.analyse_spectrum(WL, golden("mmc2_Reference_Sample_79"), dict(CTX, splices_nm=[1000.0, 1830.0]))
+    rec = ORACLE.analyse_spectrum(WL, golden("mmc2_Reference_Sample_79"), dict(CTX, splices_nm=[1000.0, 2000.0]))
     zorder = ORACLE.P.profile("zooms").doc["parameters"]["sort"]["verdict_order"]
     assert rec["zooms"]["verdict"] == "Unsupported" and rec["zooms"]["sort_group"] == len(zorder)

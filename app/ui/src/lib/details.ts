@@ -53,7 +53,7 @@ export interface CheckRow {
   notice: boolean;
 }
 
-const CHECK_NAME: Record<string, string> = { wax: 'wax', ester: 'consolidant (ester)', plaster: 'plaster', c1: 'other foreign organic' };
+const CHECK_NAME: Record<string, string> = { wax: 'lipid (such as wax)', ester: 'consolidant (ester)', plaster: 'plaster', c1: 'other foreign organic' };
 
 /** "a, b and c" for sign ids. */
 function listNames(ids: string[]): string {
@@ -110,8 +110,8 @@ export function checkRows(scan: ScanResult): CheckRow[] {
   else if (!fired.length && !rescan)
     out.push(
       heatUnchecked
-        ? { icon: 'ok', title: 'No contaminant signs', d: 'Nothing resembling wax, consolidants, plaster or foreign organics.', notice: false }
-        : { icon: 'ok', title: 'No contaminant or heat signs', d: 'Nothing resembling wax, consolidants, plaster, foreign organics or charring.', notice: false },
+        ? { icon: 'ok', title: 'No contaminant signs', d: 'No sign of lipids (such as wax), consolidants, plaster or foreign organics. Thin coats, animal glue and some consolidants can still go unseen.', notice: false }
+        : { icon: 'ok', title: 'No contaminant or heat signs', d: 'No sign of lipids (such as wax), consolidants, plaster, foreign organics or charring. Thin coats, animal glue and some consolidants can still go unseen.', notice: false },
     );
   if (heatUnchecked && !rescan)
     out.push({ icon: 'info', title: 'Heat sign not checked', d: 'The heat check could not read this scan, so charring or calcining was not checked.', notice: true });
@@ -161,7 +161,7 @@ export function checkRows(scan: ScanResult): CheckRow[] {
     out.push({
       icon: 'info',
       title: 'Glues and thin coats',
-      d: "Thin coats of glue or lacquer can raise every collagen reading by 1–4 points without tripping a sign, and animal (hide) glue cannot be detected at all: it looks like the bone's own collagen. On a bone that may have been glued or coated, check its history and treat a Borderline reading with extra caution.",
+      d: "Thin coats of glue or lacquer can raise every collagen reading by 1–4 points, and the foreign-organic sign catches only about half of them. Animal (hide) glue reads as the bone's own collagen: about half of glued scans trip the foreign-organic sign, but it is never named as glue. On a bone that may have been glued or coated, check its history and treat a Borderline reading with extra caution.",
       notice: false,
     });
   if (scan.alteredOhBand)

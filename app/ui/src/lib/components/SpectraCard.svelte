@@ -81,6 +81,16 @@
       return [{ lo: 450, hi: heat.edge50Nm, kind: 'flag', label: `heat sign: dark visible edge (to ${Math.round(heat.edge50Nm)} nm)` }];
     return [];
   });
+  // The foreign-organic sign's organic-film part, marked where it was read: the 2298 nm peak and the 2325 nm trough
+  // (DECISIONS 103; check.c1 film, peak/trough +- 3 nm).
+  const filmShades = $derived.by((): Shade[] =>
+    scan.signs.some((s) => s.id === 'c1' && s.fired && s.filmFired)
+      ? [
+          { lo: 2296, hi: 2302, kind: 'flag', label: 'organic film' },
+          { lo: 2322, hi: 2328, kind: 'flag', label: 'organic film' },
+        ]
+      : [],
+  );
   /** The charred mark lives in the visible range, outside the 2nd-derivative view. */
   const heatOffView = $derived(heat?.heatKind === 'charred' && heat.edge50Nm != null && mode === 'D2');
 
@@ -112,7 +122,7 @@
         s.push({ lo: b.nm - 2, hi: b.nm + 2, kind: 'band', state: b.state, flagged, highlight: highlight === k }),
       );
     }
-    return [...s, ...heatShades];
+    return [...s, ...heatShades, ...filmShades];
   });
 
   // the references in the same view as the scan (both corrected, or both as measured)
@@ -256,6 +266,7 @@
     <span><i class="sw win"></i>Model window</span>
     <span><i class="sw hatch"></i>OH/water band</span>
     {#if heatShades.length}<span><i class="sw heat"></i>Heat sign</span>{/if}
+    {#if filmShades.length}<span><i class="sw heat"></i>Organic-film sign</span>{/if}
   </div>
 </section>
 

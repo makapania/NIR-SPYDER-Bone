@@ -159,8 +159,17 @@ pub fn session_scans(shared: State<'_, Arc<Shared>>, analysis: String) -> Vec<Sc
     scoring::results(&shared.core, &s, &analysis)
 }
 
-/// Open files (`folder: false`) or one folder (`folder: true`, its .asd files, not sub-folders) as a new
-/// session. A running watch stops (its scans leave the list with it).
+/// `p` is `X.sco` and `X` is among `all` (paths compared with `/` for `\\` and ignoring case, as dialogs and drops may
+/// spell the same path either way).
+fn sco_with_source_in(p: &str, all: &[String]) -> bool {
+    let norm = |s: &str| s.replace('\\', "/").to_lowercase();
+    let lp = norm(p);
+    lp.len() > 4 && lp.ends_with(".sco") && all.iter().any(|q| norm(q) == lp[..lp.len() - 4])
+}
+
+/// Open files (`folder: false`) or one folder (`folder: true`, its ASD scan files, not sub-folders) as a new
+/// session. A ViewSpec `X.sco` opened together with its source `X` is the same scan and is left out
+/// (DECISIONS 88). A running watch stops (its scans leave the list with it).
 #[tauri::command]
 pub async fn session_open(
     shared: State<'_, Arc<Shared>>,
@@ -174,11 +183,17 @@ pub async fn session_open(
         let f = paths.first().cloned().ok_or("no folder given")?;
         let p = PathBuf::from(&f);
         if !p.is_dir() {
-            return Err(format!("{f} is not a folder or an .asd file"));
+            return Err(format!(
+                "{f} is not a folder or an ASD scan file (.asd, .sco, .000)"
+            ));
         }
         (scoring::folder_files(&p)?, f)
     } else {
-        let files: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
+        let files: Vec<PathBuf> = paths
+            .iter()
+            .filter(|p| !sco_with_source_in(p, &paths))
+            .map(PathBuf::from)
+            .collect();
         let parent = files
             .first()
             .and_then(|p| p.parent())
@@ -213,7 +228,8 @@ pub async fn session_open(
     };
     let mut message = format!("Opened {what}.");
     if n == 0 && folder {
-        message = format!("No .asd scans in {folder_path} (sub-folders are not read).");
+        message =
+            format!("No ASD scans (.asd, .sco, .000) in {folder_path} (sub-folders are not read).");
     }
     if let Some(f) = stopped {
         message.push_str(&format!(" Stopped watching {f}."));

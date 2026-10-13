@@ -269,7 +269,7 @@ fn rescan_and_rejected_records_have_sort_keys() {
     assert_eq!(order[g], "Rescan");
     assert!(at(&rec, &["radiocarbon", "sort_value"]).is_null());
     let mut c = ctx("asd.labspec4.std");
-    c.splices_nm = vec![1000.0, 1830.0];
+    c.splices_nm = vec![1000.0, 2000.0]; // outside the SWIR join window (DECISIONS 87)
     let rec = eng.analyse_spectrum(&wl(), &golden("mmc2_Reference_Sample_79"), &c);
     assert_eq!(
         at(&rec, &["zooms", "verdict"]).as_str(),

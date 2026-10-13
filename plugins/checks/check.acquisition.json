@@ -3,11 +3,11 @@
  "format_version": 1,
  "check": "acquisition",
  "id": "check.acquisition",
- "version": "1.0.0",
+ "version": "2.0.0",
  "engine_min": "1.0",
  "status": "active",
  "title": "Acquisition checks B1-B8 and the per-sign B6b gates (as-measured scan)",
- "description": "Supported-input matrix (B1) and the bad-scan checks on the AS-MEASURED reflectance (PLAN v3.2 Step 1-2). Unusable (B1-B4) replaces every verdict with Rescan. B6 is a Check only (never Unusable until calibrated on same-spot repeats). B6b gates each contaminant sign (and C1) on the noise in its own window, with cuts keyed by the transfer applied to the stream. N2 is the canonical noise measure (1e-5 absorbance).",
+ "description": "Supported-input matrix (B1: LabSpec as8, Trek-type as7, FieldSpec 3 legacy reflectance; per-file detector joins) and the bad-scan checks on the AS-MEASURED reflectance (PLAN v3.2 Step 1-2). Unusable (B1-B4) replaces every verdict with Rescan. B6 is a Check only (never Unusable until calibrated on same-spot repeats). B6b gates each contaminant sign (and C1) on the noise in its own window, with cuts keyed by the transfer applied to the stream. N2 is the canonical noise measure (1e-5 absorbance).",
  "licence": "CC-BY-4.0",
  "created": "2026-10-03",
  "provenance": {
@@ -17,10 +17,18 @@
  "parameters": {
   "input_matrix": {
    "file_magic": [
+    "as8",
+    "as7",
+    "ASD"
+   ],
+   "data_type_by_magic": {
+    "as8": 0,
+    "as7": 0,
+    "ASD": 1
+   },
+   "require_dark_corrected_magic": [
     "as8"
    ],
-   "data_type_raw": 0,
-   "require_dark_corrected": true,
    "grid": {
     "start_nm": 350.0,
     "step_nm": 1.0,
@@ -30,10 +38,17 @@
     1000,
     2450
    ],
-   "accepted_joins_nm": [
-    1000.0,
-    1800.0
-   ]
+   "join_windows_nm": [
+    [
+     950.0,
+     1050.0
+    ],
+    [
+     1700.0,
+     1900.0
+    ]
+   ],
+   "note": "DECISIONS 87-88. as8 (LabSpec 4) and as7 (Trek-type handheld): raw DN + stored white reference; ASD = legacy v1 reflectance (FieldSpec 3 .NNN and its ViewSpec .sco), no raw DN (B2 not assessed). Joins: the header's when each lies in its window, else the largest clear white-reference DN jump in the window, else 1000/1800; a join outside its window is unsupported."
   },
   "integrity_range_nm": [
    1000,
@@ -154,35 +169,37 @@
    "note": "A sign is gated (not checked) when N2 of its own window on the AS-MEASURED scan exceeds its cut; the table is picked by the transfer key of the standard-resolution stream ('none' or the transfer file's sha256); a key with no entry uses the 'none' table; a null gate means the sign is never gated (burnt on v0.2: it reads the visible edge, not the noisy SWIR2). The record keeps check.B6b as a summary: n2 = N2(n2_window_nm), gated = every contaminant sign gated, signs_gated = the gated contaminant signs, outcome Note when any contaminant sign is gated."
   },
   "B7_above_one": {
-   "range_nm": [
-    1001,
-    1800
+   "range_offsets_nm": [
+    1,
+    0
    ],
-   "max_R_above": 1.0
+   "max_R_above": 1.0,
+   "note": "SWIR1: lower join + 1 to upper join (1001-1800 on LabSpec 4)"
   },
   "B8_splice_step": {
    "fits": [
     {
-     "join_nm": 1000,
-     "fit_nm": [
-      1001,
-      1005
+     "join_index": 0,
+     "fit_offsets_nm": [
+      1,
+      5
      ],
-     "extrapolate_to_nm": 1000,
-     "compare_nm": 1000,
-     "denominator_nm": 1001
+     "extrapolate_offset_nm": 0,
+     "compare_offset_nm": 0,
+     "denominator_offset_nm": 1
     },
     {
-     "join_nm": 1800,
-     "fit_nm": [
-      1795,
-      1800
+     "join_index": 1,
+     "fit_offsets_nm": [
+      -5,
+      0
      ],
-     "extrapolate_to_nm": 1801,
-     "compare_nm": 1801,
-     "denominator_nm": 1800
+     "extrapolate_offset_nm": 1,
+     "compare_offset_nm": 1,
+     "denominator_offset_nm": 0
     }
    ],
+   "fits_note": "offsets from the scan's own joins (DECISIONS 87); on 1000/1800 these are the former fixed fits 1001-1005 -> 1000 and 1795-1800 -> 1801",
    "note_above": 0.05,
    "check_above": 0.15,
    "definition": "relative step = |line fitted on the SWIR1 side, extrapolated one channel across the join - the neighbouring channel| / R at the SWIR1 channel next to the join"

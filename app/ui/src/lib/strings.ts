@@ -21,7 +21,7 @@ export function ryderPct(p: P): string {
 }
 
 const SIGN_NOUN: Record<SignId, string> = {
-  wax: 'wax',
+  wax: 'lipid',
   ester: 'consolidant',
   plaster: 'plaster',
   c1: 'foreign-organic',
@@ -30,7 +30,7 @@ const SIGN_NOUN: Record<SignId, string> = {
 
 /** Names of the contaminant checks, as a user reads them (for "checked" / "not checked" lists). */
 const SIGN_CHECK_NAME: Record<string, string> = {
-  wax: 'wax',
+  wax: 'lipid (such as wax)',
   ester: 'consolidant (ester)',
   plaster: 'plaster',
   c1: 'other foreign organic',
@@ -120,13 +120,16 @@ export function flagText(id: SignId, heatKind?: 'charred' | 'calcined'): string 
     const what = heatKind === 'calcined' ? ' (calcined: sharp OH peaks at 979 and 1433 nm)' : heatKind === 'charred' ? ' (charred: a dark visible edge)' : '';
     return `Heat sign at this spot${what}. Heating lowers collagen; the readings already reflect that.`;
   }
+  // the wax sign (id 'wax') reads long-chain C–H: lipids from any source, wax being one example (it fires on some recent bone's own fat)
+  if (id === 'wax')
+    return 'Lipid sign at this spot (wax, for example, or fat), from any source. Many collagen models still read well, but check the spot.';
   const noun = SIGN_NOUN[id];
   return `${noun[0].toUpperCase()}${noun.slice(1)} sign at this spot. Many collagen models still read well on treated bone, but check the spot and clean it if you can.`;
 }
 
 /** Short badge label for a fired sign. */
 export function flagLabel(id: SignId): string {
-  return { wax: 'Wax sign', ester: 'Consolidant sign', plaster: 'Plaster sign', c1: 'Foreign-organic sign', burnt: 'Heat sign' }[id];
+  return { wax: 'Lipid sign', ester: 'Consolidant sign', plaster: 'Plaster sign', c1: 'Foreign-organic sign', burnt: 'Heat sign' }[id];
 }
 
 export const UNUSABLE_TEXT: Record<string, string> = {

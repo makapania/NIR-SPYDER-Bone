@@ -294,3 +294,16 @@ def sort_key(prof, verdict, m, S):
     by = s["within"].get(verdict)
     val = {"m": m, "S": S}.get(by) if by else None
     return g, val
+
+
+def sort_penalty(prof, out):
+    """DECISIONS 99: 1 when a flag of the verdict block names one of the profile's sort.penalty_signs (the scan sorts
+    after the unpenalised scans of its own verdict group), else 0; None when the profile has no penalty_signs."""
+    signs = prof["sort"].get("penalty_signs")
+    if signs is None:
+        return None
+    bad = [s for s in signs if s not in prof["flags"]["contaminant"]]
+    if bad:
+        raise ValueError(f"sort.penalty_signs: {bad} not among the profile's contaminant flag signs")
+    fired = {s for f in out.get("flags", []) for s in f.get("signs", [])}
+    return int(bool(fired & set(signs)))

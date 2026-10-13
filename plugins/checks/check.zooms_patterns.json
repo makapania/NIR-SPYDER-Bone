@@ -3,11 +3,11 @@
  "format_version": 1,
  "check": "zooms_patterns",
  "id": "check.zooms_patterns",
- "version": "1.0.0",
+ "version": "2.0.0",
  "engine_min": "1.1",
  "status": "active",
  "title": "ZooMS band pattern (A-E) and its verdict",
- "description": "Six collagen-associated bands (bands.json): protein-type N-H 2044 and amide 2175; C-H 1689, 1728, 2262, 2284, read on the evidence kernel. Lit = E_b > lit_if_E_above. Readable unless sd_E > sd_max_frac_w x w_b and E_b < unreadable_only_if_E_below_frac_w x w_b (sd_E = keyed band gain x N2 of the band's noise window, as measured). Pattern A all flat; B both protein bands flat; C one protein band lit; D both protein lit, a C-H band flat; E all six lit. Verdict: Unlikely = both protein bands readable and flat; Good = all six readable and lit; Borderline = both protein bands readable and either exactly one lit, or both lit with a readable C-H band flat; Can't tell = anything else. Pattern letters are internal; the UI says it in words. Vote: after the pattern verdict, an Unlikely becomes Borderline when the vote band (the OH-corrected 1545 nm trough) is readable (unless sd_u > sd_max_frac_w and u < unreadable_only_if_E_below_frac_w, in u = u_sign x E / w) and u > lit_if_u_above; Good and Can't tell are unchanged.",
+ "description": "Six collagen-associated bands (bands.json): protein-type N-H 2044 and amide 2175; the other four (parameter ch_bands, an id): C-H 1689 and 1728, protein O-H 2262 (hydroxyproline O-H and bound water) and amide III + CH2 2284, read on the evidence kernel. Lit = E_b > lit_if_E_above. Readable unless sd_E > sd_max_frac_w x w_b and E_b < unreadable_only_if_E_below_frac_w x w_b (sd_E = keyed band gain x N2 of the band's noise window, as measured). Pattern A all flat; B both protein bands flat; C one protein band lit; D both protein lit, another band flat; E all six lit. Verdict: Unlikely = both protein bands readable and flat; Good = all six readable and lit; Borderline = both protein bands readable and either exactly one lit, or both lit with a readable other band flat; Can't tell = anything else. Pattern letters are internal; the UI says it in words. Vote: after the pattern verdict, an Unlikely becomes Borderline when the vote band (the OH-corrected 1545 nm trough) is readable (unless sd_u > sd_max_frac_w and u < unreadable_only_if_E_below_frac_w, in u = u_sign x E / w) and u > lit_if_u_above; Good and Can't tell are unchanged.",
  "licence": "CC-BY-4.0",
  "created": "2026-10-03",
  "provenance": {
@@ -49,9 +49,9 @@
   },
   "patterns": {
    "A": "flat at all six",
-   "B": "both protein bands flat (C-H only or isolated)",
+   "B": "both protein bands flat (other bands only or isolated)",
    "C": "one protein band lit",
-   "D": "both protein bands lit, a C-H band flat",
+   "D": "both protein bands lit, another band flat",
    "E": "all six lit"
   },
   "verdicts": [

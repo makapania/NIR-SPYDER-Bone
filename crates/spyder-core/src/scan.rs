@@ -118,26 +118,55 @@ pub struct Timestamps {
     pub reference_age_s: Option<f64>,
 }
 
+/// Which ASD file layout the scan came from (DECISIONS 87-88).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileFormat {
+    /// `as8`: LabSpec 4 (raw DN + white reference).
+    As8,
+    /// `as7`: Trek-type handheld (raw DN + white reference).
+    As7,
+    /// Legacy v1 `ASD`: FieldSpec 3 `.NNN` / ViewSpec `.sco` (reflectance only).
+    Legacy,
+}
+
+impl FileFormat {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            FileFormat::As8 => "as8",
+            FileFormat::As7 => "as7",
+            FileFormat::Legacy => "legacy",
+        }
+    }
+}
+
 /// One scan as read from a file. Reflectance is on `wavelengths_nm`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Scan {
     /// Reader id, "asd".
     pub reader: &'static str,
+    /// The file layout.
+    pub format: FileFormat,
     pub header: AsdHeader,
     pub timestamps: Timestamps,
     /// Reference-block description string (empty in every file in hand).
     pub reference_description: String,
     /// Explicit grid: first + step * i, computed in f64 (350 + i nm for every supported file).
     pub wavelengths_nm: Vec<f64>,
-    /// Per-file detector joins from the header (f32 widened to f64).
+    /// The header's join fields (f32 widened to f64), as stored (0/0 on the Trek-type handheld).
+    pub splices_header_nm: Vec<f64>,
+    /// The detector joins used for this scan (DECISIONS 87).
     pub splices_nm: Vec<f64>,
+    /// Where `splices_nm` came from: "header", "reference_dn" (white-reference DN steps) or "default" (1000/1800).
+    pub joins_source: &'static str,
     pub segments: Vec<Segment>,
-    /// R = sample DN / white-reference DN (IEEE division; bitwise equal to numpy).
+    /// R = sample DN / white-reference DN (IEEE division; bitwise equal to numpy); the stored reflectance on legacy
+    /// files.
     pub reflectance: Vec<f64>,
-    /// Dark-corrected sample DN.
-    pub sample_dn: Vec<f64>,
-    /// Dark-corrected white-reference DN.
-    pub reference_dn: Vec<f64>,
+    /// Sample DN (dark-corrected on as8); `None` on legacy reflectance files.
+    pub sample_dn: Option<Vec<f64>>,
+    /// White-reference DN; `None` on legacy reflectance files.
+    pub reference_dn: Option<Vec<f64>>,
     pub kind: ScanKind,
     /// Facts worth logging (e.g. a header join not matching the reference DN jump).
     pub warnings: Vec<String>,

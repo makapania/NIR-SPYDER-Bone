@@ -28,15 +28,17 @@ white reference finite and > 0 in 1000-2450 nm, and the whole file present (head
 the 212-byte v8 trailer). Anything else is rejected with a typed reason; nothing is guessed.
 Reflectance R = sample DN / white-reference DN.
 
-## JSON output (`--json`): schema `spyder-bone/read`, version 1
+## JSON output (`--json`): schema `spyder-bone/read`, version 2
 
-The document is stable: fields are only ever added (with a `schema_version` bump if any meaning changes).
+The document is stable: fields are only ever added (with a `schema_version` bump if any meaning changes). Version 2
+(other ASD instruments): `format`, `joins_source` and the joins used in `splices_nm`; the B7 value `max_r_1001_1800`
+became `max_r_swir1` (with `swir1_nm`).
 Field order below is the order printed. Numbers that are undefined (NaN/inf) are `null`.
 
 ```
 {
   "schema": "spyder-bone/read",
-  "schema_version": 1,
+  "schema_version": 2,
   "spyder_core_version": "0.1.0",
   "engine": "1.1",                       // preprocessing operator-set version of spyder-core
   "files": [ FileReport, ... ]
@@ -112,7 +114,7 @@ B6 (noise as prediction uncertainty) is per model and transfer: `spyder read` re
 | B5 | mean R(1000-2450) < 0.08: Note | `mean_r_1000_2450` |
 | B6 | gain x N2 > 0.5 % collagen: Check (never Unusable) | `model_id`, `transfer`, `implied_sd_pct`, `check_above_pct` |
 | B6b | N2(2000-2100) > 60: Note; contaminant signs gated | `n2_2000_2100`, `cut`, `signs_gated` |
-| B7 | max R(1001-1800) > 1: Note only | `max_r_1001_1800` |
+| B7 | max R over SWIR1 (1001-1800 nm on LabSpec 4; the scan's own joins) > 1: Note only | `max_r_swir1`, `swir1_nm` |
 | B8 | relative splice step at each header join > 5 %: Note; > 15 %: Check | `join1_nm`, `join2_nm`, `step1_pct`, `step2_pct` |
 
 For a rejected file B2-B8 are `not_assessed` ("the file could not be read (B1)"); for a reference save,
@@ -162,5 +164,6 @@ per scan the verdict and the rule step that set it, CONS3, the evidence level, t
 flags. `--csv FILE`: one row per scan (UTF-8 with BOM, CRLF; every number unrounded, Python `repr`; note and flag
 columns hold keys; `zooms_line` the ZooMS line's key; `zooms_band_check.*` the ZooMS band check). `--json`: schema
 `spyder-bone/analyse` v1 with every scan's full `record` (the oracle's structure) and its analysis `manifest`
-(input SHA-256, effective configuration, dependency hashes, result revision). `--sort`: most promising first.
+(input SHA-256, effective configuration, dependency hashes, result revision). `--sort`: most promising first (verdict group, then scans with a contaminant flag after the clean ones of
+the group, `sort_penalty` 1; DECISIONS 99; then the profile's value).
 A bundled startup error stops scoring (exit 1, reasons on stderr), as for `predict`.

@@ -3,7 +3,8 @@
 A light desktop app (Windows and macOS) that scores ASD LabSpec 4 near-infrared scans of bone, one scan at a time,
 to help decide whether destructive sampling (radiocarbon, ZooMS, isotopes) is worth it. It brings the published
 Ryder et al. 2026 collagen model and related models, with clear spectral visuals, to anyone with a LabSpec 4,
-standard- or high-resolution.
+standard- or high-resolution. It also reads other ASD instruments' files (FieldSpec 3 `.000`/`.sco`, Trek-type handheld
+`.asd`); results from those are provisional (USER_GUIDE section 4).
 
 **Download:** https://github.com/makapania/NIR-SPYDER-Bone/releases/latest (Windows installer `.exe`; macOS `.dmg` for
 Apple Silicon and Intel, macOS 13 or newer).

@@ -160,19 +160,22 @@ fn saturated_channels(dn: &[f64], segments: &[(usize, usize)]) -> Vec<usize> {
 
 /// B2 saturation: Unusable when inside 1000-2450 nm, Note when only outside it.
 pub fn b2_saturation(scan: &Scan) -> CheckResult {
-    let c = CheckResult::new("B2", "detector saturation");
+    let (id, name) = ("B2", "detector saturation");
+    let (Some(sample_dn), Some(reference_dn)) = (&scan.sample_dn, &scan.reference_dn) else {
+        return CheckResult::not_assessed(id, name, "the file stores reflectance only (no raw DN)");
+    };
+    let c = CheckResult::new(id, name);
     let segs: Vec<(usize, usize)> = scan.segments.iter().map(|s| (s.start, s.end)).collect();
-    let mut chans = saturated_channels(&scan.sample_dn, &segs);
-    chans.extend(saturated_channels(&scan.reference_dn, &segs));
+    let mut chans = saturated_channels(sample_dn, &segs);
+    chans.extend(saturated_channels(reference_dn, &segs));
     chans.sort_unstable();
     chans.dedup();
     let (lo, hi) = SCORED_RANGE_NM;
     let wl = &scan.wavelengths_nm;
     let inside = chans.iter().filter(|&&i| in_range(wl[i], lo, hi)).count();
-    let max_dn = scan
-        .sample_dn
+    let max_dn = sample_dn
         .iter()
-        .chain(&scan.reference_dn)
+        .chain(reference_dn)
         .copied()
         .fold(f64::NEG_INFINITY, f64::max);
     let c = c
@@ -439,20 +442,23 @@ pub fn b6b_signs_noise(n2: &N2Set, cut: f64) -> CheckResult {
 }
 
 // ---------------------------------------------------------------------------------------------- B7
-/// B7 reflectance above 1: max R(1001-1800) > 1 on the as-measured scan (Note only).
+/// B7 reflectance above 1: max R over SWIR1 (1001-1800 nm on LabSpec 4; the scan's own joins, DECISIONS 87) > 1 on
+/// the as-measured scan (Note only).
 pub fn b7_above_one(scan: &Scan) -> CheckResult {
     let (id, name) = ("B7", "reflectance above 1");
     if !scan.kind.is_scored() {
         return CheckResult::not_assessed(id, name, NOT_SCORED);
     }
-    let max = scan
-        .wavelengths_nm
+    let Some(swir1) = scan.segments.iter().find(|s| s.name == "SWIR1") else {
+        return CheckResult::not_assessed(id, name, "the scan has no SWIR1 segment");
+    };
+    let max = scan.reflectance[swir1.start..swir1.end]
         .iter()
-        .zip(&scan.reflectance)
-        .filter(|(w, _)| in_range(**w, 1001.0, 1800.0))
-        .map(|(_, &r)| r)
+        .copied()
         .fold(f64::NEG_INFINITY, f64::max);
-    let c = CheckResult::new(id, name).val("max_r_1001_1800", num(max));
+    let c = CheckResult::new(id, name)
+        .val("swir1_nm", json!([swir1.first_nm, swir1.last_nm]))
+        .val("max_r_swir1", num(max));
     if max > 1.0 {
         c.fire(
             Outcome::Note,

@@ -673,6 +673,10 @@ impl Worker {
                         continue;
                     }
                     let key = self.cfg.folder.join(name);
+                    // a ViewSpec .sco beside its source is the same scan (DECISIONS 88)
+                    if filter::is_shadowed_sco(&key) {
+                        continue;
+                    }
                     self.touch(key, now, false);
                 }
             }
@@ -775,6 +779,10 @@ impl Worker {
                 continue;
             }
             let path = self.cfg.folder.join(&name);
+            // a ViewSpec .sco beside its source is the same scan (DECISIONS 88)
+            if filter::is_shadowed_sco(&path) {
+                continue;
+            }
             let st = key_of(&meta);
             present.push(path.clone());
             let f = self.files.entry(path.clone()).or_default();
@@ -863,6 +871,12 @@ impl Worker {
                 return self.retry_or_park(path, now, reason, None);
             }
         };
+        // a .sco whose source arrived while it settled is the same scan (DECISIONS 88): not delivered. A .sco
+        // delivered before its source appeared stays listed (known limit: copy sources before or with their .sco).
+        if filter::is_shadowed_sco(path) {
+            f.pending = None;
+            return None;
+        }
         if !meta.is_file() || filter::is_hidden_meta(&meta) {
             f.pending = None;
             return None;

@@ -513,10 +513,10 @@
         <div class="empty card">
           {#if watch}
             <h2>Watching {folderName(watch.folder)}</h2>
-            <p class="muted">Scans appear here as they are saved. Every .asd scan gets its own verdict.</p>
+            <p class="muted">Scans appear here as they are saved. Every scan (.asd, .sco, .000) gets its own verdict.</p>
           {:else}
             <h2>Open files or a folder</h2>
-            <p class="muted">Every .asd scan gets its own verdict. Nothing to set up.</p>
+            <p class="muted">Every scan (.asd, .sco, .000) gets its own verdict. Nothing to set up.</p>
           {/if}
         </div>
       {/if}
@@ -560,7 +560,7 @@
 <HelpDialog open={helpOpen} version={info?.version ?? null} onClose={() => (helpOpen = false)} />
 
 {#if dropHover}
-  <div class="drophint" aria-hidden="true"><div>Drop .asd files or a folder to open them</div></div>
+  <div class="drophint" aria-hidden="true"><div>Drop scan files (.asd, .sco, .000) or a folder to open them</div></div>
 {/if}
 
 {#if bench}

@@ -126,7 +126,8 @@ impl<'r> Engine<'r> {
     }
 
     // ------------------------------------------------------------------ entry points
-    /// Analyse an `.asd` file's bytes (the watcher passes immutable snapshots). `name` is the file name shown.
+    /// Analyse an ASD file's bytes (`as8`, `as7` or legacy; the watcher passes immutable snapshots). `name` is the
+    /// file name shown.
     pub fn analyse_bytes(&self, bytes: &[u8], name: &str, class: &str, class_source: &str) -> Obj {
         let mut deps = BTreeMap::new();
         self.check_dep("acquisition", &mut deps);
@@ -154,7 +155,7 @@ impl<'r> Engine<'r> {
             &scan.wavelengths_nm,
             &scan.reflectance,
             &ctx,
-            Some(&scan.sample_dn),
+            scan.sample_dn.as_deref(),
             meta,
         )
     }
@@ -211,21 +212,24 @@ impl<'r> Engine<'r> {
     /// The oracle's `asd.acceptance` on a parsed scan (check.acquisition's input matrix; data-driven).
     fn acceptance(&self, scan: &crate::scan::Scan) -> Option<String> {
         let CheckParams::Acquisition {
-            input_matrix: m,
-            accepted_joins_nm,
-            ..
+            input_matrix: m, ..
         } = self.cp("acquisition")
         else {
             return None;
         };
         let h = &scan.header;
+        let legacy = scan.format == crate::scan::FileFormat::Legacy;
         if !m.file_magic.contains(&h.version) {
             return Some(format!("unsupported: file version {:?}", h.version));
         }
-        if u64::from(h.data_type) != m.data_type_raw {
-            return Some("unsupported: not a raw (DN + white reference) file".into());
+        if m.data_type_by_magic.get(&h.version) != Some(&u64::from(h.data_type)) {
+            return Some(if legacy {
+                "unsupported: not a reflectance file".into()
+            } else {
+                "unsupported: not a raw (DN + white reference) file".into()
+            });
         }
-        if m.require_dark_corrected && h.dark_corrected == 0 {
+        if m.require_dark_corrected_magic.contains(&h.version) && h.dark_corrected == 0 {
             return Some("unsupported: dark correction flag not set".into());
         }
         if usize::from(h.channels) != m.grid_n
@@ -234,32 +238,32 @@ impl<'r> Engine<'r> {
         {
             return Some("unsupported: wavelength grid".into());
         }
-        let (lo, hi) = m.reference_range_nm;
-        let bad_ref = scan
-            .wavelengths_nm
-            .iter()
-            .zip(&scan.reference_dn)
-            .any(|(w, v)| *w >= lo && *w <= hi && !(v.is_finite() && *v > 0.0));
-        if bad_ref {
-            return Some("unsupported: white reference not finite and positive".into());
+        if legacy {
+            if scan.reflectance.iter().any(|v| !v.is_finite()) {
+                return Some("unsupported: non-finite reflectance values".into());
+            }
+        } else {
+            let (Some(rd), Some(sd)) = (&scan.reference_dn, &scan.sample_dn) else {
+                return Some("unsupported: no white-reference block".into());
+            };
+            let (lo, hi) = m.reference_range_nm;
+            let bad_ref = scan
+                .wavelengths_nm
+                .iter()
+                .zip(rd)
+                .any(|(w, v)| *w >= lo && *w <= hi && !(v.is_finite() && *v > 0.0));
+            if bad_ref {
+                return Some("unsupported: white reference not finite and positive".into());
+            }
+            if sd.iter().any(|v| !v.is_finite()) {
+                return Some("unsupported: non-finite sample values".into());
+            }
         }
-        if scan.sample_dn.iter().any(|v| !v.is_finite()) {
-            return Some("unsupported: non-finite sample values".into());
-        }
-        let mut j = scan.splices_nm.clone();
-        j.sort_by(f64::total_cmp);
-        if j.iter()
-            .zip(accepted_joins_nm)
-            .any(|(a, b)| (a - b).abs() > 1e-3)
-        {
+        if !joins_accepted(&scan.splices_nm, &m.join_windows_nm) {
             return Some(format!(
-                "unsupported: detector joins {} (only {} are supported)",
+                "unsupported: detector joins {}",
                 val::py_json(
                     &V::List(scan.splices_nm.iter().map(|x| V::Num(*x)).collect()),
-                    false
-                ),
-                val::py_json(
-                    &V::List(accepted_joins_nm.iter().map(|x| V::Num(*x)).collect()),
                     false
                 )
             ));
@@ -279,6 +283,9 @@ impl<'r> Engine<'r> {
             let (g, val) = verdict::sort_key(p, &vd, None, None);
             v.set("sort_group", g);
             v.set("sort_value", val);
+            if let Some(pen) = verdict::sort_penalty(p, &v) {
+                v.set("sort_penalty", pen);
+            }
         }
         v
     }
@@ -350,13 +357,13 @@ impl<'r> Engine<'r> {
     ) -> Obj {
         let mut deps = BTreeMap::new();
         self.check_dep("acquisition", &mut deps);
+        let legacy_input = meta.get("format").and_then(V::as_str) == Some("legacy");
         let cls = ctx.instrument_class.as_str();
         let serial = ctx.serial;
         let joins = &ctx.splices_nm;
         let acqp = self.cp("acquisition");
         let CheckParams::Acquisition {
             input_matrix: im,
-            accepted_joins_nm,
             b6_check_if_implied_sd_above,
             ..
         } = acqp
@@ -372,12 +379,7 @@ impl<'r> Engine<'r> {
             && wl.windows(2).all(|p| {
                 ((p[1] - p[0]) - im.grid_step_nm).abs() <= 1e-8 + 1e-5 * im.grid_step_nm.abs()
             });
-        let mut sj = joins.clone();
-        sj.sort_by(f64::total_cmp);
-        let okjoin = sj
-            .iter()
-            .zip(accepted_joins_nm)
-            .all(|(a, b)| (a - b).abs() < 1e-3);
+        let okjoin = joins_accepted(joins, &im.join_windows_nm);
         if !(okgrid && okjoin) {
             let why = if !okgrid {
                 "wavelength grid".to_string()
@@ -405,7 +407,12 @@ impl<'r> Engine<'r> {
             "B1",
             Obj::new().with("status", "assessed").with("outcome", "ok"),
         );
-        acq.update(checks::acquisition(wl, r_meas, acqp, dn));
+        let no_dn = if legacy_input {
+            "not assessed: the file stores reflectance only"
+        } else {
+            "not assessed: no raw DN (spectrum input)"
+        };
+        acq.update(checks::acquisition(wl, r_meas, acqp, dn, joins, no_dn));
         // the stream's transfer is resolved (picked) first: the per-sign B6b gates are keyed by it (phase 0c); it is
         // applied after the Rescan check below
         let transfers = self.reg.transfers();
@@ -709,6 +716,9 @@ impl<'r> Engine<'r> {
                 let (g, val) = verdict::sort_key(p, &vd, m, s_val);
                 v.set("sort_group", g);
                 v.set("sort_value", val);
+                if let Some(pen) = verdict::sort_penalty(p, &v) {
+                    v.set("sort_penalty", pen);
+                }
                 verdicts.push((a, v));
             }
         }
@@ -952,39 +962,45 @@ fn asd_meta(b: &[u8], name: &str) -> Result<Obj, (String, Obj)> {
     let u16_at = |o: usize| u16::from_le_bytes([b[o], b[o + 1]]);
     let u32_at = |o: usize| u32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]]);
     let i32_at = |o: usize| i32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]]);
-    let f32_at = |o: usize| f32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]]);
-    let f64_at = |o: usize| {
-        let mut a = [0u8; 8];
-        a.copy_from_slice(&b[o..o + 8]);
-        f64::from_le_bytes(a)
-    };
-    let n = usize::from(u16_at(204));
-    let sz = match b[199] {
-        0 | 1 => 4,
-        2 => 8,
-        _ => return Err(("unsupported: unknown data format".into(), base)),
-    };
-    let off = 484 + n * sz;
-    if b.len() < off {
-        return Err(("unsupported: truncated sample block".into(), base));
+    if !matches!(b[199], 0..=2) {
+        return Err(("unsupported: unknown data format".into(), base));
     }
-    let (ole_ref, ole_spec) = if b.len() >= off + 20 {
-        (Some(f64_at(off + 2)), Some(f64_at(off + 10)))
-    } else {
-        (None, None)
+    // the oracle reader, tolerant as it is: format, OLE dates and the resolved joins (DECISIONS 87)
+    let Some(pr) = crate::read::asd::probe(b) else {
+        return Err(("unsupported: truncated sample block".into(), base));
     };
-    let splices = vec![f64::from(f32_at(444)), f64::from(f32_at(448))];
-    Ok(base
+    let mut m = base
         .with("input_sha256", sha256_hex(b))
         .with("input_kind", "asd")
         .with("serial", i64::from(u16_at(400)))
-        .with("time_ole", ole_spec)
-        .with("time_local", ole_to_iso(ole_spec))
-        .with("utc_offset_min", utc_offset_minutes(ole_ref, i32_at(187)))
+        .with("time_ole", pr.ole_spectrum)
+        .with("time_local", ole_to_iso(pr.ole_spectrum))
+        .with(
+            "utc_offset_min",
+            utc_offset_minutes(pr.ole_reference, i32_at(187)),
+        )
         .with("integration_time_ms", i64::from(u32_at(390)))
         .with("averages", i64::from(u16_at(429)))
         .with(
             "splices_nm",
-            V::List(splices.into_iter().map(V::Num).collect()),
-        ))
+            V::List(pr.joins.iter().map(|x| V::Num(*x)).collect()),
+        );
+    // other instruments: recorded only when they differ from the LabSpec as8 case, so as8 records are unchanged
+    if pr.format != Some("as8") {
+        m.set("format", pr.format.map(V::from).unwrap_or(V::Null));
+    }
+    if pr.joins_source != "header" {
+        m.set("joins_source", pr.joins_source);
+    }
+    Ok(m)
+}
+
+/// Each join inside its window, in sorted order (oracle `asd.joins_accepted`).
+fn joins_accepted(joins: &[f64], windows: &[(f64, f64)]) -> bool {
+    let mut j = joins.to_vec();
+    j.sort_by(f64::total_cmp);
+    j.len() == windows.len()
+        && j.iter()
+            .zip(windows)
+            .all(|(x, (lo, hi))| lo <= x && x <= hi)
 }

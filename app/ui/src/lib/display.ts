@@ -71,11 +71,11 @@ export function zoomsHeadline(z: Zooms, bands: BandReading[] = []): string {
     case 'A':
       return 'Flat at all six collagen bands';
     case 'B':
-      return 'Protein bands flat, C–H bands only';
+      return 'Protein bands flat at 2044/2175, other bands only';
     case 'C':
       return 'One protein band resolved';
     case 'D':
-      return 'Protein bands resolved, C–H bands incomplete';
+      return 'Protein bands resolved at 2044/2175, other bands incomplete';
     case 'E':
       return 'All six collagen bands resolved';
     default:
@@ -89,7 +89,7 @@ export function trackPos(v: number): number {
 }
 
 export function shortName(file: string): string {
-  return file.replace(/\.asd$/i, '');
+  return file.replace(/\.(asd|sco)$/i, '');
 }
 
 export function timeOf(iso: string): string {

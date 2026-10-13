@@ -35,8 +35,9 @@ class N2Cache:
         return {f"{int(a)}-{int(b)}": _f(v) for (a, b), v in sorted(self.v.items())}
 
 
-def acquisition(wl, R, P, dn=None):
-    """B2-B5, B7, B8 on the as-measured reflectance (B1 is the reader's matrix; B6/B6b are in pipeline)."""
+def acquisition(wl, R, P, dn=None, joins=(1000.0, 1800.0), no_dn_status="not assessed: no raw DN (spectrum input)"):
+    """B2-B5, B7, B8 on the as-measured reflectance (B1 is the reader's matrix; B6/B6b are in pipeline). B7 and B8 sit
+    on the scan's own joins (DECISIONS 87)."""
     wl = np.asarray(wl, float); R = np.asarray(R, float)
     out = {}
     lo, hi = P["integrity_range_nm"]
@@ -44,7 +45,7 @@ def acquisition(wl, R, P, dn=None):
     # B2 saturation (needs raw DN)
     b2 = P["B2_saturation"]
     if dn is None:
-        out["B2"] = {"status": "not assessed: no raw DN (spectrum input)", "outcome": None}
+        out["B2"] = {"status": no_dn_status, "outcome": None}
     else:
         m = float(np.nanmax(np.asarray(dn, float)[k]))
         out["B2"] = {"status": "assessed", "max_dn": m, "outcome": "Unusable" if m >= b2["dn_at_least"] else "ok"}
@@ -64,19 +65,22 @@ def acquisition(wl, R, P, dn=None):
     out["B5"] = {"status": "assessed", "mean_R": _f(mr), "outcome": "Note" if mr < b5["mean_R_below"] else "ok"}
     # B7 reflectance above 1
     b7 = P["B7_above_one"]
-    k7 = (wl >= b7["range_nm"][0]) & (wl <= b7["range_nm"][1])
+    j1, j2 = sorted(float(x) for x in joins)
+    k7 = (wl >= j1 + b7["range_offsets_nm"][0]) & (wl <= j2 + b7["range_offsets_nm"][1])
     mx = float(np.max(R[k7]))
     out["B7"] = {"status": "assessed", "max_R": _f(mx), "outcome": "Note" if mx > b7["max_R_above"] else "ok"}
     # B8 splice steps at the header joins (both line fits on the SWIR1 side)
     b8 = P["B8_splice_step"]
     steps = []
+    js = sorted(float(x) for x in joins)
     for j in b8["fits"]:
-        a, b = K.idx(wl, j["fit_nm"][0]), K.idx(wl, j["fit_nm"][1])
+        jn = js[j["join_index"]]
+        a, b = K.idx(wl, jn + j["fit_offsets_nm"][0]), K.idx(wl, jn + j["fit_offsets_nm"][1])
         x = wl[a:b + 1]; y = R[a:b + 1]
         c = np.polyfit(x - x.mean(), y, 1)
-        pred = c[0] * (j["extrapolate_to_nm"] - x.mean()) + c[1]
-        other = R[K.idx(wl, j["compare_nm"])]
-        den = R[K.idx(wl, j["denominator_nm"])]
+        pred = c[0] * (jn + j["extrapolate_offset_nm"] - x.mean()) + c[1]
+        other = R[K.idx(wl, jn + j["compare_offset_nm"])]
+        den = R[K.idx(wl, jn + j["denominator_offset_nm"])]
         steps.append(abs(pred - other) / abs(den) if den != 0 else NAN)
     worst = float(np.nanmax(steps)) if steps else NAN
     o = "ok"
@@ -375,19 +379,30 @@ def c1(wl, E, P, gate, specific_fired, tail_unreliable, longwave_mode="not_asses
     """gate: C1's B6b gate reason (None = not gated). tail_unreliable: the long-wave tail is unreliable FOR C1
     (check.longwave tail_unreliable_c1). longwave_mode: what to do then: 'truncated' (the variant without the
     > 2300 nm band, P['truncated']) or 'not_assessed'. The record ends with gated (bool)."""
+    nil = {"film": None, "film_fired": None}
     if gate:
-        return {"status": f"gated: {gate}", "excess": None, "fired": None, "gated": True}
+        return {"status": f"gated: {gate}", "excess": None, **nil, "fired": None, "gated": True}
     if specific_fired:
-        return {"status": "skipped: a specific sign fired", "excess": None, "fired": None, "gated": False}
+        return {"status": "skipped: a specific sign fired", "excess": None, **nil, "fired": None, "gated": False}
     Q, st = P, "assessed"
     if tail_unreliable:
         if longwave_mode != "truncated":
-            return {"status": "not assessed: long-wave region too noisy", "excess": None, "fired": None, "gated": False}
+            return {"status": "not assessed: long-wave region too noisy", "excess": None, **nil, "fired": None,
+                    "gated": False}
         Q, st = P["truncated"], "assessed: truncated (long-wave region too noisy)"
     hw = P["read_half_width_nm"]
     rd = lambda c: float(K.band_reading(E, wl, c, hw)[0])
     ch = sum(rd(c) for c in Q["ch_bands_nm"]); nh = sum(rd(c) for c in Q["nh_bands_nm"])
     ex = ch - (Q["a"] + Q["b"] * nh)
     if not math.isfinite(ex):
-        return {"status": "not assessed: kernel support", "excess": None, "fired": None, "gated": False}
-    return {"status": st, "excess": ex, "fired": bool(ex > Q["fires_if_excess_above"]), "gated": False}
+        return {"status": "not assessed: kernel support", "excess": None, **nil, "fired": None, "gated": False}
+    # the organic-film contrast (DECISIONS 103; full variant only): peak minus trough of the 2298/2325 feature
+    film = film_fired = None
+    fp = Q.get("film")
+    if fp:
+        fh = fp["half_width_nm"]
+        f = float(K.band_reading(E, wl, fp["peak_nm"], fh)[0]) - float(K.band_reading(E, wl, fp["trough_nm"], fh)[0])
+        if math.isfinite(f):
+            film, film_fired = f, bool(f >= fp["fires_if_at_least"])
+    fired = bool(ex > Q["fires_if_excess_above"]) or bool(film_fired)
+    return {"status": st, "excess": ex, "film": film, "film_fired": film_fired, "fired": fired, "gated": False}

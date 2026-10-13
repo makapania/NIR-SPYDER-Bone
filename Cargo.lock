@@ -2963,7 +2963,7 @@ dependencies = [
 
 [[package]]
 name = "spyder-bone-app"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2976,7 +2976,7 @@ dependencies = [
 
 [[package]]
 name = "spyder-cli"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2985,7 +2985,7 @@ dependencies = [
 
 [[package]]
 name = "spyder-core"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2995,7 +2995,7 @@ dependencies = [
 
 [[package]]
 name = "spyder-watch"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "libc",
  "notify",

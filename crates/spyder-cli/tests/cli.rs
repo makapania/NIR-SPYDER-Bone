@@ -36,11 +36,12 @@ fn folder(tag: &str) -> PathBuf {
     let mut refsave = AsdSpec::default();
     refsave.sample = refsave.reference.clone();
     std::fs::write(d.join("b_reference.ASD"), refsave.build()).unwrap();
-    let joins = AsdSpec {
-        splices: [1000.0, 1830.0],
+    // an as8 that holds reflectance: outside the matrix (other joins are resolved since DECISIONS 87)
+    let unsupported = AsdSpec {
+        data_type: 1,
         ..Default::default()
     };
-    std::fs::write(d.join("c_joins.asd"), joins.build()).unwrap();
+    std::fs::write(d.join("c_unsupported.asd"), unsupported.build()).unwrap();
     let full = AsdSpec::default().build();
     std::fs::write(d.join("d_truncated.asd"), &full[..20_000]).unwrap();
     std::fs::write(d.join("notes.txt"), b"not a spectrum").unwrap();
@@ -55,7 +56,7 @@ fn json_output_is_stable_and_complete() {
     assert_eq!(code, 0, "{err}");
     let v: Value = serde_json::from_str(&out).expect("valid JSON");
     assert_eq!(v["schema"], "spyder-bone/read");
-    assert_eq!(v["schema_version"], 1);
+    assert_eq!(v["schema_version"], 2);
     let files = v["files"].as_array().unwrap();
     let names: Vec<&str> = files
         .iter()
@@ -66,7 +67,7 @@ fn json_output_is_stable_and_complete() {
         [
             "a_good.asd",
             "b_reference.ASD",
-            "c_joins.asd",
+            "c_unsupported.asd",
             "d_truncated.asd"
         ]
     );
@@ -83,7 +84,7 @@ fn json_output_is_stable_and_complete() {
     assert!(files[2]["acceptance"]["reason"]
         .as_str()
         .unwrap()
-        .contains("1830"));
+        .contains("not a raw"));
     assert_eq!(files[3]["acceptance"]["error_kind"], "truncated");
     let good = &files[0];
     assert_eq!(good["kind"], "sample");

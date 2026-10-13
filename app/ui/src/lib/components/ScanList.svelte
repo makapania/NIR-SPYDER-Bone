@@ -40,7 +40,7 @@
     return formatReading(s.models.cons3?.value, true);
   }
   const fired = (s: ScanResult) => s.signs.filter((x) => x.fired);
-  const ROW_FLAG: Record<string, string> = { wax: 'wax', ester: 'consolidant', plaster: 'plaster', c1: 'organic', burnt: 'heat' };
+  const ROW_FLAG: Record<string, string> = { wax: 'lipid', ester: 'consolidant', plaster: 'plaster', c1: 'organic', burnt: 'heat' };
   const lifted = (s: ScanResult) => s.verdictRule === 'lift_good' || s.verdictRule === 'lift_borderline';
 
   $effect(() => {

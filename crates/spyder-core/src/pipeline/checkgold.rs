@@ -72,7 +72,15 @@ pub fn compute_check(
     Ok(match p {
         CheckParams::Acquisition { .. } => {
             let mut n2c = N2Cache::new(wl, x);
-            let mut r = C::acquisition(wl, x, p, None);
+            // check goldens are LabSpec spectra (oracle checkgold: the default joins and B2 text)
+            let mut r = C::acquisition(
+                wl,
+                x,
+                p,
+                None,
+                &[1000.0, 1800.0],
+                "not assessed: no raw DN (spectrum input)",
+            );
             let key = input_opt_str(inputs, "transfer_key")?.unwrap_or_else(|| "none".into());
             r.set("B6b", C::b6b(p, &mut n2c, &key).0);
             flat_map(r)

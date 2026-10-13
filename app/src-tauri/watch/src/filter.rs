@@ -1,22 +1,36 @@
 //! Which directory entries are candidate scans (03_architecture section 4.3, step 1).
 //!
-//! `.asd` only (any case). Skipped: dotfiles, including macOS AppleDouble `._name.asd` companions that Finder
-//! writes on non-HFS volumes and SMB shares; Office-style lock and temp names (`~$x.asd`, `~x.asd`); anything
-//! whose final extension is not `.asd` (so `x.asd.tmp`, `x.asd.part`, `x.asd~`, `.crdownload` never match).
-//! Hidden or system files (Windows attributes, macOS `UF_HIDDEN`) are skipped at stat time
-//! ([`is_hidden_meta`]).
+//! ASD scan names, any case (DECISIONS 87-88): `.asd` (LabSpec 4, Trek-type handheld), a three-digit extension
+//! (`.000`, the FieldSpec 3 numbering) and `.sco` (ViewSpec splice-corrected). Skipped: dotfiles, including macOS
+//! AppleDouble `._name.asd` companions that Finder writes on non-HFS volumes and SMB shares; Office-style lock and
+//! temp names (`~$x.asd`, `~x.asd`); anything whose final extension is not a scan extension (so `x.asd.tmp`,
+//! `x.asd.part`, `x.asd~`, `.crdownload` never match). Hidden or system files (Windows attributes, macOS
+//! `UF_HIDDEN`) are skipped at stat time ([`is_hidden_meta`]). A `.sco` whose source is in the same folder is the
+//! same scan and is skipped where the folder is listed ([`is_shadowed_sco`]).
 
 use std::ffi::OsStr;
 use std::fs::Metadata;
+use std::path::Path;
 
-/// True if this file name could be a scan: ends in `.asd` (case-insensitive) and is not a hidden, AppleDouble,
-/// lock or temp name. Directories are rejected separately (at stat time).
+/// True if this file name could be a scan (see the module docs) and is not a hidden, AppleDouble, lock or temp
+/// name. Directories are rejected separately (at stat time).
 pub fn is_candidate_name(name: &OsStr) -> bool {
     let Some(name) = name.to_str() else {
-        // Non-UTF-8 names: compare on the lossy form; such files are still scans if they end in .asd.
+        // Non-UTF-8 names: compare on the lossy form; such files are still scans if they end in a scan extension.
         return is_candidate_str(&name.to_string_lossy());
     };
     is_candidate_str(name)
+}
+
+/// `.asd`, `.sco` or exactly three digits, after a non-empty stem (mirrors `spyder_core::read::is_scan_name`).
+fn has_scan_extension(lower: &str) -> bool {
+    let Some((stem, ext)) = lower.rsplit_once('.') else {
+        return false;
+    };
+    !stem.is_empty()
+        && (ext == "asd"
+            || ext == "sco"
+            || (ext.len() == 3 && ext.bytes().all(|b| b.is_ascii_digit())))
 }
 
 fn is_candidate_str(name: &str) -> bool {
@@ -24,11 +38,28 @@ fn is_candidate_str(name: &str) -> bool {
         return false;
     }
     let lower = name.to_ascii_lowercase();
-    if !lower.ends_with(".asd") || lower.len() <= 4 {
+    if !has_scan_extension(&lower) {
         return false;
     }
     // "x.tmp.asd"-style temp names written by some copy tools.
-    !(lower.ends_with(".tmp.asd") || lower.ends_with(".part.asd"))
+    let stem = &lower[..lower.rfind('.').unwrap_or(0)];
+    !(stem.ends_with(".tmp") || stem.ends_with(".part"))
+}
+
+/// A ViewSpec `X.sco` whose source `X` (a scan name) is in the same folder: the same scan, splice-corrected. The
+/// source (as measured) is scored and the `.sco` skipped, so a scan is never counted twice (DECISIONS 88; mirrors
+/// `spyder_core::read::is_shadowed_sco`).
+pub fn is_shadowed_sco(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    if name.len() <= 4 || !name.to_ascii_lowercase().ends_with(".sco") {
+        return false;
+    }
+    let source = &name[..name.len() - 4];
+    is_candidate_str(source)
+        && !source.to_ascii_lowercase().ends_with(".sco")
+        && path.with_file_name(source).is_file()
 }
 
 /// Hidden or system files are never scans.
@@ -102,16 +133,36 @@ mod tests {
     }
 
     #[test]
-    fn asd_only_any_case() {
+    fn scan_extensions_any_case() {
         assert!(ok("Spectrum00001.asd"));
         assert!(ok("AB CD12a_1.ASD"));
         assert!(ok("X10001_1.Asd"));
+        assert!(ok("spot.000"));
+        assert!(ok("spot.029.sco"));
+        assert!(ok("SPOT.007.SCO"));
         assert!(!ok("Spectrum00001.asd.tmp"));
         assert!(!ok("Spectrum00001.asd~"));
         assert!(!ok("Spectrum00001.asd.part"));
         assert!(!ok("Spectrum00001.txt"));
+        assert!(!ok("spot.00"));
+        assert!(!ok("spot.0001"));
         assert!(!ok(".asd"));
+        assert!(!ok(".000"));
         assert!(!ok("notes"));
+    }
+
+    #[test]
+    fn a_sco_beside_its_source_is_shadowed() {
+        let dir = std::env::temp_dir().join(format!("spyder_watch_sco_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        for f in ["a.000", "a.000.sco", "b.001.sco"] {
+            std::fs::write(dir.join(f), b"x").unwrap();
+        }
+        assert!(is_shadowed_sco(&dir.join("a.000.sco")));
+        assert!(!is_shadowed_sco(&dir.join("b.001.sco")));
+        assert!(!is_shadowed_sco(&dir.join("a.000")));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
@@ -121,6 +172,7 @@ mod tests {
         assert!(!ok("~$Spectrum00001.asd"));
         assert!(!ok("~Spectrum00001.asd"));
         assert!(!ok("Spectrum00001.tmp.asd"));
+        assert!(!ok("spot.000.part.sco"));
     }
 
     #[test]

@@ -41,20 +41,21 @@ pub fn session_info(core: &Core, s: &Session, watching: bool) -> SessionInfo {
     }
 }
 
-/// Whether a file name is an `.asd` scan (case-insensitive), as the watcher decides.
+/// Whether a file name is an ASD scan (`.asd`, `.sco`, `.000`; any case), as the watcher decides.
 pub fn is_asd(p: &Path) -> bool {
     p.file_name()
         .is_some_and(spyder_watch::filter::is_candidate_name)
 }
 
-/// The `.asd` files directly in a folder (not sub-folders: DECISIONS 64), sorted by name.
+/// The ASD scan files directly in a folder (not sub-folders: DECISIONS 64), sorted by name. A ViewSpec `.sco`
+/// beside its source is the same scan and is left out (DECISIONS 88).
 pub fn folder_files(folder: &Path) -> Result<Vec<PathBuf>, String> {
     let rd =
         std::fs::read_dir(folder).map_err(|e| format!("cannot open {}: {e}", folder.display()))?;
     let mut v: Vec<PathBuf> = rd
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.is_file() && is_asd(p))
+        .filter(|p| p.is_file() && is_asd(p) && !spyder_watch::filter::is_shadowed_sco(p))
         .collect();
     v.sort();
     Ok(v)

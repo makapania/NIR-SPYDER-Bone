@@ -170,6 +170,26 @@
         }
        }
       },
+      "sort": {
+       "type": "object",
+       "required": [
+        "verdict_order",
+        "within"
+       ],
+       "properties": {
+        "penalty_signs": {
+         "type": "array",
+         "items": {
+          "enum": [
+           "plaster",
+           "wax",
+           "ester",
+           "C1"
+          ]
+         }
+        }
+       }
+      },
       "notes": {
        "type": "object",
        "required": [

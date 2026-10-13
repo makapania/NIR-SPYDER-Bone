@@ -28,11 +28,11 @@
   },
   {
    "file": "checks/check.acquisition.json",
-   "sha256": "d509447961b4b919a10a73e0fecc85ebf1f003e748ff25c21a5b25da43eb27bd",
-   "bytes": 14530,
+   "sha256": "f5b6f15e52f16f2b45389690628c783638189a2452ebe00db979760ffc90c06d",
+   "bytes": 15405,
    "format": "spyder-bone/engine_check",
    "id": "check.acquisition",
-   "version": "1.0.0",
+   "version": "2.0.0",
    "status": "active"
   },
   {
@@ -46,11 +46,11 @@
   },
   {
    "file": "checks/check.c1.json",
-   "sha256": "a37a0998493d7f18ac2c8db9567609e80a53aa1c9c87999ab70840dbd5d9c710",
-   "bytes": 6290,
+   "sha256": "fd754aa000fcd5455e728f35e874bd6af8fb9e5fa01479473e3b4cd0a818b857",
+   "bytes": 7643,
    "format": "spyder-bone/engine_check",
    "id": "check.c1",
-   "version": "1.0.0",
+   "version": "2.0.0",
    "status": "active"
   },
   {
@@ -91,11 +91,11 @@
   },
   {
    "file": "checks/check.zooms_patterns.json",
-   "sha256": "214107a6a875a5148cc2582088b0e2184500263e933ede41ed5394237cd6ef6a",
-   "bytes": 19337,
+   "sha256": "25bd8880856f853a3ebf7df74f913610a5aa62cdeead1c174c1e7c7009d4049c",
+   "bytes": 19466,
    "format": "spyder-bone/engine_check",
    "id": "check.zooms_patterns",
-   "version": "1.0.0",
+   "version": "2.0.0",
    "status": "active"
   },
   {
@@ -230,20 +230,20 @@
   },
   {
    "file": "profiles/profile.isotopes.json",
-   "sha256": "56eaaf5145114d48f4d1be497bc862328e626b678c567fa9b210841fa9a4d500",
-   "bytes": 57442,
+   "sha256": "5af0d1c8a4142a0339d4cbf87ef65d87dc029ee78c9c2fb2cd1b8c876b26c974",
+   "bytes": 58091,
    "format": "spyder-bone/analysis_profile",
    "id": "profile.isotopes",
-   "version": "1.0.0",
+   "version": "2.0.0",
    "status": "active"
   },
   {
    "file": "profiles/profile.radiocarbon.json",
-   "sha256": "cc21255ec103c318cbd0801bb14286b5900089605d770624804286b4a555c816",
-   "bytes": 57451,
+   "sha256": "add7633956b39ee69ee9c19b9491206727a4d793aab53e01c8207fd21a6f20b8",
+   "bytes": 58100,
    "format": "spyder-bone/analysis_profile",
    "id": "profile.radiocarbon",
-   "version": "1.0.0",
+   "version": "2.0.0",
    "status": "active"
   },
   {

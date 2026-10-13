@@ -44,7 +44,7 @@ class Oracle:
 
     # ------------------------------------------------------------------ entry points
     def analyse_file(self, path, instrument_class, class_source="user", name=None):
-        """path: an .asd file path or its bytes (then give `name`)."""
+        """path: an ASD file path (as8, as7 or legacy v1) or its bytes (then give `name`)."""
         P = self.P
         fname = name if name is not None else (str(path) if not isinstance(path, (bytes, bytearray)) else "<bytes>")
         acqp = P.cp("acquisition")
@@ -58,9 +58,15 @@ class Oracle:
                 "time_local": asd.ole_to_iso(h.get("ole_spec_time")), "utc_offset_min": asd.utc_offset_minutes(h),
                 "integration_time_ms": h["integration_time_ms"], "averages": h["sample_count"],
                 "splices_nm": h["splices_nm"]}
+        # other instruments (DECISIONS 87): recorded only when they differ from the LabSpec as8 case, so as8 records
+        # are unchanged
+        if h["format"] != "as8":
+            meta["format"] = h["format"]
+        if h["joins_source"] != "header":
+            meta["joins_source"] = h["joins_source"]
         if reason:
             return self._rejected(reason, meta)
-        R = asd.reflectance(dn, ref)
+        R = asd.reflectance_of(h, dn, ref)
         ctx = {"instrument_class": instrument_class, "class_source": class_source, "serial": h["serial"],
                "splices_nm": h["splices_nm"]}
         return self.analyse_spectrum(wl, R, ctx, dn=dn, meta=meta)
@@ -94,14 +100,16 @@ class Oracle:
         # Codex Phase 3 review 2: an empty or short spectrum is unsupported input, never an exception
         okgrid = (len(wl) == g["n"] and R_meas.ndim == 1 and len(R_meas) == len(wl) and len(wl) > 0
                   and abs(wl[0] - g["start_nm"]) < 1e-6 and np.allclose(np.diff(wl), g["step_nm"]))
-        okjoin = all(abs(a - b) < 1e-3 for a, b in zip(sorted(joins), acqp["input_matrix"]["accepted_joins_nm"]))
+        okjoin = asd.joins_accepted(joins, acqp["input_matrix"])
         if not (okgrid and okjoin):
             return self._rejected("unsupported: " + ("wavelength grid" if not okgrid else f"detector joins {list(joins)}"),
                                   meta)
         # ---- Step 2: raw acquisition statistics, as measured
         n2c = checks.N2Cache(wl, R_meas)
         acq = {"B1": {"status": "assessed", "outcome": "ok"}}
-        acq.update(checks.acquisition(wl, R_meas, acqp, dn))
+        no_dn = ("not assessed: the file stores reflectance only" if meta.get("format") == "legacy"
+                 else "not assessed: no raw DN (spectrum input)")
+        acq.update(checks.acquisition(wl, R_meas, acqp, dn, joins, no_dn))
         # the stream's transfer is resolved (picked) first: the per-sign B6b gates are keyed by it (phase 0c); it is
         # applied after the Rescan check below
         st = P.stream_transfer(cls, serial)
@@ -205,8 +213,12 @@ class Oracle:
     # ------------------------------------------------------------------ helpers
     def _sort(self, out, analysis, m, S):
         """'most promising first' key of a verdict block (Codex Phase 3 review 5: every verdict has one)."""
-        g, val = VD.sort_key(self.P.profile(analysis).doc["parameters"], out["verdict"], m, S)
+        pp = self.P.profile(analysis).doc["parameters"]
+        g, val = VD.sort_key(pp, out["verdict"], m, S)
         out["sort_group"], out["sort_value"] = g, val
+        pen = VD.sort_penalty(pp, out)
+        if pen is not None:
+            out["sort_penalty"] = pen
 
     def _finish(self, rec, n2c):
         rec["n2"] = n2c.table()

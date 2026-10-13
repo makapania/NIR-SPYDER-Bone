@@ -137,6 +137,9 @@ pub struct Sort {
     pub verdict_order: Vec<String>,
     /// verdict -> "m" | "S"
     pub within: BTreeMap<String, String>,
+    /// DECISIONS 99: a verdict block whose flags name one of these signs sorts after the unpenalised scans of its
+    /// own verdict group (`sort_penalty` 1). None: the profile has no penalty (no `sort_penalty` key is written).
+    pub penalty_signs: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -215,6 +218,18 @@ pub fn parse_profile(doc: &Node) -> PResult<AnalysisProfile> {
             .into_iter()
             .map(|(k, v)| v.one_of(&["m", "S"]).map(|s| (k, s.to_string())))
             .collect::<PResult<_>>()?,
+        penalty_signs: match so.opt("penalty_signs") {
+            None => None,
+            Some(n) => {
+                let v = n.vec_str()?;
+                if let Some(bad) = v.iter().find(|s| !flags.contaminant.contains(s)) {
+                    return Err(n.error(format!(
+                        "sort.penalty_signs: '{bad}' is not one of the profile's contaminant flag signs"
+                    )));
+                }
+                Some(v)
+            }
+        },
     };
     let second_opinion = match p.opt("second_opinion") {
         None => None,

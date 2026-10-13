@@ -109,7 +109,7 @@ pub struct BandReading {
     /// Display state (lit / flat / can't tell, as the ZooMS rule reads the band; lit bands graded by u).
     pub state: &'static str,
     /// The organic-evidence rule's own state for this band (Step 7; "faint" below its faint threshold),
-    /// None for C-H 2284 (not an evidence band).
+    /// None for 2284 (amide III + CH2; not an evidence band).
     pub evidence_state: Option<&'static str>,
 }
 
@@ -147,6 +147,9 @@ pub struct Sign {
     /// Heat sign only: "charred" or "calcined" (either implies fired); what the spectrum marks.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub heat_kind: Option<&'static str>,
+    /// Foreign-organic sign only: true when its organic-film part (the 2298/2325 contrast) fired; the chart marks it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub film_fired: Option<bool>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -204,6 +207,8 @@ pub struct ScanResult {
     /// The profile's "most promising first" key (unrounded).
     pub sort_group: Option<f64>,
     pub sort_value: Option<f64>,
+    /// 1: a contaminant flag sorts the scan after the clean ones of its verdict group (DECISIONS 99).
+    pub sort_penalty: Option<f64>,
     pub input_sha256: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub arrived_seq: Option<u64>,
@@ -703,6 +708,7 @@ fn signs(rec: &Obj) -> Vec<Sign> {
                     (true, false, true) => Some("calcined"),
                     _ => None,
                 },
+                film_fired: None,
             });
         }
     }
@@ -713,6 +719,7 @@ fn signs(rec: &Obj) -> Vec<Sign> {
             status: assessment(s(Some(x), "status")),
             edge50_nm: None,
             heat_kind: None,
+            film_fired: x.get("film_fired").is_some_and(V::truthy).then_some(true),
         });
     }
     out
@@ -817,6 +824,7 @@ pub fn scan_result(
         ),
         sort_group: None,
         sort_value: None,
+        sort_penalty: None,
         input_sha256: None,
         arrived_seq: e.arrived_seq,
         file_revision: e.revision,
@@ -882,6 +890,7 @@ pub fn scan_result(
     r.model_verdict = s(a, "model_verdict").map(ui_verdict);
     r.sort_group = f(a, "sort_group");
     r.sort_value = f(a, "sort_value");
+    r.sort_penalty = f(a, "sort_penalty");
     if r.verdict == "rescan" {
         let (why, detail) = unusable(rec);
         r.unusable_reason = why;

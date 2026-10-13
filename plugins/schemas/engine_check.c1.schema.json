@@ -139,6 +139,30 @@
       }
      }
     },
+    "film": {
+     "type": "object",
+     "required": [
+      "peak_nm",
+      "trough_nm",
+      "half_width_nm",
+      "fires_if_at_least"
+     ],
+     "properties": {
+      "peak_nm": {
+       "type": "number"
+      },
+      "trough_nm": {
+       "type": "number"
+      },
+      "half_width_nm": {
+       "type": "number"
+      },
+      "fires_if_at_least": {
+       "type": "number"
+      }
+     },
+     "additionalProperties": false
+    },
     "truncated": {
      "type": "object",
      "required": [

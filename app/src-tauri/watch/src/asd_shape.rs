@@ -6,8 +6,10 @@
 //! length, zero-filled tail) fails the zero-fill check, so a half-written file is never delivered as a scan.
 //!
 //! Layout (little-endian, as in `spyder-core`): 484-byte header; sample block (`channels` values); reference
-//! header (2-byte flag, two f64 OLE times, u16 description length, description); white-reference block
-//! (`channels` values); `as8` trailer (212 bytes, all zero in every file in hand).
+//! header (`as8`: 2-byte flag, two f64 OLE times, u16 description length, description; `as7`: 1-byte flag, two
+//! f64 OLE times, u16 description length, one reserved byte, description); white-reference block (`channels`
+//! values); `as8` trailer (212 bytes, all zero in every file in hand). A legacy v1 file (`ASD`, FieldSpec 3) is
+//! the header and the reflectance block only.
 //!
 //! Settled bytes that are not an ASD file this app knows are [`Shape::Unrecognised`] and are still delivered,
 //! so the core can show a plain "unsupported" message instead of the file silently never appearing.
@@ -58,7 +60,7 @@ pub fn check(b: &[u8]) -> Shape {
         return Shape::Incomplete("file start is still zero-filled (preallocated file)");
     }
     let version = match magic {
-        b"as6" | b"as7" | b"as8" => String::from_utf8_lossy(magic).into_owned(),
+        b"as6" | b"as7" | b"as8" | b"ASD" => String::from_utf8_lossy(magic).into_owned(),
         _ => {
             return Shape::Unrecognised(format!(
                 "not an ASD file (signature {:?})",
@@ -85,8 +87,17 @@ pub fn check(b: &[u8]) -> Shape {
     if b.len() < sample_end {
         return Shape::Incomplete("spectrum block incomplete");
     }
-    if version == "as6" {
-        // No reference block to check; the core rejects as6 as unsupported anyway.
+    if version == "as6" || version == "ASD" {
+        // No reference block: as6 is rejected by the core anyway; a legacy file is complete with its reflectance
+        // block (a preallocated tail would show as zero reflectance, which the core reports as B3/B4).
+        if version == "ASD" {
+            let tail = &b[sample_end - ZERO_FILL_WINDOW.min(channels) * value_size..sample_end];
+            if tail.iter().all(|&x| x == 0) {
+                return Shape::Incomplete(
+                    "reflectance block is still zero-filled (preallocated file)",
+                );
+            }
+        }
         return Shape::Complete {
             version,
             kind: KindHint::Sample,
@@ -95,7 +106,11 @@ pub fn check(b: &[u8]) -> Shape {
     if b.len() < sample_end + REFERENCE_HEADER_LEN {
         return Shape::Incomplete("reference header incomplete");
     }
-    let desc_len = u16_at(b, sample_end + 18) as usize;
+    let desc_len = if version == "as7" {
+        u16_at(b, sample_end + 17) as usize
+    } else {
+        u16_at(b, sample_end + 18) as usize
+    };
     let ref_start = sample_end + REFERENCE_HEADER_LEN + desc_len;
     let ref_end = ref_start + block;
     if b.len() < ref_end {
@@ -194,6 +209,39 @@ pub mod synthetic {
         out.extend(std::iter::repeat_n(0u8, AS8_MIN_TRAILER_LEN));
         out
     }
+
+    /// The same scan in the Trek-type `as7` layout (u8 reference flag, OLE dates at +1/+9, description length at
+    /// +17, one reserved byte; a short non-zero trailer).
+    pub fn as7(seed: u32) -> Vec<u8> {
+        let b = as8(seed);
+        let sample_end = HEADER_LEN + CHANNELS * 8;
+        let mut out = b[..sample_end].to_vec();
+        out[0..3].copy_from_slice(b"as7");
+        out[181] = 0; // the Trek-type files are not flagged dark-corrected
+        out.push(1); // reference flag
+        out.extend_from_slice(&b[sample_end + 2..sample_end + 18]); // the two OLE dates
+        out.extend_from_slice(&0u16.to_le_bytes()); // description length
+        out.push(0); // reserved
+        out.extend_from_slice(
+            &b[sample_end + REFERENCE_HEADER_LEN..sample_end + REFERENCE_HEADER_LEN + CHANNELS * 8],
+        );
+        out.extend(std::iter::repeat_n(7u8, 100)); // trailer (not parsed)
+        out
+    }
+
+    /// A legacy v1 reflectance file (FieldSpec 3 `.NNN`): magic `ASD`, data type 1, f32 reflectance, 9 088 bytes.
+    pub fn legacy(seed: u32) -> Vec<u8> {
+        let b = as8(seed);
+        let mut out = b[..HEADER_LEN].to_vec();
+        out[0..3].copy_from_slice(b"ASD");
+        out[186] = 1;
+        out[199] = 0;
+        for i in 0..CHANNELS {
+            let r = 0.3 + 0.2 * (((i as f64) + seed as f64 * 7.3) / 97.0).sin().abs();
+            out.extend_from_slice(&(r as f32).to_le_bytes());
+        }
+        out
+    }
 }
 
 #[cfg(test)]
@@ -274,6 +322,48 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn as7_and_legacy_files_are_complete_and_every_truncation_is_not() {
+        for (b, version, ends_complete, size) in [
+            (
+                as7(7),
+                "as7",
+                HEADER_LEN + CHANNELS * 8 + REFERENCE_HEADER_LEN + CHANNELS * 8,
+                8,
+            ),
+            (legacy(8), "ASD", HEADER_LEN + CHANNELS * 4, 4),
+        ] {
+            assert_eq!(
+                check(&b),
+                Shape::Complete {
+                    version: version.into(),
+                    kind: KindHint::Sample
+                }
+            );
+            for cut in (0..ends_complete)
+                .step_by(53)
+                .chain([ends_complete - 1, 483, 484, 3])
+            {
+                assert!(
+                    matches!(check(&b[..cut]), Shape::Incomplete(_)),
+                    "{version} cut {cut}: {:?}",
+                    check(&b[..cut])
+                );
+            }
+            // preallocated: the tail of the last block still zero
+            let mut z = b.clone();
+            z[ends_complete - 40 * size..ends_complete]
+                .iter_mut()
+                .for_each(|x| *x = 0);
+            assert!(
+                matches!(check(&z), Shape::Incomplete(_)),
+                "{version}: {:?}",
+                check(&z)
+            );
+        }
+        assert_eq!(legacy(1).len(), 9_088);
     }
 
     #[test]

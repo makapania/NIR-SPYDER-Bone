@@ -13,17 +13,19 @@ use std::fmt::Write as _;
 use std::io::Write as _;
 
 const SCHEMA: &str = "spyder-bone/read";
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2; // 2: format, joins_source; B7 key max_r_swir1 (DECISIONS 87-89)
 const B6_REASON: &str = "B6 is per model and transfer: see `spyder predict` (noise_sd_pct); the B6 rule runs in the Phase 3 pipeline";
 
 pub const USAGE: &str = "usage: spyder read <file.asd | folder> [--json] [--recursive]
 
-  Reads ASD LabSpec 4 .asd files (as8, joins 1000/1800 nm) and prints, per scan,
-  whether it is accepted, its header fields, N2 noise per window and the
-  acquisition checks B1-B8.
+  Reads ASD scan files (LabSpec 4 as8 .asd, Trek-type as7 .asd, FieldSpec 3
+  legacy .000 and ViewSpec .sco; a .sco beside its source is skipped) and
+  prints, per scan, whether it is accepted, its header fields, the detector
+  joins used (header, white-reference steps or default), N2 noise per window
+  and the acquisition checks B1-B8.
 
-  --json        one JSON document on stdout (schema spyder-bone/read v1)
-  --recursive   include .asd files in sub-folders (links and junctions are not followed)
+  --json        one JSON document on stdout (schema spyder-bone/read v2)
+  --recursive   include scan files in sub-folders (links and junctions are not followed)
 ";
 
 #[derive(Serialize)]
@@ -75,7 +77,12 @@ struct FileReport {
     kind: Option<ScanKind>,
     header: Option<AsdHeader>,
     timestamps: Option<Timestamps>,
+    /// "as8" | "as7" | "legacy"; null when rejected.
+    format: Option<&'static str>,
+    /// The detector joins used (DECISIONS 87); null when rejected.
     splices_nm: Option<Vec<f64>>,
+    /// Where the joins came from: "header" | "reference_dn" | "default"; null when rejected.
+    joins_source: Option<&'static str>,
     segments: Option<Vec<Segment>>,
     reflectance: Option<Summary>,
     n2: Option<N2Out>,
@@ -159,7 +166,9 @@ fn report(path: &Path) -> FileReport {
             }),
             header: Some(scan.header),
             timestamps: Some(scan.timestamps),
+            format: Some(scan.format.as_str()),
             splices_nm: Some(scan.splices_nm),
+            joins_source: Some(scan.joins_source),
             segments: Some(scan.segments),
             checks,
             worst_outcome,
@@ -180,7 +189,9 @@ fn report(path: &Path) -> FileReport {
             kind: None,
             header: None,
             timestamps: None,
+            format: None,
             splices_nm: None,
+            joins_source: None,
             segments: None,
             reflectance: None,
             n2: None,
@@ -233,12 +244,18 @@ fn print_text(o: &mut String, r: &FileReport) {
     }
     if let (Some(h), Some(t)) = (&r.header, &r.timestamps) {
         w!(o,
-            "   serial {}  {}  program {:#04x}  joins {}/{} nm  IT {} ms  averages dark/ref/sample {}/{}/{}",
+            "   serial {}  {}  program {:#04x}  joins {} nm ({})  IT {} ms  averages dark/ref/sample {}/{}/{}",
             h.serial,
             h.version,
             h.program_version,
-            h.splice1_nm,
-            h.splice2_nm,
+            r.splices_nm
+                .as_deref()
+                .unwrap_or(&[])
+                .iter()
+                .map(|j| j.to_string())
+                .collect::<Vec<_>>()
+                .join("/"),
+            r.joins_source.unwrap_or("-"),
             h.integration_time_ms,
             h.dark_averages,
             h.reference_averages,

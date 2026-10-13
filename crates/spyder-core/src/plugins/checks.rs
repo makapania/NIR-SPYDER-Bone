@@ -274,22 +274,29 @@ fn b9_variant(n: &Node, base: &Path, windows: Option<Vec<(f64, f64)>>) -> PResul
 /// One B8 splice-step fit (line on the SWIR1 side, extrapolated one channel across the join).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct B8Fit {
-    pub fit_nm: (f64, f64),
-    pub extrapolate_to_nm: f64,
-    pub compare_nm: f64,
-    pub denominator_nm: f64,
+    /// Which join (0 = VNIR/SWIR1, 1 = SWIR1/SWIR2, after sorting the scan's joins).
+    pub join_index: usize,
+    /// Fit range, offsets from the join.
+    pub fit_offsets_nm: (f64, f64),
+    pub extrapolate_offset_nm: f64,
+    pub compare_offset_nm: f64,
+    pub denominator_offset_nm: f64,
 }
 
 /// The Step 1 supported-input matrix.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct InputMatrix {
     pub file_magic: Vec<String>,
-    pub data_type_raw: u64,
-    pub require_dark_corrected: bool,
+    /// Required data type per magic (0 raw DN + white reference, 1 reflectance).
+    pub data_type_by_magic: BTreeMap<String, u64>,
+    /// Magics whose dark-correction flag must be set.
+    pub require_dark_corrected_magic: Vec<String>,
     pub grid_start_nm: f64,
     pub grid_step_nm: f64,
     pub grid_n: usize,
     pub reference_range_nm: (f64, f64),
+    /// Where each detector join must lie (DECISIONS 87).
+    pub join_windows_nm: Vec<(f64, f64)>,
 }
 
 /// C1 coefficients (full or truncated variant).
@@ -302,6 +309,17 @@ pub struct C1Variant {
     pub fires_if_excess_above: f64,
     /// The soft line of the "possible thin coating" tier (phase 0c), if any.
     pub soft_excess_at_least: Option<f64>,
+    /// The organic-film contrast (DECISIONS 103; full variant only): C1 also fires when it reaches its cut.
+    pub film: Option<C1Film>,
+}
+
+/// The 2298/2325 organic-film contrast: mean E over peak +- half width minus mean E over trough +- half width.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct C1Film {
+    pub peak_nm: f64,
+    pub trough_nm: f64,
+    pub half_width_nm: f64,
+    pub fires_if_at_least: f64,
 }
 
 fn c1_variant(n: &Node) -> PResult<C1Variant> {
@@ -320,6 +338,17 @@ fn c1_variant(n: &Node) -> PResult<C1Variant> {
             .opt("soft_tier")
             .map(|t| t.req("excess_at_least").and_then(|x| x.f64()))
             .transpose()?,
+        film: n
+            .opt("film")
+            .map(|f| -> PResult<C1Film> {
+                Ok(C1Film {
+                    peak_nm: f.req("peak_nm")?.f64()?,
+                    trough_nm: f.req("trough_nm")?.f64()?,
+                    half_width_nm: f.req("half_width_nm")?.f64()?,
+                    fires_if_at_least: f.req("fires_if_at_least")?.f64()?,
+                })
+            })
+            .transpose()?,
     })
 }
 
@@ -328,7 +357,6 @@ fn c1_variant(n: &Node) -> PResult<C1Variant> {
 pub enum CheckParams {
     Acquisition {
         integrity_range_nm: (f64, f64),
-        accepted_joins_nm: Vec<f64>,
         b2_dn_at_least: f64,
         b3_r_at_most: f64,
         b4_panel_mean_range: (f64, f64),
@@ -338,11 +366,12 @@ pub enum CheckParams {
         b6_check_if_implied_sd_above: f64,
         /// The per-sign B6b gates (phase 0c).
         b6b: B6bGate,
-        b7_range_nm: (f64, f64),
+        /// B7 range as offsets from the scan's (lower, upper) join: SWIR1.
+        b7_range_offsets_nm: (f64, f64),
         b7_max_r_above: f64,
         b8_note_above: f64,
         b8_check_above: f64,
-        /// Per header join: (fit_nm lo, hi; extrapolate_to_nm; compare_nm; denominator_nm).
+        /// Per join: the line fit and comparison, as offsets from the scan's own joins.
         b8_fits: Vec<B8Fit>,
         input_matrix: InputMatrix,
     },
@@ -503,7 +532,6 @@ pub fn parse_engine_check(doc: &Node, base: &Path) -> PResult<EngineCheck> {
             }
             CheckParams::Acquisition {
                 integrity_range_nm: p.req("integrity_range_nm")?.range(false)?,
-                accepted_joins_nm: im.req("accepted_joins_nm")?.vec_f64()?,
                 b2_dn_at_least: p.req("B2_saturation")?.req("dn_at_least")?.f64()?,
                 b3_r_at_most: p.req("B3_impossible")?.req("r_at_most")?.f64()?,
                 b4_panel_mean_range: b4.req("panel_mean_range")?.range(false)?,
@@ -515,7 +543,10 @@ pub fn parse_engine_check(doc: &Node, base: &Path) -> PResult<EngineCheck> {
                     .req("check_if_implied_sd_above")?
                     .f64()?,
                 b6b,
-                b7_range_nm: b7.req("range_nm")?.range(false)?,
+                b7_range_offsets_nm: {
+                    let v = b7.req("range_offsets_nm")?.vec_f64_len(2)?;
+                    (v[0], v[1])
+                },
                 b7_max_r_above: b7.req("max_R_above")?.f64()?,
                 b8_note_above: frac(&b8.req("note_above")?)?,
                 b8_check_above: frac(&b8.req("check_above")?)?,
@@ -524,11 +555,16 @@ pub fn parse_engine_check(doc: &Node, base: &Path) -> PResult<EngineCheck> {
                     .arr()?
                     .iter()
                     .map(|f| {
+                        let join_index = f.req("join_index")?.usize()?;
+                        if join_index > 1 {
+                            return Err(f.error("join_index: 0 or 1"));
+                        }
                         Ok(B8Fit {
-                            fit_nm: f.req("fit_nm")?.range(false)?,
-                            extrapolate_to_nm: f.req("extrapolate_to_nm")?.f64()?,
-                            compare_nm: f.req("compare_nm")?.f64()?,
-                            denominator_nm: f.req("denominator_nm")?.f64()?,
+                            join_index,
+                            fit_offsets_nm: f.req("fit_offsets_nm")?.range(false)?,
+                            extrapolate_offset_nm: f.req("extrapolate_offset_nm")?.f64()?,
+                            compare_offset_nm: f.req("compare_offset_nm")?.f64()?,
+                            denominator_offset_nm: f.req("denominator_offset_nm")?.f64()?,
                         })
                     })
                     .collect::<PResult<_>>()?,
@@ -536,16 +572,20 @@ pub fn parse_engine_check(doc: &Node, base: &Path) -> PResult<EngineCheck> {
                     let g = im.req("grid")?;
                     InputMatrix {
                         file_magic: im.req("file_magic")?.vec_str()?,
-                        data_type_raw: im.req("data_type_raw")?.u64()?,
-                        require_dark_corrected: im
-                            .opt("require_dark_corrected")
-                            .map(|b| b.bool())
-                            .transpose()?
-                            .unwrap_or(false),
+                        data_type_by_magic: im
+                            .req("data_type_by_magic")?
+                            .entries()?
+                            .into_iter()
+                            .map(|(k, v)| Ok((k, v.u64()?)))
+                            .collect::<PResult<_>>()?,
+                        require_dark_corrected_magic: im
+                            .req("require_dark_corrected_magic")?
+                            .vec_str()?,
                         grid_start_nm: g.req("start_nm")?.f64()?,
                         grid_step_nm: g.req("step_nm")?.f64()?,
                         grid_n: g.req("n")?.usize()?,
                         reference_range_nm: im.req("reference_range_nm")?.range(false)?,
+                        join_windows_nm: ranges(&im.req("join_windows_nm")?)?,
                     }
                 },
             }

@@ -50,7 +50,7 @@ export interface BandReading {
   lit: boolean;
   state: BandState;
   /** The organic-evidence rule's own state (Step 7; 'faint' sits below a band's faint threshold and counts as
-   *  flat there). Absent in the mock; null for C–H 2284 (not an evidence band). */
+   *  flat there). Absent in the mock; null for 2284 (amide III + CH₂; not an evidence band). */
   evidenceState?: 'strong' | 'clear' | 'faint' | 'flat' | 'cant_tell' | null;
 }
 
@@ -105,6 +105,8 @@ export interface Sign {
   edge50Nm?: number | null;
   /** Heat sign only: what the spectrum marks (charred or calcined both imply the sign fired). */
   heatKind?: 'charred' | 'calcined';
+  /** Foreign-organic sign only: its organic-film part (the 2298/2325 nm contrast) fired; the chart marks where. */
+  filmFired?: boolean;
 }
 
 export type CheckId = 'b1' | 'b2' | 'b3' | 'b4' | 'b5' | 'b6' | 'b6b' | 'b7' | 'b8' | 'b9' | 'longwave';
@@ -210,6 +212,8 @@ export interface ScanResult {
   /** The profile's "most promising first" key from the core (unrounded); absent in the mock. */
   sortGroup?: number | null;
   sortValue?: number | null;
+  /** 1: a contaminant flag sorts the scan after the clean scans of its verdict group (DECISIONS 99). */
+  sortPenalty?: number | null;
   inputSha256?: string | null;
   /** Milliseconds the core took to analyse this scan. */
   scoreMs?: number;

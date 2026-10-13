@@ -105,6 +105,7 @@ pub fn csv_row(rec: &Obj, analysis: &str) -> Obj {
     row.set("flags", py_json(&strs(&flags), false));
     row.set("sort_group", get(a, "sort_group").clone());
     row.set("sort_value", get(a, "sort_value").clone());
+    row.set("sort_penalty", get(a, "sort_penalty").clone());
     for (k, m) in &obj(rec, "models").0 {
         let Some(m) = m.as_obj() else { continue };
         row.set(&format!("{k}.id"), get(m, "id").clone());

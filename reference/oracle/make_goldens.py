@@ -98,9 +98,25 @@ def build_input(o, case, bases, registry):
         a = case["asd"]
         ref = 20000.0 * np.exp(-0.5 * ((WL - 1300.0) / 700.0) ** 2) + 2000.0
         ref = ref * a.get("ref_scale", 1.0)
-        b = ASD.write_as8(
-            x, ref, ctx.get("serial") or 0, 46273.5707, 46273.5786, 1788889308,
-            joins=tuple(a.get("joins", (1000.0, 1800.0))))
+        fmt = a.get("format", "as8")
+        joins = tuple(a.get("joins", (1000.0, 1800.0)))
+        if fmt == "as8":
+            b = ASD.write_as8(x, ref, ctx.get("serial") or 0, 46273.5707, 46273.5786, 1788889308, joins=joins)
+        elif fmt == "as7":
+            for nm, f in a.get("ref_steps", []):          # detector steps in the white reference (after nm)
+                ref = np.where(WL > nm, ref * f, ref)
+            b = ASD.write_as7(x, ref, ctx.get("serial") or 0, 46273.5707, 46273.5786, 1788889308, joins=joins)
+        else:                                            # legacy v1 reflectance (FieldSpec 3 .NNN / .sco)
+            for lo, hi, f in a.get("segment_scale", []):
+                x = np.where((WL >= lo) & (WL <= hi), x * f, x)
+            b = bytearray(ASD.write_legacy(x, ctx.get("serial") or 0, 1788889308, joins=joins,
+                                           splice_corrected=a.get("splice_corrected", False)))
+            if "data_type" in a:
+                b[186] = a["data_type"]
+            if "data_format" in a:
+                b[199] = a["data_format"]
+            b = bytes(b)
+            x = np.frombuffer(b, "<f4", len(WL), 484).astype(float)   # what the file holds (f32)
         return "asd", b, ctx, x
     return "spectrum", x, ctx, x
 

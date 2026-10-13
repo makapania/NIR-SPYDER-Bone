@@ -72,8 +72,8 @@
   </div>
 
   <div class="group">
-    <button class="btn" onclick={onOpenFiles} title="Open .asd files (Ctrl+O)"><Icon name="file" size={14} />Open files</button>
-    <button class="btn" onclick={onOpenFolder} title="Open a folder of .asd files (Ctrl+Shift+O)"><Icon name="folder" size={14} />Open folder</button>
+    <button class="btn" onclick={onOpenFiles} title="Open scan files: .asd, .sco, .000 (Ctrl+O)"><Icon name="file" size={14} />Open files</button>
+    <button class="btn" onclick={onOpenFolder} title="Open a folder of scan files (Ctrl+Shift+O)"><Icon name="folder" size={14} />Open folder</button>
     <div class="watchctl" data-state={watch?.state ?? 'idle'}>
       <button class="live {pill.tone}" onclick={onWatch} title={watchTitle(watch)} data-testid="watch-pill">
         <span class="dot"></span><b>{pill.verb}</b>

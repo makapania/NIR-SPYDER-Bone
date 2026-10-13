@@ -317,11 +317,12 @@ fn copy_dir(from: &Path, to: &Path) {
 fn analyse_gives_verdicts_csv_and_manifest() {
     let d = tmpdir("analyse");
     std::fs::write(d.join("bone.asd"), AsdSpec::default().build()).unwrap();
-    let joins = AsdSpec {
-        splices: [1000.0, 1830.0],
+    // an as8 that holds reflectance: outside the matrix (other joins are resolved since DECISIONS 87)
+    let unsupported = AsdSpec {
+        data_type: 1,
         ..Default::default()
     };
-    std::fs::write(d.join("joins.asd"), joins.build()).unwrap();
+    std::fs::write(d.join("joins.asd"), unsupported.build()).unwrap();
     let csv = d.join("out.csv");
     let p = plugins();
     let (code, out, err) = spyder(&[
@@ -358,12 +359,12 @@ fn analyse_gives_verdicts_csv_and_manifest() {
         rec["input"]["input_sha256"]
     );
     assert!(bone["manifest"]["dependencies"].as_object().unwrap().len() > 10);
-    // the other-joins file: Unsupported at B1, with the oracle's words
+    // the unsupported file: Unsupported at B1, with the oracle's words
     let j = &files[1]["record"];
     assert_eq!(j["isotopes"]["verdict"], "Unsupported");
     assert_eq!(
         j["checks"]["B1"]["reason"],
-        "unsupported: detector joins [1000.0, 1830.0] (only [1000.0, 1800.0] are supported)"
+        "unsupported: not a raw (DN + white reference) file"
     );
     // CSV: BOM, CRLF, one header and two rows
     let text = std::fs::read_to_string(&csv).unwrap();

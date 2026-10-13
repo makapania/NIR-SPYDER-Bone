@@ -75,7 +75,7 @@
     {/each}
   </div>
   {#if flagged}
-    <div class="cuflag"><FlagMark size={13} /><span><b>{flagLabel(fired[0].id)}:</b> lit bands may come from the coating, not collagen.</span></div>
+    <div class="cuflag"><FlagMark size={13} /><span><b>{flagLabel(fired[0].id)}:</b> lit bands may come from {fired[0].id === 'wax' ? 'a lipid (such as wax)' : 'the coating'}, not collagen.</span></div>
   {:else if scan.evidence.bands.length}
     <div class="legend">
       <span><EvidenceGlyph state="trace" size={11} /><EvidenceGlyph state="clear" size={11} /><EvidenceGlyph state="strong" size={11} />fill = band strength</span>

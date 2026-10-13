@@ -43,7 +43,7 @@ fn clean_bone_passes_everything() {
 #[test]
 fn b1_failed_read_is_unusable_and_the_rest_not_assessed() {
     let mut spec = AsdSpec::default();
-    spec.splices = [1000.0, 1830.0];
+    spec.data_type = 1; // an as8 holding reflectance: outside the matrix
     let read = read_bytes(&spec.build());
     let checks = acquisition_checks(&read, None);
     assert_eq!(outcome(&checks[0]), Outcome::Unusable);

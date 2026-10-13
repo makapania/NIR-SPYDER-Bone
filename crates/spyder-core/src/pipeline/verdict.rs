@@ -579,6 +579,24 @@ pub fn verdict_for(
     }
 }
 
+/// DECISIONS 99: 1 when a flag of the verdict block names one of the profile's `sort.penalty_signs` (the scan sorts
+/// after the unpenalised scans of its own verdict group), else 0; None when the profile has no penalty.
+pub fn sort_penalty(prof: &AnalysisProfile, v: &Obj) -> Option<i64> {
+    let signs = prof.sort.penalty_signs.as_ref()?;
+    let hit = match v.get("flags") {
+        Some(V::List(fl)) => fl
+            .iter()
+            .any(|f| match f.as_obj().and_then(|o| o.get("signs")) {
+                Some(V::List(ss)) => ss
+                    .iter()
+                    .any(|s| s.as_str().is_some_and(|s| signs.iter().any(|p| p == s))),
+                _ => false,
+            }),
+        _ => false,
+    };
+    Some(i64::from(hit))
+}
+
 /// "Most promising first": (verdict group ascending, value descending within it; unrounded).
 pub fn sort_key(
     prof: &AnalysisProfile,

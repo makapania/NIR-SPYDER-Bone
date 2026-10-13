@@ -106,8 +106,16 @@ fn line_eval(x: &[f64], y: &[f64], at: f64) -> f64 {
     slope * (at - xm) + intercept
 }
 
-/// B2-B5, B7, B8 on the as-measured reflectance (B1 is the reader's matrix; B6/B6b elsewhere).
-pub fn acquisition(wl: &[f64], r: &[f64], p: &CheckParams, dn: Option<&[f64]>) -> Obj {
+/// B2-B5, B7, B8 on the as-measured reflectance (B1 is the reader's matrix; B6/B6b elsewhere). B7 and B8 sit on
+/// the scan's own joins (DECISIONS 87); `no_dn_status` is B2's status when there is no raw DN.
+pub fn acquisition(
+    wl: &[f64],
+    r: &[f64],
+    p: &CheckParams,
+    dn: Option<&[f64]>,
+    joins: &[f64],
+    no_dn_status: &str,
+) -> Obj {
     let CheckParams::Acquisition {
         integrity_range_nm: (lo, hi),
         b2_dn_at_least,
@@ -116,7 +124,7 @@ pub fn acquisition(wl: &[f64], r: &[f64], p: &CheckParams, dn: Option<&[f64]>) -
         b4_panel_sd_below,
         b4_empty_mean_below,
         b5_mean_r_below,
-        b7_range_nm,
+        b7_range_offsets_nm,
         b7_max_r_above,
         b8_note_above,
         b8_check_above,
@@ -136,7 +144,7 @@ pub fn acquisition(wl: &[f64], r: &[f64], p: &CheckParams, dn: Option<&[f64]>) -
         "B2",
         match dn {
             None => Obj::new()
-                .with("status", "not assessed: no raw DN (spectrum input)")
+                .with("status", no_dn_status)
                 .with("outcome", V::Null),
             Some(dn) => {
                 let m = nanmax(k.iter().map(|&i| dn[i]));
@@ -193,10 +201,16 @@ pub fn acquisition(wl: &[f64], r: &[f64], p: &CheckParams, dn: Option<&[f64]>) -
             .with("mean_R", fin(mr))
             .with("outcome", if mr < *b5_mean_r_below { "Note" } else { "ok" }),
     );
-    // B7 reflectance above 1
+    // B7 reflectance above 1 (SWIR1 of this scan)
+    let mut js = joins.to_vec();
+    js.sort_by(f64::total_cmp);
+    let (b7lo, b7hi) = match js.as_slice() {
+        [j1, j2] => (j1 + b7_range_offsets_nm.0, j2 + b7_range_offsets_nm.1),
+        _ => (f64::NAN, f64::NAN),
+    };
     let mx = npmax(
         (0..wl.len())
-            .filter(|&i| in_range(wl[i], b7_range_nm.0, b7_range_nm.1))
+            .filter(|&i| in_range(wl[i], b7lo, b7hi))
             .map(|i| r[i]),
     );
     out.set(
@@ -206,8 +220,8 @@ pub fn acquisition(wl: &[f64], r: &[f64], p: &CheckParams, dn: Option<&[f64]>) -
             .with("max_R", fin(mx))
             .with("outcome", if mx > *b7_max_r_above { "Note" } else { "ok" }),
     );
-    // B8 splice steps at the header joins (line fits on the SWIR1 side)
-    let steps: Vec<f64> = b8_fits.iter().map(|f| b8_step(wl, r, f)).collect();
+    // B8 splice steps at the scan's joins (line fits on the SWIR1 side)
+    let steps: Vec<f64> = b8_fits.iter().map(|f| b8_step(wl, r, f, &js)).collect();
     let worst = nanmax(steps.iter().copied());
     let o = if worst > *b8_check_above {
         "Check"
@@ -229,16 +243,19 @@ pub fn acquisition(wl: &[f64], r: &[f64], p: &CheckParams, dn: Option<&[f64]>) -
     out
 }
 
-fn b8_step(wl: &[f64], r: &[f64], f: &B8Fit) -> f64 {
+fn b8_step(wl: &[f64], r: &[f64], f: &B8Fit, joins: &[f64]) -> f64 {
+    let Some(&j) = joins.get(f.join_index) else {
+        return f64::NAN;
+    };
     let (Some(a), Some(b), Some(ci), Some(di)) = (
-        idx(wl, f.fit_nm.0),
-        idx(wl, f.fit_nm.1),
-        idx(wl, f.compare_nm),
-        idx(wl, f.denominator_nm),
+        idx(wl, j + f.fit_offsets_nm.0),
+        idx(wl, j + f.fit_offsets_nm.1),
+        idx(wl, j + f.compare_offset_nm),
+        idx(wl, j + f.denominator_offset_nm),
     ) else {
         return f64::NAN;
     };
-    let pred = line_eval(&wl[a..=b], &r[a..=b], f.extrapolate_to_nm);
+    let pred = line_eval(&wl[a..=b], &r[a..=b], j + f.extrapolate_offset_nm);
     let den = r[di];
     if den != 0.0 {
         (pred - r[ci]).abs() / den.abs()
@@ -981,6 +998,8 @@ pub fn c1(
         Obj::new()
             .with("status", s)
             .with("excess", V::Null)
+            .with("film", V::Null)
+            .with("film_fired", V::Null)
             .with("fired", V::Null)
             .with("gated", false)
     };
@@ -988,6 +1007,8 @@ pub fn c1(
         return Obj::new()
             .with("status", format!("gated: {g}"))
             .with("excess", V::Null)
+            .with("film", V::Null)
+            .with("film_fired", V::Null)
             .with("fired", V::Null)
             .with("gated", true);
     }
@@ -1024,9 +1045,25 @@ pub fn c1(
     if !ex.is_finite() {
         return none("not assessed: kernel support");
     }
+    // the organic-film contrast (DECISIONS 103; full variant only): peak minus trough of the 2298/2325 feature
+    let (film, film_fired) = match &q.film {
+        Some(f) => {
+            let v = band_reading(e, wl, f.peak_nm, f.half_width_nm)
+                - band_reading(e, wl, f.trough_nm, f.half_width_nm);
+            if v.is_finite() {
+                (V::from(v), V::from(v >= f.fires_if_at_least))
+            } else {
+                (V::Null, V::Null)
+            }
+        }
+        None => (V::Null, V::Null),
+    };
+    let fired = ex > q.fires_if_excess_above || matches!(film_fired, V::Bool(true));
     Obj::new()
         .with("status", st)
         .with("excess", ex)
-        .with("fired", ex > q.fires_if_excess_above)
+        .with("film", film)
+        .with("film_fired", film_fired)
+        .with("fired", fired)
         .with("gated", false)
 }

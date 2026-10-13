@@ -61,7 +61,7 @@ def csv_row(rec, analysis):
         "notes_all": json.dumps([n["key"] for n in a.get("notes_all", [])]),
         "zooms_line": next((n["key"] for n in a.get("notes_all", []) if n["key"].startswith("zooms_")), ""),
         "flags": json.dumps([f["key"] + ":" + ",".join(f["signs"]) for f in a.get("flags", [])]),
-        "sort_group": a.get("sort_group"), "sort_value": a.get("sort_value"),
+        "sort_group": a.get("sort_group"), "sort_value": a.get("sort_value"), "sort_penalty": a.get("sort_penalty"),
     }
     for k, m in rec.get("models", {}).items():
         row.update({f"{k}.id": m.get("id"), f"{k}.sha256": m.get("sha256"), f"{k}.value": m.get("value"),

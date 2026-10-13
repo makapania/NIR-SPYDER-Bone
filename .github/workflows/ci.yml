@@ -69,6 +69,22 @@ jobs:
       - name: cargo test
         run: cargo test --workspace
 
+  # The frozen Python reference engine and oracle (reference/): its tests rotted once when nothing ran them
+  # (LESSONS 45). Public fixtures only.
+  reference:
+    name: Python reference
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install reference engine
+        run: python -m pip install -e "reference[test]"
+      - name: pytest
+        working-directory: reference
+        run: python -m pytest -q
+
   ui:
     name: UI (${{ matrix.os }})
     strategy:

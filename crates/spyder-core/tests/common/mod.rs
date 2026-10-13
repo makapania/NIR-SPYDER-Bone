@@ -144,6 +144,43 @@ impl AsdSpec {
         out
     }
 
+    /// The same scan in the Trek-type `as7` layout: magic as7, u8 reference flag (`flag`), the two OLE dates,
+    /// u16 description length, one reserved byte, description, white reference, `trailer`. The caller sets the
+    /// header fields (e.g. dark_corrected 0 and blank joins, as the real files have).
+    pub fn build_as7(&self, flag: u8) -> Vec<u8> {
+        let mut spec = self.clone();
+        spec.magic = *b"as7";
+        let full = spec.build();
+        let off = 484 + 8 * N;
+        let mut out = full[..off].to_vec();
+        out.push(flag);
+        out.extend_from_slice(&self.reference_ole.to_le_bytes());
+        out.extend_from_slice(&self.spectrum_ole.to_le_bytes());
+        out.extend_from_slice(&(self.description.len() as u16).to_le_bytes());
+        out.push(0);
+        out.extend_from_slice(&self.description);
+        for v in &self.reference {
+            out.extend_from_slice(&v.to_le_bytes());
+        }
+        out.extend_from_slice(&self.trailer);
+        out
+    }
+
+    /// A legacy v1 reflectance file (magic `ASD`, data type 1, f32): the header of this spec with `r` as the
+    /// stored reflectance, as a FieldSpec 3 `.NNN` writes it.
+    pub fn build_legacy(&self, r: &[f64]) -> Vec<u8> {
+        let mut spec = self.clone();
+        spec.magic = *b"ASD";
+        spec.data_type = 1;
+        spec.data_format = 0;
+        let full = spec.build();
+        let mut out = full[..484].to_vec();
+        for v in r {
+            out.extend_from_slice(&(*v as f32).to_le_bytes());
+        }
+        out
+    }
+
     /// Set the sample block so that R = r exactly where possible (sample = r * reference).
     pub fn with_reflectance(mut self, r: &[f64]) -> Self {
         self.sample = self.reference.iter().zip(r).map(|(a, b)| a * b).collect();
