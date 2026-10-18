@@ -92,7 +92,10 @@ fn each_profile_uses_its_own_verdict_model() {
         "role": "verdict_input", "components": [],
         "shown_for_classes": ["asd.labspec4.std", "asd.labspec4.hires"]}]);
     // the panel notes name readers this one-model list no longer has (the loader rejects that); their goldens go too
-    p["parameters"]["notes"].as_object_mut().unwrap().remove("panel");
+    p["parameters"]["notes"]
+        .as_object_mut()
+        .unwrap()
+        .remove("panel");
     p["golden"]["cases"]
         .as_array_mut()
         .unwrap()

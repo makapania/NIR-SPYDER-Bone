@@ -166,10 +166,16 @@ fn panel_notes(
         return (out, false, Some(rec));
     };
     let comp = |n: &str| comps.iter().find(|(k, _)| k == n).and_then(|(_, v)| *v);
-    let parts: Vec<Option<f64>> = ["wc2045", "wc1500", "F05"].iter().map(|n| comp(n)).collect();
+    let parts: Vec<Option<f64>> = ["wc2045", "wc1500", "F05"]
+        .iter()
+        .map(|n| comp(n))
+        .collect();
     let spread = if parts.iter().all(Option::is_some) {
         let v: Vec<f64> = parts.iter().flatten().copied().collect();
-        Some(v.iter().copied().fold(f64::NEG_INFINITY, f64::max) - v.iter().copied().fold(f64::INFINITY, f64::min))
+        Some(
+            v.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+                - v.iter().copied().fold(f64::INFINITY, f64::min),
+        )
     } else {
         None
     };
@@ -208,7 +214,9 @@ fn panel_notes(
         .contrasts
         .iter()
         .filter(|(name, _, _)| !(name == "CH" && ch_fired))
-        .filter(|(name, med, q98)| gap(name).is_some_and(|g| (g - med[b]) / (q98[b] - med[b]) > r.level))
+        .filter(|(name, med, q98)| {
+            gap(name).is_some_and(|g| (g - med[b]) / (q98[b] - med[b]) > r.level)
+        })
         .map(|(name, _, _)| name.clone())
         .collect();
     let any = !fired_list.is_empty();
@@ -441,9 +449,12 @@ pub fn zooms_better(
         || fired
             .iter()
             .any(|s| p.notes.zooms_better_suppressed_by.contains(s))
-        || notes_fired
-            .iter()
-            .any(|n| p.notes.zooms_better_suppressed_by_notes.iter().any(|s| s == n))
+        || notes_fired.iter().any(|n| {
+            p.notes
+                .zooms_better_suppressed_by_notes
+                .iter()
+                .any(|s| s == n)
+        })
     {
         return Vec::new();
     }

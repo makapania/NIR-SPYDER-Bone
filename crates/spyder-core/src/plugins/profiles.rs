@@ -134,7 +134,9 @@ fn parse_panel(n: &Node, models: &[ProfileModel]) -> PResult<PanelNotes> {
         let v = rd.req(k)?;
         let s = v.str()?;
         if !models.iter().any(|m| m.key == s) {
-            return Err(v.error(format!("readers.{k}: {s:?} is not one of the profile's model keys")));
+            return Err(v.error(format!(
+                "readers.{k}: {s:?} is not one of the profile's model keys"
+            )));
         }
         Ok(s.to_string())
     };
@@ -146,7 +148,11 @@ fn parse_panel(n: &Node, models: &[ProfileModel]) -> PResult<PanelNotes> {
             let nb = bin_edges.len() + 1;
             let possible_above = c.req("possible_above")?.vec_f64_len(nb)?;
             let strong_above = c.req("strong_above")?.vec_f64_len(nb)?;
-            if possible_above.iter().zip(&strong_above).any(|(p, s)| !(p < s)) {
+            if possible_above
+                .iter()
+                .zip(&strong_above)
+                .any(|(p, s)| !(p < s))
+            {
                 return Err(c.error("strong_above must exceed possible_above in every bin"));
             }
             Some(ChAboveNh {
@@ -480,7 +486,9 @@ pub fn parse_profile(doc: &Node) -> PResult<AnalysisProfile> {
                             .transpose()?
                             .unwrap_or_default();
                         if let Some(x) = s.iter().find(|x| x.as_str() != "ch_above_nh") {
-                            return Err(z.error(format!("suppressed_by_notes: {x:?} is not ch_above_nh")));
+                            return Err(
+                                z.error(format!("suppressed_by_notes: {x:?} is not ch_above_nh"))
+                            );
                         }
                         s
                     }
