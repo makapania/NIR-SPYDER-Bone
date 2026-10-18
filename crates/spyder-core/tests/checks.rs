@@ -195,44 +195,6 @@ fn b8_line_fit_matches_closed_form() {
     assert!((line_fit_eval(&y, 5.0) - 3.5).abs() < 1e-15);
 }
 
-fn made_up_gains() -> NoiseGains {
-    NoiseGains {
-        check_above_pct: 0.5,
-        entries: vec![
-            NoiseGain {
-                model_id: "m.single".into(),
-                transfer: "none".into(),
-                terms: vec![GainTerm {
-                    n2_window_nm: (2000.0, 2100.0),
-                    gain: 0.01,
-                }],
-            },
-            NoiseGain {
-                model_id: "m.single".into(),
-                transfer: "abc123".into(),
-                terms: vec![GainTerm {
-                    n2_window_nm: (2000.0, 2100.0),
-                    gain: 0.005,
-                }],
-            },
-            NoiseGain {
-                model_id: "m.two".into(),
-                transfer: "none".into(),
-                terms: vec![
-                    GainTerm {
-                        n2_window_nm: (1500.0, 1550.0),
-                        gain: 0.03,
-                    },
-                    GainTerm {
-                        n2_window_nm: (2000.0, 2100.0),
-                        gain: 0.04,
-                    },
-                ],
-            },
-        ],
-    }
-}
-
 fn n2s(swir2: f64, swir1: f64) -> N2Set {
     N2Set {
         n2_2000_2100: Some(swir2),
@@ -240,69 +202,6 @@ fn n2s(swir2: f64, swir1: f64) -> N2Set {
         n2_1500_1550: Some(swir1),
         n2_2300_2400: None,
     }
-}
-
-#[test]
-fn b6_with_made_up_gains() {
-    let g = made_up_gains();
-    // 0.01 * 40 = 0.4 -> pass; 0.01 * 60 = 0.6 -> Check (never Unusable)
-    let c = qc::b6_noise(&g, "m.single", "none", &n2s(40.0, 10.0));
-    assert_eq!(outcome(&c), Outcome::Pass);
-    let c = qc::b6_noise(&g, "m.single", "none", &n2s(60.0, 10.0));
-    assert_eq!(outcome(&c), Outcome::Check);
-    assert!((c.values["implied_sd_pct"].as_f64().unwrap() - 0.6).abs() < 1e-12);
-    assert!(c.message.unwrap().contains("0.6%"));
-    let c = qc::b6_noise(&g, "m.single", "none", &n2s(1e6, 10.0));
-    assert_eq!(outcome(&c), Outcome::Check);
-    // keyed by transfer: the transferred stream has its own gain
-    let c = qc::b6_noise(&g, "m.single", "abc123", &n2s(60.0, 10.0));
-    assert_eq!(outcome(&c), Outcome::Pass);
-    // no entry for this model/transfer: not assessed, not "pass"
-    let c = qc::b6_noise(&g, "m.single", "zzz", &n2s(60.0, 10.0));
-    assert!(matches!(c.assessment, Status::NotAssessed { .. }));
-    assert!(c.outcome.is_none());
-    // two-window model: sqrt((0.03*10)^2 + (0.04*10)^2) = 0.5 -> not above 0.5
-    let c = qc::b6_noise(&g, "m.two", "none", &n2s(10.0, 10.0));
-    assert!((c.values["implied_sd_pct"].as_f64().unwrap() - 0.5).abs() < 1e-12);
-    assert_eq!(outcome(&c), Outcome::Pass);
-    // a needed N2 missing: not assessed
-    let mut n = n2s(10.0, 10.0);
-    n.n2_1500_1550 = None;
-    assert!(matches!(
-        qc::b6_noise(&g, "m.two", "none", &n).assessment,
-        Status::NotAssessed { .. }
-    ));
-    // consensus: 1.2 x median of (0.2, 0.4, 0.5) = 0.48 -> pass; with N2 x 1.1 -> 0.528 -> Check
-    let c = qc::b6_consensus(
-        &g,
-        "cons",
-        &["m.single", "m.single", "m.two"],
-        "none",
-        1.2,
-        &n2s(20.0, 10.0),
-    );
-    // components: 0.2, 0.2, sqrt(0.09+0.64)=0.854 -> median 0.2 -> 0.24
-    assert!((c.values["implied_sd_pct"].as_f64().unwrap() - 0.24).abs() < 1e-12);
-    assert_eq!(outcome(&c), Outcome::Pass);
-    let c = qc::b6_consensus(
-        &g,
-        "cons",
-        &["m.single", "m.two"],
-        "none",
-        1.2,
-        &n2s(50.0, 1.0),
-    );
-    // 0.5 and sqrt(0.0009 + 4) = 2.000225 -> median 1.2501125 -> x1.2 = 1.500135
-    assert_eq!(outcome(&c), Outcome::Check);
-    let c = qc::b6_consensus(
-        &g,
-        "cons",
-        &["m.single", "nope"],
-        "none",
-        1.2,
-        &n2s(50.0, 1.0),
-    );
-    assert!(matches!(c.assessment, Status::NotAssessed { .. }));
 }
 
 #[test]
@@ -346,12 +245,12 @@ fn check_results_serialise_with_separate_status() {
     let v = serde_json::to_value(&c).unwrap();
     assert_eq!(v["assessment"]["status"], "assessed");
     assert_eq!(v["outcome"], "note");
-    let c = qc::b6_noise(&made_up_gains(), "x", "none", &n2s(1.0, 1.0));
+    let c = qc::b6_without_gains("no gains loaded");
     let v = serde_json::to_value(&c).unwrap();
     assert_eq!(v["assessment"]["status"], "not_assessed");
     assert!(v["assessment"]["reason"]
         .as_str()
         .unwrap()
-        .contains("no noise gain"));
+        .contains("no gains loaded"));
     assert!(v["outcome"].is_null());
 }

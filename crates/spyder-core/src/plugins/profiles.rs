@@ -72,12 +72,127 @@ pub struct Notes {
     pub zooms_better: bool,
     /// Contaminant signs whose FIRING suppresses the ZooMS line (coatings can create the C-H bands it reads).
     pub zooms_better_suppressed_by: Vec<String>,
+    /// Notes whose firing suppresses the ZooMS line the same way ("ch_above_nh": the C-H note, DECISIONS 120).
+    pub zooms_better_suppressed_by_notes: Vec<String>,
     /// The protein line's strength test (None: no test, every band-pattern Borderline is the protein line).
     pub zooms_protein: Option<ProteinTest>,
     /// The quietest notes: shown only when a slot is left after the rule, ZooMS and supporting notes.
     pub precedence_last: Vec<String>,
     /// The Ryder 2045 ZooMS line: the published model's key in the profile and its cut (None = no such line).
     pub zooms_ryder: Option<(String, f64)>,
+    /// The panel notes (DECISIONS 111, 115, 119; None = no such notes).
+    pub panel: Option<PanelNotes>,
+}
+
+/// The contrasts of the readers-disagree-strongly note, in the order the note lists them.
+pub const PANEL_CONTRASTS: [&str; 6] = ["CH", "CHN", "GL", "SHP", "SP3", "RAW"];
+
+/// The panel notes (DECISIONS 111, 115, 119; oracle `verdict.panel_notes`): the readers by profile model key, the C-H
+/// note's two levels and the readers-disagree-strongly scales, each per CONS3 bin (`cons3_bin_edges`; bin = how many
+/// edges m reaches). Notes only: they never change the verdict, the lift or the sort.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PanelNotes {
+    /// The C-H 1728 nm reader.
+    pub ch_key: String,
+    /// The narrow 1545 nm contrast reader (full range).
+    pub narrow1545_key: String,
+    /// The published (uncorrected) Ryder 2045 model.
+    pub raw2045_key: String,
+    pub ch_above_nh: Option<ChAboveNh>,
+    pub disagree: Option<ReadersDisagree>,
+}
+
+/// ch_above_nh_possible above `possible_above`, ch_above_nh_strong above `strong_above` (the C-H reader minus m).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChAboveNh {
+    pub bin_edges: Vec<f64>,
+    pub possible_above: Vec<f64>,
+    pub strong_above: Vec<f64>,
+}
+
+/// readers_disagree_strongly: any contrast's (x - median) / (q98 - median) of m's bin above `level`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReadersDisagree {
+    pub bin_edges: Vec<f64>,
+    pub level: f64,
+    /// (name, median per bin, q98 per bin), in [`PANEL_CONTRASTS`] order; contrasts the profile omits are absent.
+    pub contrasts: Vec<(String, Vec<f64>, Vec<f64>)>,
+}
+
+/// Strictly ascending, finite bin edges.
+fn bin_edges(n: &Node) -> PResult<Vec<f64>> {
+    let e = n.vec_f64()?;
+    if e.iter().any(|x| !x.is_finite()) || e.windows(2).any(|w| w[0] >= w[1]) {
+        return Err(n.error("cons3_bin_edges: finite and strictly ascending"));
+    }
+    Ok(e)
+}
+
+fn parse_panel(n: &Node, models: &[ProfileModel]) -> PResult<PanelNotes> {
+    let rd = n.req("readers")?;
+    let key = |k: &str| -> PResult<String> {
+        let v = rd.req(k)?;
+        let s = v.str()?;
+        if !models.iter().any(|m| m.key == s) {
+            return Err(v.error(format!("readers.{k}: {s:?} is not one of the profile's model keys")));
+        }
+        Ok(s.to_string())
+    };
+    let (ch_key, narrow1545_key, raw2045_key) = (key("ch")?, key("narrow1545")?, key("raw2045")?);
+    let ch_above_nh = match n.opt("ch_above_nh") {
+        None => None,
+        Some(c) => {
+            let bin_edges = bin_edges(&c.req("cons3_bin_edges")?)?;
+            let nb = bin_edges.len() + 1;
+            let possible_above = c.req("possible_above")?.vec_f64_len(nb)?;
+            let strong_above = c.req("strong_above")?.vec_f64_len(nb)?;
+            if possible_above.iter().zip(&strong_above).any(|(p, s)| !(p < s)) {
+                return Err(c.error("strong_above must exceed possible_above in every bin"));
+            }
+            Some(ChAboveNh {
+                bin_edges,
+                possible_above,
+                strong_above,
+            })
+        }
+    };
+    let disagree = match n.opt("readers_disagree_strongly") {
+        None => None,
+        Some(r) => {
+            let bin_edges = bin_edges(&r.req("cons3_bin_edges")?)?;
+            let nb = bin_edges.len() + 1;
+            let level = r.req("level")?.f64()?;
+            if !(level > 0.0) {
+                return Err(r.error("level must be positive"));
+            }
+            let cs = r.req("contrasts")?;
+            let mut got = Vec::new();
+            for (name, c) in cs.entries()? {
+                if !PANEL_CONTRASTS.contains(&name.as_str()) {
+                    return Err(c.error(format!("unknown contrast {name:?}")));
+                }
+                let med = c.req("median")?.vec_f64_len(nb)?;
+                let q98 = c.req("q98")?.vec_f64_len(nb)?;
+                if med.iter().zip(&q98).any(|(m, q)| !(q > m)) {
+                    return Err(c.error("q98 must exceed median in every bin"));
+                }
+                got.push((name, med, q98));
+            }
+            got.sort_by_key(|(n, _, _)| PANEL_CONTRASTS.iter().position(|p| p == n));
+            Some(ReadersDisagree {
+                bin_edges,
+                level,
+                contrasts: got,
+            })
+        }
+    };
+    Ok(PanelNotes {
+        ch_key,
+        narrow1545_key,
+        raw2045_key,
+        ch_above_nh,
+        disagree,
+    })
 }
 
 /// The stronger protein line (Matt): m >= `m_at_least` AND at least `n_type_lit_at_least` of `n_type_bands` lit and
@@ -356,6 +471,20 @@ pub fn parse_profile(doc: &Node) -> PResult<AnalysisProfile> {
                         s
                     }
                 },
+                zooms_better_suppressed_by_notes: match notes.opt("zooms_better") {
+                    None => Vec::new(),
+                    Some(z) => {
+                        let s = z
+                            .opt("suppressed_by_notes")
+                            .map(|n| n.vec_str())
+                            .transpose()?
+                            .unwrap_or_default();
+                        if let Some(x) = s.iter().find(|x| x.as_str() != "ch_above_nh") {
+                            return Err(z.error(format!("suppressed_by_notes: {x:?} is not ch_above_nh")));
+                        }
+                        s
+                    }
+                },
                 zooms_protein: match notes.opt("zooms_better").and_then(|z| z.opt("protein")) {
                     None => None,
                     Some(p) => {
@@ -386,6 +515,10 @@ pub fn parse_profile(doc: &Node) -> PResult<AnalysisProfile> {
                     .map(|n| n.vec_str())
                     .transpose()?
                     .unwrap_or_default(),
+                panel: notes
+                    .opt("panel")
+                    .map(|n| parse_panel(&n, &models))
+                    .transpose()?,
             },
         }))
     } else {

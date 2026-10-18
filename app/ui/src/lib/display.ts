@@ -42,6 +42,8 @@ export const MODEL_NAME: Record<ModelKey, string> = {
   f05: 'N–H set, 2175 + 2045 nm, OH-corrected',
   ryder2045: 'Ryder 2045',
   s1r2: '1545 nm, no transfer needed',
+  lowrange: 'Low-range estimate (narrow 1545 nm band)',
+  ch1728: 'C–H 1728 nm',
 };
 
 export const LEVEL_WORD: Record<EvidenceLevel, string> = {

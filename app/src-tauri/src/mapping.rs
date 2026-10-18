@@ -95,6 +95,10 @@ pub struct Models {
     pub f05: Option<ModelReading>,
     pub ryder2045: Option<ModelReading>,
     pub s1r2: Option<ModelReading>,
+    /// The low-range estimate (A2), shown under the consensus; never the verdict.
+    pub lowrange: Option<ModelReading>,
+    /// The C-H 1728 nm reader the C-H note compares with the consensus; never the verdict.
+    pub ch1728: Option<ModelReading>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -171,6 +175,29 @@ pub struct Flag {
     pub signs: Vec<&'static str>,
 }
 
+/// One reader comparison of the panel record (DECISIONS 119, 121): its value, the value at which the readers-disagree note
+/// would fire, and how far along it is (1 = at the line).
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PanelContrast {
+    pub name: String,
+    pub value: f64,
+    pub fires_above: f64,
+    pub fraction: f64,
+}
+
+/// The verdict block's panel record (the details panel's numbers): the C-H reading, its gap to CONS3 and the C-H note's two
+/// levels for this scan's CONS3 bin, and every reader comparison.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PanelInfo {
+    pub ch: Option<f64>,
+    pub ch_gap: Option<f64>,
+    pub ch_possible_above: Option<f64>,
+    pub ch_strong_above: Option<f64>,
+    pub contrasts: Vec<PanelContrast>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanResult {
@@ -218,6 +245,9 @@ pub struct ScanResult {
     pub kind_detail: Option<String>,
     /// Milliseconds the analysis took.
     pub score_ms: f64,
+    /// The panel record (radiocarbon / isotopes; none for ZooMS or an unscored scan).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub panel: Option<PanelInfo>,
 }
 
 fn obj<'a>(o: &'a Obj, k: &str) -> Option<&'a Obj> {
@@ -393,6 +423,20 @@ fn note(n: &Obj, set_class: &str, serial: Option<u64>) -> Note {
                 put("s", x.into());
             }
         }
+        "ch_above_nh_possible" | "ch_above_nh_strong" => {
+            // the C-H 1728 nm reading the note compared with the consensus
+            if let Some(x) = num("ch") {
+                put("ch", x.into());
+            }
+        }
+        "readers_disagree_strongly" => {
+            // which reader comparisons went beyond what clean bone shows (details only)
+            if let Some(V::List(l)) = n.get("contrasts") {
+                let c: Vec<serde_json::Value> =
+                    l.iter().filter_map(V::as_str).map(|x| x.into()).collect();
+                put("contrasts", serde_json::Value::Array(c));
+            }
+        }
         "serial_class_mismatch" => {
             if let Some(sr) = serial {
                 put("serial", sr.into());
@@ -550,6 +594,14 @@ fn models(core: &Core, rec: &Obj) -> Models {
     }
     if let Some(m) = obj(ms, "s1_r2") {
         out.s1r2 = Some(model_reading("s1r2", m));
+    }
+    // the panel readers (2026-10-18): the low-range estimate and the C-H reader are shown; the narrow 1545 nm
+    // reader (nb1545) only feeds the core's disagreement note and is not mapped
+    if let Some(m) = obj(ms, "lowrange") {
+        out.lowrange = Some(model_reading("lowrange", m));
+    }
+    if let Some(m) = obj(ms, "ch1728") {
+        out.ch1728 = Some(model_reading("ch1728", m));
     }
     out
 }
@@ -831,6 +883,7 @@ pub fn scan_result(
         scan_kind: "sample",
         kind_detail: None,
         score_ms: e.score_ms,
+        panel: None,
     };
     let Some(rec) = e.record.as_deref() else {
         // not scored: an unreadable file, or no verdict model (the startup-error state)
@@ -958,7 +1011,34 @@ pub fn scan_result(
         sg.fired = sg.fired && flagged.contains(&sg.id);
     }
     r.checks = checks(rec, r.models.cons3.as_ref());
+    r.panel = obj_or_none(a, "panel").map(panel_info);
     r
+}
+
+/// The verdict block's panel record, as the UI reads it.
+fn panel_info(p: &Obj) -> PanelInfo {
+    let contrasts = match p.get("contrasts") {
+        Some(V::List(l)) => l
+            .iter()
+            .filter_map(V::as_obj)
+            .filter_map(|c| {
+                Some(PanelContrast {
+                    name: s(Some(c), "name")?.to_string(),
+                    value: f(Some(c), "value")?,
+                    fires_above: f(Some(c), "fires_above")?,
+                    fraction: f(Some(c), "fraction")?,
+                })
+            })
+            .collect(),
+        _ => Vec::new(),
+    };
+    PanelInfo {
+        ch: f(Some(p), "ch"),
+        ch_gap: f(Some(p), "ch_gap"),
+        ch_possible_above: f(Some(p), "ch_possible_above"),
+        ch_strong_above: f(Some(p), "ch_strong_above"),
+        contrasts,
+    }
 }
 
 #[cfg(test)]
@@ -1002,6 +1082,14 @@ mod tests {
             ui_note_key("positive_signs_all_six"),
             "positive_signs_all_six"
         );
+        // the panel notes (2026-10-18) pass through unchanged
+        for k in [
+            "ch_above_nh_possible",
+            "ch_above_nh_strong",
+            "readers_disagree_strongly",
+        ] {
+            assert_eq!(ui_note_key(k), k);
+        }
         assert_eq!(ui_sign("C1"), "c1");
     }
 }

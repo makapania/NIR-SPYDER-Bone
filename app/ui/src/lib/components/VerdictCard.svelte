@@ -9,7 +9,7 @@
   import VerdictGlyph from './VerdictGlyph.svelte';
   import { formatReading, timeLong } from '../display';
   import { isFaint, isPositive, isZoomsLine, noteIcon, pickNotes } from '../notes';
-  import { NOTE_TEXT, NOT_BONE_TEXT, UNUSABLE_TEXT, flagLabel, flagText, noteText } from '../strings';
+  import { LOWRANGE_EXPLAIN, NOTE_TEXT, NOT_BONE_TEXT, UNUSABLE_TEXT, flagLabel, flagText, noteText } from '../strings';
   import { verdictMeta, verdictSentence } from '../verdict';
   import type { ScanResult } from '../types';
 
@@ -17,6 +17,9 @@
 
   const meta = $derived(verdictMeta(scan.verdict));
   const m = $derived(scan.models.cons3?.value ?? null);
+  // the low-range estimate (A2): a quiet, uncoloured line under the reading; it never sets the verdict
+  const lr = $derived(scan.models.lowrange?.value ?? null);
+  const showLr = $derived(lr != null && Number.isFinite(lr) && scan.verdict !== 'rescan' && scan.verdict !== 'not_bone');
   const picked = $derived(pickNotes(scan.notes, scan.notesShown));
   const flags = $derived(scan.signs.filter((s) => s.fired));
   const ruleNote = $derived(picked.headline.some((n) => !isPositive(n.key) && ['plus_d', 'flat_bands', 'lift_good', 'lift_borderline'].includes(n.key)));
@@ -47,9 +50,11 @@
       {:else if scan.verdictRule === 'flat_bands'}
         <div class="vsub">No protein signal at this spot</div>
         <div class="vmodel">Collagen models: {formatReading(m)}</div>
+        {#if showLr}<div class="vmodel lowrange" data-testid="lowrange">Low-range estimate {formatReading(lr, true)}</div><div class="vmodel lrnote" data-testid="lowrange-note">{LOWRANGE_EXPLAIN}</div>{/if}
       {:else}
         <div class="vnum"><b>{formatReading(m)}</b> collagen</div>
         <div class="vmodel">consensus of three collagen models</div>
+        {#if showLr}<div class="vmodel lowrange" data-testid="lowrange">Low-range estimate {formatReading(lr, true)}</div><div class="vmodel lrnote" data-testid="lowrange-note">{LOWRANGE_EXPLAIN}</div>{/if}
       {/if}
     </div>
   </div>
@@ -165,6 +170,13 @@
   .vmodel {
     font-size: var(--fs-sm);
     color: var(--ink-3);
+  }
+  .vmodel.lowrange {
+    margin-top: 2px;
+  }
+  .vmodel.lrnote {
+    font-size: var(--fs-xs);
+    max-width: 44ch;
   }
   .vnote {
     font-size: var(--fs-md);

@@ -267,18 +267,24 @@ fn b8_step(wl: &[f64], r: &[f64], f: &B8Fit, joins: &[f64]) -> f64 {
 /// Per sign: the B6b gate reason ("noise in <lo>-<hi> nm") or None (checked).
 pub type Gates = BTreeMap<String, Option<String>>;
 
+/// Per gated sign running a reduced fallback: its variant ("band_1446", "swir1").
+pub type Reduced = BTreeMap<String, String>;
+
 /// The reason text of a gate on a window (oracle: f"noise in {int(lo)}-{int(hi)} nm").
 fn gate_reason(lo: f64, hi: f64) -> String {
     format!("noise in {}-{} nm", lo.trunc() as i64, hi.trunc() as i64)
 }
 
 /// B6b, per sign (phase 0c, DECISIONS 76): each sign is gated when N2 of its own window on the AS-MEASURED scan
-/// exceeds its cut, from the table of the stream's transfer key. Returns (summary record, gates, every contaminant
-/// sign gated). Summary: n2 = N2(n2_window_nm), outcome Note when any contaminant sign is gated, gated = all gated,
-/// signs_gated = the gated contaminant signs.
-pub fn b6b(p: &CheckParams, n2c: &mut N2Cache, key: &str) -> (Obj, Gates, bool) {
+/// exceeds its cut, from the table of the stream's transfer key. A gated sign with a fallback for the key (exact key)
+/// runs its reduced variant when N2 of the fallback window is at most its cut (2026-10-13). Returns (summary record,
+/// gates, every contaminant sign gated with no fallback, reduced). Summary: n2 = N2(n2_window_nm), signs_gated = the
+/// contaminant signs gated with no eligible fallback (not checked), signs_reduced = gated signs whose reduced variant
+/// is eligible (it runs, except C1 when a specific sign fired: C1 is then "skipped" as usual), gated = every
+/// contaminant sign in signs_gated, outcome Note when either list is non-empty.
+pub fn b6b(p: &CheckParams, n2c: &mut N2Cache, key: &str) -> (Obj, Gates, bool, Reduced) {
     let CheckParams::Acquisition { b6b: g, .. } = p else {
-        return (Obj::new(), Gates::new(), false);
+        return (Obj::new(), Gates::new(), false, Reduced::new());
     };
     let tab = g.table(key);
     let mut gates = Gates::new();
@@ -288,23 +294,47 @@ pub fn b6b(p: &CheckParams, n2c: &mut N2Cache, key: &str) -> (Obj, Gates, bool) 
         let gated = n2c.get(lo, hi) > e.n2_above;
         gates.insert(s.clone(), gated.then(|| gate_reason(lo, hi)));
     }
+    let mut reduced = Reduced::new();
+    if let Some(fb) = g.fallbacks(key) {
+        for s in &g.contaminant_signs {
+            let gated = gates.get(s).is_some_and(Option::is_some);
+            if let (true, Some(f)) = (gated, fb.get(s)) {
+                if n2c.get(f.n2_window_nm.0, f.n2_window_nm.1) <= f.n2_at_most {
+                    reduced.insert(s.clone(), f.variant.clone());
+                }
+            }
+        }
+    }
     let v = n2c.get(g.n2_window_nm.0, g.n2_window_nm.1);
     let sg: Vec<String> = g
         .contaminant_signs
         .iter()
-        .filter(|s| gates.get(*s).is_some_and(Option::is_some))
+        .filter(|s| gates.get(*s).is_some_and(Option::is_some) && !reduced.contains_key(*s))
+        .cloned()
+        .collect();
+    let sr: Vec<String> = g
+        .contaminant_signs
+        .iter()
+        .filter(|s| reduced.contains_key(*s))
         .cloned()
         .collect();
     let all = sg.len() == g.contaminant_signs.len();
+    let outcome = if sg.is_empty() && sr.is_empty() {
+        "ok"
+    } else {
+        "Note"
+    };
     (
         Obj::new()
             .with("status", "assessed")
             .with("n2", fin(v))
-            .with("outcome", if sg.is_empty() { "ok" } else { "Note" })
+            .with("outcome", outcome)
             .with("gated", all)
-            .with("signs_gated", super::val::strs(&sg)),
+            .with("signs_gated", super::val::strs(&sg))
+            .with("signs_reduced", super::val::strs(&sr)),
         gates,
         all,
+        reduced,
     )
 }
 
@@ -781,18 +811,20 @@ fn gated_rec(reason: &str) -> Obj {
 }
 
 /// The four signs (plaster, wax, ester, burnt; no clay). `gates`: per sign, the B6b gate reason (that sign is
-/// "gated: <reason>" and not read) or None. Every sign record ends with `gated` (bool).
+/// "gated: <reason>" and not read) or None. `reduced`: a gated sign's fallback (plaster "band_1446": the 1446 nm
+/// load alone, status "assessed: reduced (1446 nm band only; <reason>)"). Every sign record ends with `gated` (bool).
 pub fn signs(
     wl: &[f64],
     r_std: &[f64],
     p: &CheckParams,
     heat_p: &CheckParams,
     gates: &Gates,
+    reduced: &Reduced,
 ) -> Obj {
     let names = ["plaster", "wax", "ester", "burnt"];
     let reason = |n: &str| gates.get(n).and_then(|g| g.as_deref());
     let mut out = Obj::new();
-    if names.iter().all(|n| reason(n).is_some()) {
+    if names.iter().all(|n| reason(n).is_some()) && !reduced.contains_key("plaster") {
         for n in names {
             out.set(n, gated_rec(reason(n).unwrap_or_default()));
         }
@@ -802,6 +834,7 @@ pub fn signs(
         kernel,
         plaster_bands,
         plaster_fires_if_joint_load_above,
+        plaster_reduced_1446,
         wax_all_of,
         ester,
         ..
@@ -881,7 +914,38 @@ pub fn signs(
     b.update(heat(wl, r_std, &n, heat_p));
     out.set("burnt", b);
     for nm in names {
-        if let Some(r) = reason(nm) {
+        let red = match (reason(nm), plaster_reduced_1446) {
+            (Some(r), Some(rd))
+                if nm == "plaster" && reduced.get(nm).is_some_and(|v| v == "band_1446") =>
+            {
+                Some((r, rd))
+            }
+            _ => None,
+        };
+        if let Some((r, (s, med, contrast, cut))) = red {
+            let v = (sharp_of(&n, wl, s) - med) / contrast;
+            out.set(
+                nm,
+                if v.is_finite() {
+                    Obj::new()
+                        .with(
+                            "status",
+                            format!("assessed: reduced (1446 nm band only; {r})"),
+                        )
+                        .with("joint_load", V::Null)
+                        .with("load_1446", v)
+                        .with("fired", v > *cut)
+                        .with("gated", false)
+                } else {
+                    Obj::new()
+                        .with("status", NOT_FINITE)
+                        .with("joint_load", V::Null)
+                        .with("load_1446", V::Null)
+                        .with("fired", V::Null)
+                        .with("gated", false)
+                },
+            );
+        } else if let Some(r) = reason(nm) {
             out.set(nm, gated_rec(r));
         } else if let Some(V::Map(o)) = out.get_mut(nm) {
             o.set("gated", false);
@@ -984,7 +1048,10 @@ pub fn soft_tier(
 }
 
 /// C1: generic foreign organic. `gate`: C1's B6b gate reason (None = checked). `tail_unreliable`: the long-wave
-/// tail is unreliable FOR C1. `longwave_mode`: "truncated" or "not_assessed" then. The record ends with `gated`.
+/// tail is unreliable FOR C1. `longwave_mode`: "truncated" or "not_assessed" then. `reduced`: the fallback of a
+/// gated C1 ("swir1": the variant below 1800 nm, no film rule; status "assessed: reduced (below 1800 nm only;
+/// <reason>)"). The record ends with `gated`.
+#[allow(clippy::too_many_arguments)]
 pub fn c1(
     wl: &[f64],
     e: &[f64],
@@ -993,6 +1060,7 @@ pub fn c1(
     specific_fired: bool,
     tail_unreliable: bool,
     longwave_mode: &str,
+    reduced: Option<&str>,
 ) -> Obj {
     let none = |s: &str| {
         Obj::new()
@@ -1003,7 +1071,8 @@ pub fn c1(
             .with("fired", V::Null)
             .with("gated", false)
     };
-    if let Some(g) = gate {
+    let swir1 = reduced == Some("swir1");
+    if let (Some(g), false) = (gate, swir1) {
         return Obj::new()
             .with("status", format!("gated: {g}"))
             .with("excess", V::Null)
@@ -1019,18 +1088,28 @@ pub fn c1(
         read_half_width_nm,
         full,
         truncated,
+        swir1: swir1_p,
         ..
     } = p
     else {
         return none("not assessed: no C1 parameters");
     };
-    let (q, st): (&C1Variant, &str) = if tail_unreliable {
+    let (q, st): (&C1Variant, String) = if let Some(g) = gate {
+        // reached only with the swir1 fallback (a plain gate returned above)
+        match swir1_p {
+            Some(v) => (v, format!("assessed: reduced (below 1800 nm only; {g})")),
+            None => return none("not assessed: no swir1 variant"),
+        }
+    } else if tail_unreliable {
         match (longwave_mode, truncated) {
-            ("truncated", Some(t)) => (t, "assessed: truncated (long-wave region too noisy)"),
+            ("truncated", Some(t)) => (
+                t,
+                "assessed: truncated (long-wave region too noisy)".to_string(),
+            ),
             _ => return none("not assessed: long-wave region too noisy"),
         }
     } else {
-        (full, "assessed")
+        (full, "assessed".to_string())
     };
     let hw = *read_half_width_nm as f64;
     let mut chs = 0.0;

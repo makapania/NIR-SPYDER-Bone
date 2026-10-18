@@ -68,6 +68,12 @@ export const NOTE_TEXT: Record<NoteKey, (p: P) => string> = {
     'Reads higher than archaeological bone normally does (as high as fresh modern bone). Modern bone, glue or another protein may be present.',
   possible_thin_coating: () =>
     'Possible thin coating: a weak sign of glue or consolidant at this spot. It may be nothing, but check the spot before sampling.',
+  ch_above_nh_possible: () =>
+    "Possible extra organic material: C–H reads higher than N–H (the bone's own fat, wax or consolidant, for example).",
+  ch_above_nh_strong: () =>
+    "Likely extra organic material: C–H reads far higher than N–H (the bone's own fat, wax or consolidant, for example).",
+  readers_disagree_strongly: () =>
+    'The collagen readers disagree strongly, more than they do on clean bone: treat the percentage with caution. The spectrum does not say why.',
   contaminants_not_checked: (p) => {
     const skipped = signList(p.skipped);
     const checked = signList(p.checked);
@@ -76,8 +82,19 @@ export const NOTE_TEXT: Record<NoteKey, (p: P) => string> = {
   },
   c1_reduced: () =>
     'The general organic check ran without the region above 2300 nm, which is too noisy on this scan. In this reduced form it can miss some glues and lacquers (for example cellulose-nitrate glues and animal glue).',
+  signs_reduced: (p) => {
+    const ids = Array.isArray(p.signs) ? p.signs.map(String) : [];
+    const plaster = ids.includes('plaster');
+    const c1 = ids.includes('C1') || ids.includes('c1');
+    const why = 'Above 1800 nm this scan is too noisy for the full checks; more averages (100–200) may let them run.';
+    const pl = 'In tests the reduced plaster check found most added plaster.';
+    const org = 'The reduced organic check can catch heavy consolidants but misses thin coats, glue and many consolidants.';
+    if (plaster && c1) return `The plaster and general organic checks ran in a reduced form, below 1800 nm only. ${why} ${pl} ${org}`;
+    if (c1) return `The general organic check ran in a reduced form, below 1800 nm only. ${why} ${org}`;
+    return `The plaster check ran on its 1446 nm band only. ${why} ${pl}`;
+  },
   models_disagree: (p) =>
-    `The three collagen models fall on different sides of a verdict line (${rm(p, 'a')}, ${rm(p, 'b')}, ${rm(p, 'c')}); the verdict uses the middle value. Large disagreement is common on coated or treated bone, or bone with an altered OH/water band.`,
+    `The three collagen models fall on different sides of a verdict line (${rm(p, 'a')}, ${rm(p, 'b')}, ${rm(p, 'c')}); the verdict uses the middle value.`,
   positive_signs_all_six: () =>
     'Positive signs: all six collagen bands are resolved and no contaminant sign fired.',
   positive_signs_clear: () =>
@@ -140,6 +157,9 @@ export const UNUSABLE_TEXT: Record<string, string> = {
   unreadable: 'The file could not be read completely. Rescan, or save it again.',
 };
 
+/** The low-range estimate's standing explanation (the verdict card's tooltip and the details row). */
+export const LOWRANGE_EXPLAIN = 'Optimised for low collagen levels; commonly reads lower around 3–6%.';
+
 export const NOT_BONE_TEXT = 'Check the target: the probe may be on plaster, a label, a coating or the holder.';
 
 /** Every user-facing string, for the lint test. */
@@ -149,11 +169,15 @@ export function allStrings(): string[] {
   return [
     ...Object.values(NOTE_TEXT).map((f) => f(p)),
     NOTE_TEXT.lift_blocked({ ...p, reason: 'noise' }),
+    NOTE_TEXT.signs_reduced({ signs: ['plaster', 'C1'] }),
+    NOTE_TEXT.signs_reduced({ signs: ['C1'] }),
+    NOTE_TEXT.signs_reduced({ signs: ['plaster'] }),
     ...ids.map((id) => flagText(id)),
     flagText('burnt', 'charred'),
     flagText('burnt', 'calcined'),
     ...ids.map(flagLabel),
     ...Object.values(UNUSABLE_TEXT),
     NOT_BONE_TEXT,
+    LOWRANGE_EXPLAIN,
   ];
 }

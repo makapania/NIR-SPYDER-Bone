@@ -9,9 +9,9 @@
   import VerdictGlyph from './VerdictGlyph.svelte';
   import { bandDef } from '../bands';
   import { LEVEL_WORD, MODEL_NAME, formatModel, formatReading, ordinal, timeLong, trackPos, zoomsHeadline } from '../display';
-  import { checkRows, modelAnnotations } from '../details';
+  import { checkRows, modelAnnotations, verdictNumbers } from '../details';
   import { noteIcon, pickNotes } from '../notes';
-  import { noteText } from '../strings';
+  import { LOWRANGE_EXPLAIN, noteText } from '../strings';
   import { toneForReading, verdictMeta, type Tone } from '../verdict';
   import type { ModelKey, ScanResult, SpectrumViews, ReferenceSpectrum } from '../types';
 
@@ -22,8 +22,10 @@
     views: SpectrumViews | null;
     refs: ReferenceSpectrum[];
     onHighlight: (k: number) => void;
+    /** Conventional 2nd derivative (bands down) in the band sparklines. */
+    bandsDown?: boolean;
   }
-  let { scan, rank, total, views, refs, onHighlight }: Props = $props();
+  let { scan, rank, total, views, refs, onHighlight, bandsDown = false }: Props = $props();
 
   const hires = $derived(scan.instrumentClass === 'hires');
   const details = $derived(pickNotes(scan.notes, scan.notesShown).details);
@@ -40,6 +42,8 @@
     f05: 'reads 2030–2060, 2150–2200 (and 1500–1550) nm',
     ryder2045: 'Ryder et al. 2026; reads 2030–2060 nm',
     s1r2: 'reads 1500–1550 nm (first derivative)',
+    lowrange: 'reads 1533–1557 nm',
+    ch1728: 'reads 1716–1740 nm',
   };
 
   const EVWORDS: Record<string, string> = {
@@ -62,8 +66,9 @@
     const i1 = (ohc ? 1550 : nm + 40) - views.startNm;
     let lo = Infinity;
     let hi = -Infinity;
+    const sg = bandsDown ? -1 : 1;
     for (let i = i0; i <= i1; i++) {
-      const v = ref10.spectra.views[key][i];
+      const v = sg * ref10.spectra.views[key][i];
       lo = Math.min(lo, v);
       hi = Math.max(hi, v);
     }
@@ -74,7 +79,7 @@
     const Y = (v: number) => (2 + ((hi - Math.max(lo, Math.min(hi, v))) / (hi - lo)) * 22).toFixed(1);
     const path = (d: Float32Array) => {
       let p = '';
-      for (let i = i0; i <= i1; i++) p += (p ? 'L' : 'M') + X(i) + ' ' + Y(d[i]);
+      for (let i = i0; i <= i1; i++) p += (p ? 'L' : 'M') + X(i) + ' ' + Y(sg * d[i]);
       return p;
     };
     return { scan: path(views.views[key]), ref: path(ref3.spectra.views[key]), x0: +X(nm - 2 - views.startNm), x1: +X(nm + 2 - views.startNm) };
@@ -170,6 +175,14 @@
         </div>
         <div class="mdiv">Published model</div>
         {@render mrow('ryder2045', { note: 'Shown for reference; not part of the verdict.' })}
+        {#if scan.models.lowrange || scan.models.ch1728}
+          <div class="mdiv">Panel readers · not part of the verdict</div>
+          {@render mrow('lowrange', { neutral: true, note: `${LOWRANGE_EXPLAIN} Not part of the verdict.` })}
+          {@render mrow('ch1728', {
+            neutral: true,
+            note: 'The C–H band at 1728 nm. Lipids, waxes and many consolidants raise it; the app compares it with the consensus for the C–H note. Not part of the verdict.',
+          })}
+        {/if}
         {#if hires && scan.models.s1r2}
           <div class="mdiv">Second opinion · high-res scans only</div>
           {@render mrow('s1r2', { neutral: true, note: 'Reads the scan as measured, with no transfer. Not part of the verdict.' })}
@@ -242,7 +255,10 @@
 
   <section>
     <details class="adv">
-      <summary>Advanced</summary>
+      <summary>How this verdict was made</summary>
+      {#each verdictNumbers(scan) as row (row.title)}
+        <div class="advrow" data-testid="verdict-number"><span>{row.title}</span><span class="muted">{row.d}</span></div>
+      {/each}
       <div class="advrow"><span>Verdict input</span><span class="muted">Consensus of three (default)</span></div>
       <div class="advrow"><span>Screening lines</span><span class="muted">One verdict for radiocarbon, isotopes and ZooMS: Unlikely below 0.5, Good from 3 (practical screening lines that build in model and extraction error, not what the analysis needs). ZooMS often works below these lines, so the ZooMS band check adds a ZooMS line where the band patterns look better than the verdict.</span></div>
       <div class="advrow"><span>Evidence rule</span><span class="muted">Flat bands lower the verdict. Strong, full-pattern bands can raise it on clean scans. Contaminant and heat signs are flags; they never change the verdict.</span></div>

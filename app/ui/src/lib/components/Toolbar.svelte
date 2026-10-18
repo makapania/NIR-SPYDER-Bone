@@ -1,4 +1,6 @@
 <script lang="ts">
+  /** The release stage shown under the name with the version; empty at 1.0 (Matt, 2026-10-18). */
+  const STAGE = 'beta';
   // One verdict for every analysis (DECISIONS 80 amended): no analysis picker. The verdict serves radiocarbon,
   // isotopes and ZooMS alike; a ZooMS line under the verdict marks scans that look better for ZooMS.
   import Icon from './Icon.svelte';
@@ -26,8 +28,11 @@
     exportDisabled?: boolean;
     /** Help and About (F1). */
     onHelp: () => void;
+    /** The app version (shown under the name with the release stage). */
+    version?: string | null;
   }
   let {
+    version = null,
     session,
     theme,
     cvd,
@@ -68,7 +73,7 @@
       <path d="M4 13.5 C6 13.5 6.6 8 8.2 8 S10 15 11.6 15 S13.2 6 15 6 S16.8 12 18 12" fill="none" stroke="var(--panel)"
         stroke-width="1.6" stroke-linecap="round" />
     </svg>
-    <span class="lbl-brand">SPYDER Bone</span>
+    <span class="lbl-brand"><span class="name">SPYDER Bone</span>{#if version || STAGE}<span class="stage" data-testid="release-stage">{[version ? `v${version}` : '', STAGE].filter(Boolean).join(' · ')}</span>{/if}</span>
   </div>
 
   <div class="group">
@@ -132,6 +137,20 @@
     font-size: 16.5px;
     letter-spacing: 0.005em;
     white-space: nowrap;
+  }
+  .lbl-brand {
+    display: inline-flex;
+    flex-direction: column;
+    line-height: 1.05;
+  }
+  /* the version and release stage under the name (Matt, 2026-10-18: "a small beta ... tastefully"; "the version number
+     there might always make sense"): quiet, never a colour */
+  .stage {
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--ink-3);
+    margin-top: 1px;
   }
   .cvd[aria-pressed='true'] {
     color: var(--accent);

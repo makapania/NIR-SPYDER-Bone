@@ -2,7 +2,7 @@
 // result (no numbers computed here; nothing here changes a verdict), so vitest can hold them.
 
 import { UNUSABLE_TEXT, flagLabel } from './strings';
-import type { Assessment, ModelReading, ScanResult } from './types';
+import type { Assessment, ModelReading, PanelContrast, ScanResult } from './types';
 
 export type AnnotationKind = 'assessment' | 'domain' | 'noise';
 export interface ModelAnnotation {
@@ -40,7 +40,7 @@ export function modelAnnotations(r: ModelReading): ModelAnnotation[] {
   if (r.noiseCheck)
     out.push({
       kind: 'noise',
-      text: `Noise widens this reading’s error${r.impliedSd != null && Number.isFinite(r.impliedSd) ? ` (noise SD ≈ ${r.impliedSd.toFixed(1)} points)` : ''}.`,
+      text: `Noise could carry this reading across a verdict cut${r.impliedSd != null && Number.isFinite(r.impliedSd) ? ` (noise SD ≈ ${r.impliedSd.toFixed(1)} points)` : ''}.`,
     });
   return out;
 }
@@ -61,8 +61,12 @@ function listNames(ids: string[]): string {
   return n.length <= 1 ? n.join('') : `${n.slice(0, -1).join(', ')} and ${n[n.length - 1]}`;
 }
 
-/** The Checks list. B6 (noise widens the reading's error) and B6b (too noisy for the contaminant signs) are read
- *  independently: either one replaces "Good signal". */
+/** Above this implied SD (% collagen) a reading far from any cut still gets a quiet "some noise" line instead of
+ *  "Good signal" (the old B6 threshold; display only since DECISIONS 109). */
+const NOISE_SD_QUIET = 0.5;
+
+/** The Checks list. B6 (noise could change the verdict: a cut within noise reach, DECISIONS 109) and B6b (too noisy
+ *  for the contaminant signs) are read independently: either one replaces "Good signal". */
 export function checkRows(scan: ScanResult): CheckRow[] {
   const out: CheckRow[] = [];
   const find = (id: string) => scan.checks.find((c) => c.id === id);
@@ -75,6 +79,9 @@ export function checkRows(scan: ScanResult): CheckRow[] {
   else {
     const b6bNote = b6b?.outcome === 'note';
     const b6Check = b6?.outcome === 'check';
+    const c3 = scan.models?.cons3?.value;
+    const hasCons3 = c3 != null && Number.isFinite(c3);
+    const sdText = b6?.value != null && Number.isFinite(b6.value) ? ` (noise SD ≈ ${b6.value.toFixed(1)} points)` : '';
     if (b6bNote)
       out.push({
         icon: 'noise',
@@ -85,11 +92,14 @@ export function checkRows(scan: ScanResult): CheckRow[] {
     if (b6Check)
       out.push({
         icon: 'noise',
-        title: 'Noise widens the reading’s error',
-        d: `The scan’s noise makes the collagen reading less certain${b6?.value != null && Number.isFinite(b6.value) ? ` (noise SD ≈ ${b6.value.toFixed(1)} points)` : ''}. More averages help.`,
+        title: 'Noise could change the verdict',
+        d: `The collagen reading sits within noise reach of a verdict cut${sdText}. A rescan with more averages could change the verdict.`,
         notice: true,
       });
-    if (!b6bNote && !b6Check) out.push({ icon: 'ok', title: 'Scan quality', d: 'Good signal, no saturation.', notice: false });
+    // only about a reading that exists (a not-assessed CONS3 can still carry an implied SD)
+    else if (!b6bNote && hasCons3 && b6?.value != null && Number.isFinite(b6.value) && b6.value > NOISE_SD_QUIET)
+      out.push({ icon: 'info', title: 'Scan quality', d: `Some noise in the reading${sdText}, not enough to change the verdict.`, notice: false });
+    else if (!b6bNote) out.push({ icon: 'ok', title: 'Scan quality', d: 'Good signal, no saturation.', notice: false });
   }
   const fired = scan.signs.filter((s) => s.fired);
   // Each contaminant sign is gated on the noise in its own part of the spectrum (DECISIONS 76). C1 "skipped" (a
@@ -129,8 +139,9 @@ export function checkRows(scan: ScanResult): CheckRow[] {
   if (lw?.outcome === 'note') {
     // B9 drops the region above 2300 nm from N2 150; the foreign-organic check (C1) only from N2 250 (DECISIONS 76)
     const c1 = scan.signs.find((s) => s.id === 'c1');
-    const c1Ran = c1?.status.status === 'assessed';
-    const c1Reduced = c1?.status.status === 'assessed' && !!c1.status.note;
+    // a C1 qualifier is either the >2300 nm truncation or the reduced fallback below 1800 nm (signs_reduced note)
+    const c1Ran = c1?.status.status === 'assessed' && !c1.status.note;
+    const c1Reduced = c1?.status.status === 'assessed' && !!c1.status.note?.startsWith('truncated');
     out.push({
       icon: 'info',
       title: 'Long-wave region not used',
@@ -171,5 +182,60 @@ export function checkRows(scan: ScanResult): CheckRow[] {
       d: 'The 1450 and 1930 nm bands differ from the reference bones. The OH-corrected models allow for this.',
       notice: true,
     });
+  return out;
+}
+
+/** Plain names of the reader comparisons (DECISIONS 119). */
+export const CONTRAST_NAME: Record<string, string> = {
+  CH: 'C–H above the N–H consensus',
+  CHN: 'C–H below the N–H consensus',
+  GL: 'N–H consensus above the narrow 1545 nm band',
+  SHP: '1545 nm model above the narrow 1545 nm band',
+  SP3: 'Spread of the three consensus models',
+  RAW: 'Consensus against Ryder 2045 (uncorrected)',
+};
+
+export interface NumberRow {
+  title: string;
+  d: string;
+}
+
+const sgn = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
+
+/** "How this verdict was made": the scan's own numbers (DECISIONS 121). Pure: reads the core's readings and panel record;
+ *  rows whose readings are missing are left out. */
+export function verdictNumbers(scan: ScanResult): NumberRow[] {
+  const out: NumberRow[] = [];
+  const m = scan.models;
+  const parts = [m.wc2045?.value, m.wc1500?.value, m.f05?.value];
+  if (parts.every((v) => v != null && Number.isFinite(v))) {
+    const v = parts as number[];
+    out.push({
+      title: 'Consensus models',
+      d: `2045 nm ${v[0].toFixed(1)}, 1545 nm ${v[1].toFixed(1)}, N–H set ${v[2].toFixed(1)}; the verdict reads their middle value. Spread ${(Math.max(...v) - Math.min(...v)).toFixed(1)} points.`,
+    });
+  }
+  const p = scan.panel;
+  if (p?.chGap != null && Number.isFinite(p.chGap) && p.chPossibleAbove != null && p.chStrongAbove != null)
+    out.push({
+      title: 'C–H against N–H',
+      d: `The C–H reader sits ${sgn(p.chGap)} points from the consensus. The C–H note starts above ${sgn(p.chPossibleAbove)} and says "likely" above ${sgn(p.chStrongAbove)} (levels for this reading).`,
+    });
+  const others = (p?.contrasts ?? []).filter((c) => c.name !== 'CH' && Number.isFinite(c.fraction));
+  if (others.length) {
+    // the pair closest to its own firing line (largest fraction), not the largest raw difference (Astra review)
+    const c = others.reduce((a: PanelContrast, b: PanelContrast) => (b.fraction > a.fraction ? b : a));
+    const where =
+      c.fraction <= 0
+        ? 'no further apart than clean bone usually is'
+        : `${Math.round(c.fraction * 100)}% of the way to its line`;
+    out.push({
+      title: 'Most unusual reader difference',
+      d: `${CONTRAST_NAME[c.name] ?? c.name}: ${c.value.toFixed(1)} points, ${where} (the "readers disagree strongly" note fires above ${c.firesAbove.toFixed(1)} for this pair).`,
+    });
+  }
+  const b6 = scan.checks.find((c) => c.id === 'b6');
+  if (b6?.value != null && Number.isFinite(b6.value))
+    out.push({ title: 'Noise', d: `Noise in the consensus reading: SD ≈ ${b6.value.toFixed(1)} points.` });
   return out;
 }

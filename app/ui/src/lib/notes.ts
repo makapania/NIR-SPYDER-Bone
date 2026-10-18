@@ -1,8 +1,8 @@
 // Note precedence (PLAN v3.2 Step 9; DECISIONS 53, 80 amended): at most TWO notes under the verdict.
 // First the note of the rule that set the verdict: +D > flat bands > lift > blocked lift.
 // Then the ZooMS line, when the ZooMS band check calls the scan better than the verdict.
-// Then one supporting note: above bone range > possible thin coating > contaminants not checked > models
-// disagree > positive signs > bands too noisy. Last, the faint protein sign for ZooMS, only if a slot is
+// Then one supporting note: above bone range > possible thin coating > C–H above N–H > readers disagree strongly >
+// contaminants not checked > models disagree > positive signs > bands too noisy. Last, the faint protein sign for ZooMS, only if a slot is
 // still free. Everything else goes in the details. Flags (contaminant / heat signs) are not notes: they
 // have their own prominent chip and never count toward the two.
 
@@ -22,6 +22,9 @@ export const LAST_NOTES: NoteKey[] = ['zooms_faint_protein'];
 export const SUPPORTING_NOTES: NoteKey[] = [
   'above_bone_range',
   'possible_thin_coating',
+  'ch_above_nh_strong',
+  'ch_above_nh_possible',
+  'readers_disagree_strongly',
   'contaminants_not_checked',
   'models_disagree',
   'positive_signs_all_six',
@@ -72,12 +75,16 @@ export function noteIcon(k: NoteKey): NoteIcon {
     case 'lift_blocked':
     case 'possible_thin_coating':
     case 'above_bone_range':
+    case 'ch_above_nh_possible':
+    case 'ch_above_nh_strong':
       return 'flask';
     case 'models_disagree':
+    case 'readers_disagree_strongly':
       return 'layers';
     case 'bands_too_noisy':
     case 'contaminants_not_checked':
     case 'c1_reduced':
+    case 'signs_reduced':
     case 'no_model_reading':
       return 'noise';
     case 'positive_signs_all_six':
@@ -112,4 +119,10 @@ export function isFaint(k: NoteKey): boolean {
 /** A scan's ZooMS line (the stronger lines only; the faint sign is not one), if it has one. */
 export function zoomsLine<T extends { key: NoteKey }>(notes: T[]): T | undefined {
   return notes.find((n) => isZoomsLine(n.key));
+}
+
+/** The strong panel note for the scan list's quiet tag (Matt, 2026-10-18: strong ones only): the C–H note's "likely" level
+ *  first, else readers_disagree_strongly; undefined when neither fired. */
+export function strongPanelNote<T extends { key: NoteKey }>(notes: T[]): T | undefined {
+  return notes.find((n) => n.key === 'ch_above_nh_strong') ?? notes.find((n) => n.key === 'readers_disagree_strongly');
 }

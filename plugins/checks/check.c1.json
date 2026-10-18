@@ -3,16 +3,17 @@
  "format_version": 1,
  "check": "c1",
  "id": "check.c1",
- "version": "2.0.0",
+ "version": "3.0.0",
  "engine_min": "1.1",
  "status": "active",
  "title": "C1: generic foreign organic (C-H excess over the collagen line, or an organic film)",
- "description": "excess = (r1728 + r1762 + r2262 + r2350) - (a + b x (r1510 + r2044 + r2175)), r = mean E (evidence kernel) over centre +- 2 nm. Fires if excess > the cut. Full variant only: film = mean E over peak_nm +- half_width_nm minus mean E over trough_nm +- half_width_nm (the 2298/2325 organic-film contrast); C1 also fires if film >= its cut (record: film, film_fired; null where the film rule does not run). Runs only when no plaster, wax or ester sign fired and C1 passes its B6b gate; when the long-wave tail is unreliable for C1 (check.longwave) the truncated variant runs. Adds a flag; blocks an evidence lift. soft_tier: the soft line of the 'possible thin coating' note (check.signs soft_tier), full and truncated.",
+ "description": "excess = (r1728 + r1762 + r2262 + r2350) - (a + b x (r1510 + r2044 + r2175)), r = mean E (evidence kernel) over centre +- 2 nm. Fires if excess > the cut. Full variant only: film = mean E over peak_nm +- half_width_nm minus mean E over trough_nm +- half_width_nm (the 2298/2325 organic-film contrast); C1 also fires if film >= its cut (record: film, film_fired; null where the film rule does not run). Runs only when no plaster, wax or ester sign fired and C1 passes its B6b gate; when the long-wave tail is unreliable for C1 (check.longwave) the truncated variant runs. When C1 is gated and check.acquisition lists a fallback, the swir1 variant (1728 + 1762 over 1510 nm only, no film rule, no soft line) runs instead. Adds a flag; blocks an evidence lift. soft_tier: the soft line of the 'possible thin coating' note (check.signs soft_tier), full and truncated.",
  "licence": "CC-BY-4.0",
  "created": "2026-10-03",
  "provenance": {
   "basis": "Phase 0a A5: (a, b) least squares on 1,201 clean bone scans (public reference bones and unreleased archaeological fauna; statistics only); cut = 99.5th percentile of the specimen-grouped out-of-fold excess (8.00), rounded. False alarms 6/1,201 (0.50%) out of fold; held out across sources 0.30-0.80%.",
-  "film": "DECISIONS 100-103 (2026-10-05): the 2298/2325 contrast separates C-H-combination-heavy coatings from bone (report 11 section 11.5). Cut 17.8 = the 99.5th percentile of 2,322 clean standard-res scans (8 sets; pre-registered rule: <= 1% pooled, <= 2% per set): 0.5% pooled, worst set 1.6%. Adds 14 of 715 coated scans the shipped signs miss, mostly Butvar (museum 30% -> 53%), for 0.4% extra clean false alarms. Not in the truncated variant (the > 2300 nm region is too noisy then)."
+  "film": "DECISIONS 100-103 (2026-10-05): the 2298/2325 contrast separates C-H-combination-heavy coatings from bone (report 11 section 11.5). Cut 17.8 = the 99.5th percentile of 2,322 clean standard-res scans (8 sets; pre-registered rule: <= 1% pooled, <= 2% per set): 0.5% pooled, worst set 1.6%. Adds 14 of 715 coated scans the shipped signs miss, mostly Butvar (museum 30% -> 53%), for 0.4% extra clean false alarms. Not in the truncated variant (the > 2300 nm region is too noisy then).",
+  "swir1": "2026-10-13 (pre-registered; planning hires_fallback): (a, b) least squares on the 1,201 clean scans; cut 10.8 = 1.1 x the largest clean value seen in the high-resolution study sets (out-of-fold 99.5th percentile 7.2 gave 5% false alarms on one dark set). 0 of 2,322 clean standard-resolution scans (8 sets) exceed it. On real coated standard-resolution scans it catches far less than the full signs (film rule included): alkyd 34% vs 85%, glued fauna 22% vs 88%, PVAc 3% vs 65%, museum Butvar 0% vs 47%: a reduced check for heavy consolidants, used only where the full C1 cannot run."
  },
  "parameters": {
   "kernel": {
@@ -74,6 +75,19 @@
     "excess_at_least": 6.1
    },
    "derivation": "same construction without r2350 (least squares on the clean pool; T = rounded 99.5th percentile of the grouped out-of-fold excess); out-of-fold false alarms 0.50%"
+  },
+  "swir1": {
+   "ch_bands_nm": [
+    1728,
+    1762
+   ],
+   "nh_bands_nm": [
+    1510
+   ],
+   "a": 3.6137328146932295,
+   "b": 2.368329199992467,
+   "fires_if_excess_above": 10.8,
+   "derivation": "below 1800 nm only, for high-resolution scans whose 2000-2100 nm region is too noisy for C1 (check.acquisition fallbacks); least squares on the clean pool; cut set above the real clean tails, not a pool percentile"
   }
  },
  "golden": {
@@ -103,7 +117,7 @@
    },
    {
     "name": "rc_lift_blocked_gated",
-    "spectrum_sha256": "f2eff45c7ac2e08166f6155676b5e1b8f709302569a3a0c2a1208031f6058ff2",
+    "spectrum_sha256": "653e7e22b860a36605b6605d9c33b4ffb433d00daa49cb1b4e122eaf167fba56",
     "inputs": {
      "gate": "noise in 2000-2100 nm",
      "specific_fired": false,
@@ -175,7 +189,7 @@
    },
    {
     "name": "hires_c1_gated_plaster_checked",
-    "spectrum_sha256": "ed351b2226448b432a07f72cb76e8bb09e4468b336a584006b4a6222a5cdc88e",
+    "spectrum_sha256": "24b1fdcec600663ff8541248474fe1d9286163065d42b7a6adaecc74601d1f06",
     "inputs": {
      "gate": "noise in 2000-2100 nm",
      "specific_fired": false,
@@ -220,6 +234,63 @@
     },
     "expected": {
      "status": "not assessed: long-wave region too noisy",
+     "excess": null,
+     "film": null,
+     "film_fired": null,
+     "fired": null,
+     "gated": false
+    }
+   },
+   {
+    "name": "hires_fallback_reduced_clean",
+    "spectrum_sha256": "d70d8796e1413b32d814633b1f90fe21ae9f21c49c57a60f863e14dbae2974fb",
+    "inputs": {
+     "gate": "noise in 2000-2100 nm",
+     "specific_fired": false,
+     "tail_unreliable": false,
+     "longwave_mode": "truncated",
+     "reduced": "swir1"
+    },
+    "expected": {
+     "status": "assessed: reduced (below 1800 nm only; noise in 2000-2100 nm)",
+     "excess": 5.214924158223172,
+     "film": null,
+     "film_fired": null,
+     "fired": false,
+     "gated": false
+    }
+   },
+   {
+    "name": "hires_fallback_c1_fires",
+    "spectrum_sha256": "cf771f82c60995828ff1aa8fd775c8c020f3d09f765b33e2775ddddc7413d371",
+    "inputs": {
+     "gate": "noise in 2000-2100 nm",
+     "specific_fired": false,
+     "tail_unreliable": false,
+     "longwave_mode": "truncated",
+     "reduced": "swir1"
+    },
+    "expected": {
+     "status": "assessed: reduced (below 1800 nm only; noise in 2000-2100 nm)",
+     "excess": 14.072798238322203,
+     "film": null,
+     "film_fired": null,
+     "fired": true,
+     "gated": false
+    }
+   },
+   {
+    "name": "hires_fallback_plaster_fires",
+    "spectrum_sha256": "b17cae8be0b58d8014fc6b67c6a923bafd8ab8bf52b884967f77c434007e0706",
+    "inputs": {
+     "gate": null,
+     "specific_fired": true,
+     "tail_unreliable": false,
+     "longwave_mode": "truncated",
+     "reduced": "swir1"
+    },
+    "expected": {
+     "status": "skipped: a specific sign fired",
      "excess": null,
      "film": null,
      "film_fired": null,

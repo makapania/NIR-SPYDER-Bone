@@ -16,8 +16,10 @@
     refs: ReferenceSpectrum[];
     themeKey: string;
     highlight: number;
+    /** Conventional 2nd derivative (bands down). */
+    bandsDown?: boolean;
   }
-  let { scan, views, refs, themeKey, highlight }: Props = $props();
+  let { scan, views, refs, themeKey, highlight, bandsDown = false }: Props = $props();
 
   const ref3 = $derived(refs.find((r) => r.label === '3%'));
   const ref10 = $derived(refs.find((r) => r.label === '10%'));
@@ -57,7 +59,7 @@
   <div class="subrow">
     <span class="sub">{headline}</span>
     <span class="spacer"></span>
-    <span class="muted kern">−d²A/dλ², SG 31, read ±2 nm</span>
+    <span class="muted kern">{bandsDown ? 'd²A/dλ², bands down' : '−d²A/dλ², bands up'}, SG 31, read ±2 nm</span>
   </div>
   <div class="row">
     {#each CLOSEUPS as cu, i (cu.title)}
@@ -65,7 +67,7 @@
         <div class="cut">{cu.title}</div>
         <div class="cuplot">
           {#if views && series.length && scan.evidence.bands.length}
-            <SpectrumPlot startNm={views.startNm} series={series} xRange={cu.range} {yFrom} zero shades={shadesFor(i)}
+            <SpectrumPlot startNm={views.startNm} series={series} xRange={cu.range} {yFrom} zero flip={bandsDown} shades={shadesFor(i)}
               small axes={false} {themeKey} ariaLabel="{cu.title} close-up" />
           {:else}
             <div class="empty muted">—</div>

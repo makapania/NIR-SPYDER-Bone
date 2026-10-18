@@ -13,7 +13,9 @@ A recipe (in reference/oracle/goldens/cases_public_v1.json):
    "scale_nm": [[lo, hi, factor], ...]   (multiply R in a range: VNIR darkening for the burnt branch),
    "bumps": {"range_nm": [1100, 2440], "sigma_nm": 4.0, "step_nm": 4}}
 Feature names: m.<component> (CONS3 component), m.ryder, E.<band id>, wax1766, wax1217, ester2254, plaster1446,
-plaster1945, c1_excess.
+plaster1945, c1_excess; opt-in (held only when targeted, so older recipes solve as before): c1s_excess (the C1 swir1
+fallback's excess, 2026-10-13), m.<panel model key> (the profile's role 'panel' readers, e.g. m.ch1728, m.nb1545;
+2026-10-18: pins them where a case is not about the panel notes).
 """
 from __future__ import annotations
 
@@ -32,6 +34,7 @@ class FeatureMap:
         rc = P.profile("radiocarbon").doc["parameters"]
         self.cons = P.model([s for s in rc["models"] if s["role"] == "verdict_input"][0]["model_id"]).doc
         self.ryder = P.model([s for s in rc["models"] if s["role"] == "published"][0]["model_id"]).doc
+        self.panel = {s["key"]: P.model(s["model_id"]).doc for s in rc["models"] if s["role"] == "panel"}
         self.bands = P.bands()
         self.ev_k = P.cp("evidence_levels")["kernel"]
         self.sg = P.cp("signs")
@@ -53,6 +56,9 @@ class FeatureMap:
         return ([f"m.{c}" for c in comps] + ["m.ryder"] + [f"E.{b}" for b in self.bands]
                 + ["wax1766", "wax1217", "ester2254", "plaster1446", "plaster1945", "c1_excess"])
 
+    def optional_names(self):
+        return (["c1s_excess"] if self.c1.get("swir1") else []) + [f"m.{k}" for k in self.panel]
+
     def __call__(self, R):
         R = np.atleast_2d(R)
         out = {}
@@ -60,6 +66,8 @@ class FeatureMap:
         for k, key in self.comps():
             out[f"m.{k}"] = pc[key]
         out["m.ryder"] = SR.predict(self.ryder, WL, R, self.ctx)["value"]
+        for k, doc in self.panel.items():
+            out[f"m.{k}"] = SR.predict(doc, WL, R, self.ctx)["value"]
         E = K.derivative(R, self.ev_k)
         for b, bd in self.bands.items():
             out[f"E.{b}"] = K.band_value(E, WL, bd)
@@ -73,6 +81,11 @@ class FeatureMap:
         ch = sum(K.band_reading(E, WL, c, hw) for c in self.c1["ch_bands_nm"])
         nh = sum(K.band_reading(E, WL, c, hw) for c in self.c1["nh_bands_nm"])
         out["c1_excess"] = ch - (self.c1["a"] + self.c1["b"] * nh)
+        sw = self.c1.get("swir1")
+        if sw:
+            ch = sum(K.band_reading(E, WL, c, hw) for c in sw["ch_bands_nm"])
+            nh = sum(K.band_reading(E, WL, c, hw) for c in sw["nh_bands_nm"])
+            out["c1s_excess"] = ch - (sw["a"] + sw["b"] * nh)
         return {k: np.asarray(v, float) for k, v in out.items()}
 
 
@@ -118,7 +131,7 @@ def synthesise(oracle, R0, recipe):
         # C1's own bands (no role in the evidence or ZooMS rules) are free by default: c1_excess is a linear
         # combination of band readings, so holding all of them AND c1_excess would be contradictory
         free = set(recipe.get("free", [])) | ({f"E.{b}" for b in fm.c1_only_bands()} - set(tg))
-        names = [n for n in fm.names() if n not in free]
+        names = [n for n in fm.names() if n not in free] + [n for n in fm.optional_names() if n in tg]
         for n in tg:
             if n not in names:
                 raise ValueError(f"unknown synth target {n}")

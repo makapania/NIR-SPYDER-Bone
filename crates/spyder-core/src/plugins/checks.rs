@@ -109,6 +109,17 @@ pub struct B6bGate {
     pub by_transfer_key: BTreeMap<String, BTreeMap<String, SignGate>>,
     /// The table used for a transfer key without an entry.
     pub unknown_transfer_key_uses: String,
+    /// transfer key (a file sha256; exact match only) -> sign (plaster, C1) -> its reduced fallback (2026-10-13).
+    pub fallbacks_by_transfer_key: BTreeMap<String, BTreeMap<String, SignFallback>>,
+}
+
+/// A gated sign's reduced fallback: it runs `variant` when N2(window) on the as-measured scan is at most the cut.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SignFallback {
+    /// "band_1446" (plaster) or "swir1" (C1).
+    pub variant: String,
+    pub n2_window_nm: (f64, f64),
+    pub n2_at_most: f64,
 }
 
 impl B6bGate {
@@ -117,6 +128,11 @@ impl B6bGate {
         self.by_transfer_key
             .get(key)
             .unwrap_or_else(|| &self.by_transfer_key[&self.unknown_transfer_key_uses])
+    }
+
+    /// The fallbacks for a transfer key (exact key; none for "none" or an unknown key).
+    pub fn fallbacks(&self, key: &str) -> Option<&BTreeMap<String, SignFallback>> {
+        self.fallbacks_by_transfer_key.get(key)
     }
 }
 
@@ -160,12 +176,41 @@ fn b6b_gate(n: &Node) -> PResult<B6bGate> {
     if !by_transfer_key.contains_key(&unknown) {
         return Err(n.error("unknown_transfer_key_uses must name a table"));
     }
+    let mut fallbacks_by_transfer_key = BTreeMap::new();
+    if let Some(fb) = n.opt("fallbacks_by_transfer_key") {
+        for (k, t) in fb.entries()? {
+            if !super::is_sha256_hex(&k) {
+                return Err(fb.error(format!("fallback key {k:?} must be a transfer file sha256")));
+            }
+            let mut tab = BTreeMap::new();
+            for (s, f) in t.entries()? {
+                let want = match s.as_str() {
+                    "plaster" => "band_1446",
+                    "C1" => "swir1",
+                    _ => return Err(t.error(format!("no fallback is defined for sign {s:?}"))),
+                };
+                if !contaminant_signs.contains(&s) {
+                    return Err(t.error(format!("{s:?} is not a contaminant sign")));
+                }
+                tab.insert(
+                    s,
+                    SignFallback {
+                        variant: f.req("variant")?.one_of(&[want])?.to_string(),
+                        n2_window_nm: f.req("n2_window_nm")?.range(false)?,
+                        n2_at_most: f.req("n2_at_most")?.f64()?,
+                    },
+                );
+            }
+            fallbacks_by_transfer_key.insert(k, tab);
+        }
+    }
     Ok(B6bGate {
         n2_window_nm: n.req("n2_window_nm")?.range(false)?,
         signs,
         contaminant_signs,
         by_transfer_key,
         unknown_transfer_key_uses: unknown,
+        fallbacks_by_transfer_key,
     })
 }
 
@@ -363,7 +408,9 @@ pub enum CheckParams {
         b4_panel_sd_below: f64,
         b4_empty_mean_below: f64,
         b5_mean_r_below: f64,
-        b6_check_if_implied_sd_above: f64,
+        /// B6 (DECISIONS 109): the verdict cuts, and how many implied SDs from a cut a reading raises a Check.
+        b6_cuts: Vec<f64>,
+        b6_check_if_cut_within_sd: f64,
         /// The per-sign B6b gates (phase 0c).
         b6b: B6bGate,
         /// B7 range as offsets from the scan's (lower, upper) join: SWIR1.
@@ -386,6 +433,8 @@ pub enum CheckParams {
         read_half_width_nm: u64,
         full: C1Variant,
         truncated: Option<C1Variant>,
+        /// The reduced variant below 1800 nm, run when C1 is gated and check.acquisition lists its fallback.
+        swir1: Option<C1Variant>,
         runs_only_if_not_fired: Vec<String>,
     },
     EvidenceLevels {
@@ -431,6 +480,8 @@ pub enum CheckParams {
         kernel: Kernel,
         plaster_bands: Vec<(Sharp, f64, f64)>,
         plaster_fires_if_joint_load_above: f64,
+        /// The reduced plaster fallback (sharp, fauna median, plaster contrast, cut): the 1446 nm load alone.
+        plaster_reduced_1446: Option<(Sharp, f64, f64, f64)>,
         wax_all_of: Vec<(Sharp, f64)>,
         ester: (Sharp, f64),
         blocks_lift: Vec<String>,
@@ -538,9 +589,10 @@ pub fn parse_engine_check(doc: &Node, base: &Path) -> PResult<EngineCheck> {
                 b4_panel_sd_below: b4.req("panel_sd_below")?.f64()?,
                 b4_empty_mean_below: b4.req("empty_mean_below")?.f64()?,
                 b5_mean_r_below: p.req("B5_dark")?.req("mean_R_below")?.f64()?,
-                b6_check_if_implied_sd_above: p
+                b6_cuts: p.req("B6_noise")?.req("cuts")?.vec_f64()?,
+                b6_check_if_cut_within_sd: p
                     .req("B6_noise")?
-                    .req("check_if_implied_sd_above")?
+                    .req("check_if_cut_within_sd")?
                     .f64()?,
                 b6b,
                 b7_range_offsets_nm: {
@@ -612,6 +664,7 @@ pub fn parse_engine_check(doc: &Node, base: &Path) -> PResult<EngineCheck> {
             read_half_width_nm: p.req("read_half_width_nm")?.u64()?,
             full: c1_variant(&p)?,
             truncated: p.opt("truncated").map(|t| c1_variant(&t)).transpose()?,
+            swir1: p.opt("swir1").map(|t| c1_variant(&t)).transpose()?,
             runs_only_if_not_fired: p.req("runs_only_if_not_fired")?.vec_str()?,
         },
         "evidence_levels" => {
@@ -720,6 +773,21 @@ pub fn parse_engine_check(doc: &Node, base: &Path) -> PResult<EngineCheck> {
                 kernel: kernel(&p.req("kernel")?)?,
                 plaster_bands,
                 plaster_fires_if_joint_load_above: pl.req("fires_if_joint_load_above")?.f64()?,
+                plaster_reduced_1446: pl
+                    .opt("reduced_1446")
+                    .map(|r| -> PResult<(Sharp, f64, f64, f64)> {
+                        let c = r.req("plaster_contrast")?.f64()?;
+                        if c == 0.0 {
+                            return Err(r.error("plaster_contrast must not be 0"));
+                        }
+                        Ok((
+                            sharp(&r.req("sharp")?)?,
+                            r.req("fauna_median")?.f64()?,
+                            c,
+                            r.req("fires_if_load_above")?.f64()?,
+                        ))
+                    })
+                    .transpose()?,
                 wax_all_of,
                 ester: (sharp(&es.req("sharp")?)?, es.req("at_least")?.f64()?),
                 blocks_lift: p

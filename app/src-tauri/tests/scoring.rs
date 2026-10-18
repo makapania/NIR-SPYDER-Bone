@@ -290,7 +290,7 @@ fn compare(r: &ScanResult, rec: &Obj, a: &str, label: &str) -> Vec<String> {
 fn app_scoring_equals_spyder_analyse_on_the_public_goldens() {
     let core = core();
     let cases = golden_cases();
-    assert_eq!(cases.len(), 61);
+    assert_eq!(cases.len(), 64);
     let (mut bad, mut n) = (Vec::new(), 0usize);
     for class in [CLASS_STD, CLASS_HIRES] {
         let mut s = Session::new(1, Some("goldens".into()), false, Some(class));

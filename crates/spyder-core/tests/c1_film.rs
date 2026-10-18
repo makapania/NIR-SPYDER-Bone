@@ -49,7 +49,7 @@ fn film_fires_c1_at_its_cut_and_not_below() {
     let p = params();
     for (peak, want) in [(20.0, true), (17.8, true), (17.0, false), (0.0, false)] {
         let (wl, e) = spectrum(peak);
-        let r = c1(&wl, &e, &p, None, false, false, "truncated");
+        let r = c1(&wl, &e, &p, None, false, false, "truncated", None);
         assert_eq!(get(&r, "status").as_str(), Some("assessed"));
         assert!(
             (get(&r, "film").as_f64().unwrap() - peak).abs() < 1e-9,
@@ -69,7 +69,7 @@ fn film_fires_c1_at_its_cut_and_not_below() {
 fn film_does_not_run_in_the_truncated_variant_or_when_gated() {
     let p = params();
     let (wl, e) = spectrum(50.0);
-    let r = c1(&wl, &e, &p, None, false, true, "truncated");
+    let r = c1(&wl, &e, &p, None, false, true, "truncated", None);
     assert!(get(&r, "status")
         .as_str()
         .unwrap()
@@ -85,6 +85,7 @@ fn film_does_not_run_in_the_truncated_variant_or_when_gated() {
         false,
         false,
         "truncated",
+        None,
     );
     assert_eq!(get(&g, "film_fired"), &V::Null);
     assert_eq!(get(&g, "fired"), &V::Null);

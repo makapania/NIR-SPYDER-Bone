@@ -112,7 +112,7 @@ B6 (noise as prediction uncertainty) is per model and transfer: `spyder read` re
 | B3 | R <= 0 (or not finite) in 1000-2450 nm: Unusable | `channels_r_le_0_1000_2450`, `first_nm` |
 | B4 | mean R(1000-2450) 0.95-1.05 with SD < 0.03, or mean < 0.03: Unusable; reference saves not assessed | `mean_r_1000_2450`, `sd_r_1000_2450` |
 | B5 | mean R(1000-2450) < 0.08: Note | `mean_r_1000_2450` |
-| B6 | gain x N2 > 0.5 % collagen: Check (never Unusable) | `model_id`, `transfer`, `implied_sd_pct`, `check_above_pct` |
+| B6 | a verdict cut (0.5, 3) within 2.6 x the implied SD (gain x N2) of the reading: Check, never Unusable (DECISIONS 109); pipeline only, `not_assessed` here | (pipeline record: `models.<m>.B6`) |
 | B6b | N2(2000-2100) > 60: Note; contaminant signs gated | `n2_2000_2100`, `cut`, `signs_gated` |
 | B7 | max R over SWIR1 (1001-1800 nm on LabSpec 4; the scan's own joins) > 1: Note only | `max_r_swir1`, `swir1_nm` |
 | B8 | relative splice step at each header join > 5 %: Note; > 15 %: Check | `join1_nm`, `join2_nm`, `step1_pct`, `step2_pct` |

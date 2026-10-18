@@ -154,6 +154,35 @@
          }
         }
        }
+      },
+      "reduced_1446": {
+       "type": "object",
+       "required": [
+        "sharp",
+        "fauna_median",
+        "plaster_contrast",
+        "fires_if_load_above"
+       ],
+       "properties": {
+        "sharp": {
+         "type": "array",
+         "items": {
+          "type": "number"
+         },
+         "minItems": 4,
+         "maxItems": 4
+        },
+        "fauna_median": {
+         "type": "number"
+        },
+        "plaster_contrast": {
+         "type": "number"
+        },
+        "fires_if_load_above": {
+         "type": "number"
+        }
+       },
+       "additionalProperties": false
       }
      }
     },

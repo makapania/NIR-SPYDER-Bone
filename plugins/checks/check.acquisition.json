@@ -3,16 +3,17 @@
  "format_version": 1,
  "check": "acquisition",
  "id": "check.acquisition",
- "version": "2.0.0",
+ "version": "4.0.0",
  "engine_min": "1.0",
  "status": "active",
  "title": "Acquisition checks B1-B8 and the per-sign B6b gates (as-measured scan)",
- "description": "Supported-input matrix (B1: LabSpec as8, Trek-type as7, FieldSpec 3 legacy reflectance; per-file detector joins) and the bad-scan checks on the AS-MEASURED reflectance (PLAN v3.2 Step 1-2). Unusable (B1-B4) replaces every verdict with Rescan. B6 is a Check only (never Unusable until calibrated on same-spot repeats). B6b gates each contaminant sign (and C1) on the noise in its own window, with cuts keyed by the transfer applied to the stream. N2 is the canonical noise measure (1e-5 absorbance).",
+ "description": "Supported-input matrix (B1: LabSpec as8, Trek-type as7, FieldSpec 3 legacy reflectance; per-file detector joins) and the bad-scan checks on the AS-MEASURED reflectance (PLAN v3.2 Step 1-2). Unusable (B1-B4) replaces every verdict with Rescan. B6 is a Check only, raised per model when noise could carry the reading across a verdict cut (DECISIONS 109); never Unusable. B6b gates each contaminant sign (and C1) on the noise in its own window, with cuts keyed by the transfer applied to the stream. N2 is the canonical noise measure (1e-5 absorbance).",
  "licence": "CC-BY-4.0",
  "created": "2026-10-03",
  "provenance": {
   "basis": "SPYDER Bone planning reports 03 (reader), 07 (warnings), Phase 0a A1-A2 (canonical N2, B6b cut 60, correlated-noise gains). B8 thresholds from the relative splice steps of every file in hand (standard-resolution files <= 1.7%, high-resolution sessions <= 6.8%).",
-  "per_sign_gates": "Phase 0c (high-resolution noise study): clean false alarms of each sign on 1,201 clean standard-resolution scans with high-resolution-like noise injected, after the v0.2 transfer, as a function of the noise in the sign's own window; cut = the largest N2 at which the false-alarm rate stays within +0.25 points of the noiseless rate (model noise shape; measured shape as the pessimistic bound): wax 80 / 59 -> 60, ester 306 / 215 -> 250, plaster 174 / 125 -> 150, C1 125 / 50 -> 125. Burnt (visible-range edge and short-wave OH bands) is ungated on v0.2; the 'none' table keeps the shipped gate so standard-resolution behaviour is unchanged."
+  "per_sign_gates": "Phase 0c (high-resolution noise study): clean false alarms of each sign on 1,201 clean standard-resolution scans with high-resolution-like noise injected, after the v0.2 transfer, as a function of the noise in the sign's own window; cut = the largest N2 at which the false-alarm rate stays within +0.25 points of the noiseless rate (model noise shape; measured shape as the pessimistic bound): wax 80 / 59 -> 60, ester 306 / 215 -> 250, plaster 174 / 125 -> 150, C1 125 / 50 -> 125. Burnt (visible-range edge and short-wave OH bands) is ungated on v0.2; the 'none' table keeps the shipped gate so standard-resolution behaviour is unchanged.",
+  "fallbacks": "2026-10-13 (pre-registered): the gates' cut N2(1500-1600) <= 30 (both fallbacks) is the largest noise at which the reduced statistics keep clean false alarms within the noiseless rate on 1,201 clean standard-resolution scans with high-resolution-like noise injected after the v0.2 transfer; 38 of 40 dark high-resolution scans pass it. Not N2(1400-1500) for plaster: the gypsum bands themselves raise it (median 17 -> 46-81 with plaster added), so that gate would close exactly when plaster is present (amendment 1)."
  },
  "parameters": {
   "input_matrix": {
@@ -73,9 +74,13 @@
    "mean_R_below": 0.08
   },
   "B6_noise": {
-   "check_if_implied_sd_above": 0.5,
+   "cuts": [
+    0.5,
+    3.0
+   ],
+   "check_if_cut_within_sd": 2.6,
    "unusable": null,
-   "note": "implied SD (% collagen) = gain x N2, gains keyed by model and transfer (noise_gains.json)"
+   "note": "implied SD (% collagen) = gain x N2, gains keyed by model and transfer (noise_gains.json). Check when a verdict cut lies within check_if_cut_within_sd x SD of the reading: 2 SD, with the SD scaled by 1.3 because same-spot repeat scans (62 spots x 3) scatter 1.1-1.4x the implied SD (DECISIONS 109, work/noise_pred/REPORT_noise_pred.md)."
   },
   "B6b_signs_gate": {
    "n2_window_nm": [
@@ -166,7 +171,27 @@
     }
    },
    "unknown_transfer_key_uses": "none",
-   "note": "A sign is gated (not checked) when N2 of its own window on the AS-MEASURED scan exceeds its cut; the table is picked by the transfer key of the standard-resolution stream ('none' or the transfer file's sha256); a key with no entry uses the 'none' table; a null gate means the sign is never gated (burnt on v0.2: it reads the visible edge, not the noisy SWIR2). The record keeps check.B6b as a summary: n2 = N2(n2_window_nm), gated = every contaminant sign gated, signs_gated = the gated contaminant signs, outcome Note when any contaminant sign is gated."
+   "fallbacks_by_transfer_key": {
+    "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": {
+     "plaster": {
+      "variant": "band_1446",
+      "n2_window_nm": [
+       1500,
+       1600
+      ],
+      "n2_at_most": 30.0
+     },
+     "C1": {
+      "variant": "swir1",
+      "n2_window_nm": [
+       1500,
+       1600
+      ],
+      "n2_at_most": 30.0
+     }
+    }
+   },
+   "note": "A sign is gated (not checked) when N2 of its own window on the AS-MEASURED scan exceeds its cut; the table is picked by the transfer key of the standard-resolution stream ('none' or the transfer file's sha256); a key with no entry uses the 'none' table; a null gate means the sign is never gated (burnt on v0.2: it reads the visible edge, not the noisy SWIR2). A gated sign with a fallback for the key (fallbacks_by_transfer_key) runs its reduced variant instead when N2 of the fallback window is at most n2_at_most (plaster: the 1446 nm band alone, check.signs plaster.reduced_1446; C1: the variant below 1800 nm, check.c1 swir1); it then counts as checked. The record keeps check.B6b as a summary: n2 = N2(n2_window_nm), signs_gated = the contaminant signs gated with no fallback available (not checked), signs_reduced = the gated signs whose reduced variant is eligible (it runs, except C1 when a specific sign fired: C1 is then skipped as usual), gated = every contaminant sign in signs_gated, outcome Note when either list is non-empty."
   },
   "B7_above_one": {
    "range_offsets_nm": [
@@ -243,12 +268,13 @@
      "B6b.n2": 9.876748127923124,
      "B6b.outcome": "ok",
      "B6b.gated": false,
-     "B6b.signs_gated.n": 0
+     "B6b.signs_gated.n": 0,
+     "B6b.signs_reduced.n": 0
     }
    },
    {
     "name": "rc_lift_blocked_gated",
-    "spectrum_sha256": "f2eff45c7ac2e08166f6155676b5e1b8f709302569a3a0c2a1208031f6058ff2",
+    "spectrum_sha256": "653e7e22b860a36605b6605d9c33b4ffb433d00daa49cb1b4e122eaf167fba56",
     "inputs": {
      "transfer_key": "none"
     },
@@ -258,30 +284,31 @@
      "B3.status": "assessed",
      "B3.outcome": "ok",
      "B4.status": "assessed",
-     "B4.mean_R": 0.32765038673887864,
-     "B4.sd_R": 0.21276223857559584,
+     "B4.mean_R": 0.24019709771026987,
+     "B4.sd_R": 0.2373607209557494,
      "B4.outcome": "ok",
      "B4.reason": null,
      "B5.status": "assessed",
-     "B5.mean_R": 0.32765038673887864,
+     "B5.mean_R": 0.24019709771026987,
      "B5.outcome": "ok",
      "B7.status": "assessed",
-     "B7.max_R": 0.6530303395139899,
+     "B7.max_R": 0.6527217948598543,
      "B7.outcome": "ok",
      "B8.status": "assessed",
      "B8.relative_steps.n": 2,
      "B8.relative_steps.0": 0.0006789449929507491,
-     "B8.relative_steps.1": 0.003243775786800503,
+     "B8.relative_steps.1": 0.0032785913273932006,
      "B8.outcome": "ok",
      "B6b.status": "assessed",
-     "B6b.n2": 76.58682042470585,
+     "B6b.n2": 85.37327367511263,
      "B6b.outcome": "Note",
      "B6b.gated": true,
      "B6b.signs_gated.n": 4,
      "B6b.signs_gated.0": "plaster",
      "B6b.signs_gated.1": "wax",
      "B6b.signs_gated.2": "ester",
-     "B6b.signs_gated.3": "C1"
+     "B6b.signs_gated.3": "C1",
+     "B6b.signs_reduced.n": 0
     }
    },
    {
@@ -319,7 +346,8 @@
      "B6b.signs_gated.0": "plaster",
      "B6b.signs_gated.1": "wax",
      "B6b.signs_gated.2": "ester",
-     "B6b.signs_gated.3": "C1"
+     "B6b.signs_gated.3": "C1",
+     "B6b.signs_reduced.n": 0
     }
    },
    {
@@ -353,7 +381,8 @@
      "B6b.n2": 3.4894252671959767,
      "B6b.outcome": "ok",
      "B6b.gated": false,
-     "B6b.signs_gated.n": 0
+     "B6b.signs_gated.n": 0,
+     "B6b.signs_reduced.n": 0
     }
    },
    {
@@ -387,7 +416,8 @@
      "B6b.n2": 3.489425267212437,
      "B6b.outcome": "ok",
      "B6b.gated": false,
-     "B6b.signs_gated.n": 0
+     "B6b.signs_gated.n": 0,
+     "B6b.signs_reduced.n": 0
     }
    },
    {
@@ -421,12 +451,13 @@
      "B6b.n2": 4.24195112141322,
      "B6b.outcome": "ok",
      "B6b.gated": false,
-     "B6b.signs_gated.n": 0
+     "B6b.signs_gated.n": 0,
+     "B6b.signs_reduced.n": 0
     }
    },
    {
     "name": "b6_check_hires_noisy",
-    "spectrum_sha256": "d9e57838a0cf77fd6ca9210a46b951f9512bff58383eefc64cd7a449aecb0b61",
+    "spectrum_sha256": "869db4130bb23834d9fb0169ab48ca932bfc760c6af210ce056388e2fb355e9a",
     "inputs": {
      "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
     },
@@ -436,12 +467,12 @@
      "B3.status": "assessed",
      "B3.outcome": "ok",
      "B4.status": "assessed",
-     "B4.mean_R": 0.7420772193132981,
-     "B4.sd_R": 0.7810287773702309,
+     "B4.mean_R": 0.7420771339569361,
+     "B4.sd_R": 0.7810285640019062,
      "B4.outcome": "ok",
      "B4.reason": null,
      "B5.status": "assessed",
-     "B5.mean_R": 0.7420772193132981,
+     "B5.mean_R": 0.7420771339569361,
      "B5.outcome": "ok",
      "B7.status": "assessed",
      "B7.max_R": 2.350032374560297,
@@ -457,12 +488,13 @@
      "B6b.gated": false,
      "B6b.signs_gated.n": 2,
      "B6b.signs_gated.0": "plaster",
-     "B6b.signs_gated.1": "C1"
+     "B6b.signs_gated.1": "C1",
+     "B6b.signs_reduced.n": 0
     }
    },
    {
     "name": "hires_c1_gated_plaster_checked",
-    "spectrum_sha256": "5d34f818ba8e6af3464051ee73b3db86a835e0b0459c24992b70cdaf879ae129",
+    "spectrum_sha256": "1865023e12546f0d68680522879bde4cb48ee7eceabe3d0953c8cc692e23b67f",
     "inputs": {
      "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
     },
@@ -472,12 +504,12 @@
      "B3.status": "assessed",
      "B3.outcome": "ok",
      "B4.status": "assessed",
-     "B4.mean_R": 0.42651240562597065,
-     "B4.sd_R": 0.5101171638537152,
+     "B4.mean_R": 0.42651310488793726,
+     "B4.sd_R": 0.5101169043824302,
      "B4.outcome": "ok",
      "B4.reason": null,
      "B5.status": "assessed",
-     "B5.mean_R": 0.42651240562597065,
+     "B5.mean_R": 0.42651310488793726,
      "B5.outcome": "ok",
      "B7.status": "assessed",
      "B7.max_R": 1.506777562369015,
@@ -492,7 +524,119 @@
      "B6b.outcome": "Note",
      "B6b.gated": false,
      "B6b.signs_gated.n": 1,
-     "B6b.signs_gated.0": "C1"
+     "B6b.signs_gated.0": "C1",
+     "B6b.signs_reduced.n": 0
+    }
+   },
+   {
+    "name": "hires_fallback_reduced_clean",
+    "spectrum_sha256": "6e120a8c5f996f6e85b73e6be1acd3658d3e682607680ce3a59e4640527f3f20",
+    "inputs": {
+     "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
+    },
+    "expected": {
+     "B2.status": "not assessed: no raw DN (spectrum input)",
+     "B2.outcome": null,
+     "B3.status": "assessed",
+     "B3.outcome": "ok",
+     "B4.status": "assessed",
+     "B4.mean_R": 0.4265122053771888,
+     "B4.sd_R": 0.5101173140351806,
+     "B4.outcome": "ok",
+     "B4.reason": null,
+     "B5.status": "assessed",
+     "B5.mean_R": 0.4265122053771888,
+     "B5.outcome": "ok",
+     "B7.status": "assessed",
+     "B7.max_R": 1.506777562369015,
+     "B7.outcome": "Note",
+     "B8.status": "assessed",
+     "B8.relative_steps.n": 2,
+     "B8.relative_steps.0": 0.0007101300482095413,
+     "B8.relative_steps.1": 0.011207614944155309,
+     "B8.outcome": "ok",
+     "B6b.status": "assessed",
+     "B6b.n2": 220.0000000000164,
+     "B6b.outcome": "Note",
+     "B6b.gated": false,
+     "B6b.signs_gated.n": 0,
+     "B6b.signs_reduced.n": 2,
+     "B6b.signs_reduced.0": "plaster",
+     "B6b.signs_reduced.1": "C1"
+    }
+   },
+   {
+    "name": "hires_fallback_c1_fires",
+    "spectrum_sha256": "4c97dde7a3bebefd0984f14730d9f87adaea98f2a1f9d1f832fd3037617e00d9",
+    "inputs": {
+     "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
+    },
+    "expected": {
+     "B2.status": "not assessed: no raw DN (spectrum input)",
+     "B2.outcome": null,
+     "B3.status": "assessed",
+     "B3.outcome": "ok",
+     "B4.status": "assessed",
+     "B4.mean_R": 0.4418380704964833,
+     "B4.sd_R": 0.5210237213510678,
+     "B4.outcome": "ok",
+     "B4.reason": null,
+     "B5.status": "assessed",
+     "B5.mean_R": 0.4418380704964833,
+     "B5.outcome": "ok",
+     "B7.status": "assessed",
+     "B7.max_R": 1.506777562369015,
+     "B7.outcome": "Note",
+     "B8.status": "assessed",
+     "B8.relative_steps.n": 2,
+     "B8.relative_steps.0": 0.0007101300482095413,
+     "B8.relative_steps.1": 0.011162262033461308,
+     "B8.outcome": "ok",
+     "B6b.status": "assessed",
+     "B6b.n2": 219.95036605250928,
+     "B6b.outcome": "Note",
+     "B6b.gated": false,
+     "B6b.signs_gated.n": 0,
+     "B6b.signs_reduced.n": 2,
+     "B6b.signs_reduced.0": "plaster",
+     "B6b.signs_reduced.1": "C1"
+    }
+   },
+   {
+    "name": "hires_fallback_plaster_fires",
+    "spectrum_sha256": "0d81b7330629434155c8412000253549c174d031c93fc8f90eadaa98a96adffe",
+    "inputs": {
+     "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
+    },
+    "expected": {
+     "B2.status": "not assessed: no raw DN (spectrum input)",
+     "B2.outcome": null,
+     "B3.status": "assessed",
+     "B3.outcome": "ok",
+     "B4.status": "assessed",
+     "B4.mean_R": 0.42645390080750567,
+     "B4.sd_R": 0.5101423124439679,
+     "B4.outcome": "ok",
+     "B4.reason": null,
+     "B5.status": "assessed",
+     "B5.mean_R": 0.42645390080750567,
+     "B5.outcome": "ok",
+     "B7.status": "assessed",
+     "B7.max_R": 1.506777562369015,
+     "B7.outcome": "Note",
+     "B8.status": "assessed",
+     "B8.relative_steps.n": 2,
+     "B8.relative_steps.0": 0.0007101300482095413,
+     "B8.relative_steps.1": 0.011207614984071043,
+     "B8.outcome": "ok",
+     "B6b.status": "assessed",
+     "B6b.n2": 219.99999997458545,
+     "B6b.outcome": "Note",
+     "B6b.gated": false,
+     "B6b.signs_gated.n": 0,
+     "B6b.signs_reduced.n": 2,
+     "B6b.signs_reduced.0": "plaster",
+     "B6b.signs_reduced.1": "C1"
     }
    }
   ]

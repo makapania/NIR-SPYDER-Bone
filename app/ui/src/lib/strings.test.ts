@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NOTE_TEXT, ryderPct } from './strings';
+import { LOWRANGE_EXPLAIN, NOTE_TEXT, ryderPct } from './strings';
 
 describe('the Ryder 2045 ZooMS line', () => {
   it('one decimal, two where one decimal would fall below the cut; the cut comes from the core', () => {
@@ -9,6 +9,19 @@ describe('the Ryder 2045 ZooMS line', () => {
     expect(ryderPct({ r: 1.26, at_least: 0.34 })).toBe('1.3');
     expect(NOTE_TEXT.zooms_better_ryder({ r: 0.35, at_least: 0.34 })).toBe(
       'Some chance with ZooMS: the published Ryder 2045 model reads 0.35%, above its ZooMS line (0.34%).',
+    );
+  });
+});
+
+describe('the reduced contaminant checks (SWIR1 fallbacks) say which ran and what they can miss', () => {
+  it('plaster and C1, C1 alone, plaster alone', () => {
+    const both = NOTE_TEXT.signs_reduced({ signs: ['plaster', 'C1'] });
+    expect(both).toContain('plaster and general organic checks ran in a reduced form, below 1800 nm only');
+    expect(both).toContain('may let them run');
+    expect(NOTE_TEXT.signs_reduced({ signs: ['C1'] })).toContain('misses thin coats, glue and many consolidants');
+    expect(NOTE_TEXT.signs_reduced({ signs: ['C1'] })).not.toContain('plaster');
+    expect(NOTE_TEXT.signs_reduced({ signs: ['plaster'] })).toBe(
+      'The plaster check ran on its 1446 nm band only. Above 1800 nm this scan is too noisy for the full checks; more averages (100–200) may let them run. In tests the reduced plaster check found most added plaster.',
     );
   });
 });
@@ -49,5 +62,31 @@ describe('UI string table lint', () => {
     expect(flagText('burnt', 'calcined')).toContain('(calcined: sharp OH peaks at 979 and 1433 nm)');
     expect(flagText('burnt')).toBe('Heat sign at this spot. Heating lowers collagen; the readings already reflect that.');
     expect(noteText({ key: 'flat_bands', params: { m: 1.4 } })).toContain('≈ 1.4% (± 1)');
+  });
+});
+
+describe('the panel notes (2026-10-18) and the shortened models-disagree note', () => {
+  it('the C–H note has two levels, both naming examples, neither claiming certainty', () => {
+    expect(NOTE_TEXT.ch_above_nh_possible({ ch: 3.1, m: 0.4 })).toBe(
+      "Possible extra organic material: C–H reads higher than N–H (the bone's own fat, wax or consolidant, for example).",
+    );
+    expect(NOTE_TEXT.ch_above_nh_strong({ ch: 5.2, m: 0.4 })).toBe(
+      "Likely extra organic material: C–H reads far higher than N–H (the bone's own fat, wax or consolidant, for example).",
+    );
+    expect(NOTE_TEXT.ch_above_nh_strong({})).not.toMatch(/certain/i);
+  });
+  it('the strong-disagreement note names no cause', () => {
+    const t = NOTE_TEXT.readers_disagree_strongly({ contrasts: ['GL'], m: 3.4 });
+    expect(t).toContain('disagree strongly');
+    expect(t).toContain('does not say why');
+    expect(t).not.toMatch(/glue|coat|contamin/i);
+  });
+  it('models disagree keeps only the verdict-line sentence', () => {
+    const t = NOTE_TEXT.models_disagree({ a: 0.4, b: 0.9, c: 4.1 });
+    expect(t).toBe('The three collagen models fall on different sides of a verdict line (0.4%, 0.9%, 4.1%); the verdict uses the middle value.');
+    expect(t).not.toContain('coated');
+  });
+  it('the low-range explanation', () => {
+    expect(LOWRANGE_EXPLAIN).toBe('Optimised for low collagen levels; commonly reads lower around 3–6%.');
   });
 });

@@ -3,17 +3,18 @@
  "format_version": 1,
  "analysis": "isotopes",
  "id": "profile.isotopes",
- "version": "2.0.0",
+ "version": "2.1.0",
  "engine_min": "1.1",
  "status": "active",
  "title": "Stable isotopes: verdict profile",
- "description": "Rule L2 with flat-bands-lead and +D (PLAN v3.2 Step 9; DECISIONS 13, 15, 16, 36). m = CONS3 (median of three collagen models). Model verdict: Unlikely below 0.5, Borderline to 3, Good from 3. Flat bands (evidence 'none') -> Unlikely whatever m reads. +D: both protein bands readable and flat with m >= 3 -> Borderline. Lift, on a scan with no plaster, wax, ester or C1 sign, every one of them checked (none gated by its own B6b gate; C1 assessed), with all six collagen bands readable and lit: strong -> Good, clear -> at least Borderline. Contaminant and burnt signs are FLAGS only and never change the verdict (DECISIONS 53). Models-disagree note: only when the three CONS3 components fall in different verdict bands, i.e. straddle the 0.5 or the 3 cut, AND span at least 1 point (DECISIONS 65). Notes: above_bone_range when m > above_bone_range_m_above (DECISIONS 72); possible_thin_coating when the soft tier fired (it also suppresses the positive-signs line; DECISIONS 76); contaminants_not_checked lists the skipped (gated) and checked signs; c1_reduced (the truncated C1 ran) is details-only. ZooMS line (DECISIONS 80 amended): the ZooMS band-pattern rule (check.zooms_patterns with its 1545 nm vote, unchanged) runs underneath; where it calls the scan better than this verdict (Good > Borderline > Unlikely; Can't tell never counts) a note says so and never changes the verdict: zooms_better_good (ZooMS Good), zooms_better_protein (ZooMS Borderline from the band pattern), zooms_better_1545 (ZooMS Borderline only through the 1545 nm vote; zooms_better_1545_flat when flat bands set the verdict). No line when a sign in suppressed_by_signs fired (wax, ester, plaster, C1: coatings can create the bands the patterns read); burnt, gated or unassessed signs do not suppress it. The band-pattern Borderline splits by strength: zooms_better_protein needs m >= 0.3 and at least two N-type bands (NH2044, AM2175, the 1545 nm vote band) lit and readable, else zooms_faint_protein (a quieter note, shown only when a slot is left: precedence_last). Ryder line: on an Unlikely verdict with no band line, when the published Ryder 2045 model reads >= ryder_2045_at_least, zooms_better_ryder (params r, at_least) is the ZooMS line and a faint protein note stays in the details. Shown after the rule's note and before the supporting note (precedence_zooms). Keys only (the UI holds the strings); at most two shown.",
+ "description": "Rule L2 with flat-bands-lead and +D (PLAN v3.2 Step 9; DECISIONS 13, 15, 16, 36). m = CONS3 (median of three collagen models). Model verdict: Unlikely below 0.5, Borderline to 3, Good from 3. Flat bands (evidence 'none') -> Unlikely whatever m reads. +D: both protein bands readable and flat with m >= 3 -> Borderline. Lift, on a scan with no plaster, wax, ester or C1 sign, every one of them checked (none gated by its own B6b gate; C1 assessed), with all six collagen bands readable and lit: strong -> Good, clear -> at least Borderline. Contaminant and burnt signs are FLAGS only and never change the verdict (DECISIONS 53). Models-disagree note: only when the three CONS3 components fall in different verdict bands, i.e. straddle the 0.5 or the 3 cut, AND span at least 1 point (DECISIONS 65). Notes: above_bone_range when m > above_bone_range_m_above (DECISIONS 72); possible_thin_coating when the soft tier fired (it also suppresses the positive-signs line; DECISIONS 76); contaminants_not_checked lists the skipped (gated) and checked signs; c1_reduced (the truncated C1 ran) is details-only. ZooMS line (DECISIONS 80 amended): the ZooMS band-pattern rule (check.zooms_patterns with its 1545 nm vote, unchanged) runs underneath; where it calls the scan better than this verdict (Good > Borderline > Unlikely; Can't tell never counts) a note says so and never changes the verdict: zooms_better_good (ZooMS Good), zooms_better_protein (ZooMS Borderline from the band pattern), zooms_better_1545 (ZooMS Borderline only through the 1545 nm vote; zooms_better_1545_flat when flat bands set the verdict). No line when a sign in suppressed_by_signs fired (wax, ester, plaster, C1: coatings can create the bands the patterns read); burnt, gated or unassessed signs do not suppress it. The band-pattern Borderline splits by strength: zooms_better_protein needs m >= 0.3 and at least two N-type bands (NH2044, AM2175, the 1545 nm vote band) lit and readable, else zooms_faint_protein (a quieter note, shown only when a slot is left: precedence_last). Ryder line: on an Unlikely verdict with no band line, when the published Ryder 2045 model reads >= ryder_2045_at_least, zooms_better_ryder (params r, at_least) is the ZooMS line and a faint protein note stays in the details. Shown after the rule's note and before the supporting note (precedence_zooms). Keys only (the UI holds the strings); at most two shown. Panel notes (2.1.0): a C-H note at two levels (the C-H 1728 nm reader above CONS3) and a cause-neutral readers-disagree-strongly note; neither changes the verdict. The low-range estimate (narrow 1545 nm band, fitted below 6%) is shown under CONS3. ZooMS line also suppressed when the C-H note fires (suppressed_by_notes, DECISIONS 120).",
  "licence": "CC-BY-4.0",
  "created": "2026-10-03",
  "provenance": {
   "basis": "Phase 0a A19 (rule L2), A20 (display, sort), Matt's rulings DECISIONS 13-16, 36, 41, 45, 52, 53, 65, 80 (amended: one verdict for every analysis plus a ZooMS line). Cuts: the published 3% line (Ryder et al. 2026) and 0.5%.",
   "zooms_ryder_2045_cut": "0.34% yield: the ZooMS cut of Ryder et al. 2026b (Archaeometry, doi:10.1111/arcm.70202), set in advance from nitrogen (0.26 %N converted to collagen yield with the Brock et al. 2010 regression: 0.33, rounded up) and then tested on archaeological bone in that paper (bison ZooMS outcomes: 34 of 37 called correctly). Not refitted on this project's data; phase 0d: no line on true-zero archaeological bone.",
-  "sort_penalty": "DECISIONS 99 (2026-10-05): within each verdict group, scans with a contaminant flag (plaster, wax, ester, C1; heat excluded, as in the lift block of DECISIONS 53) sort after the clean ones. Coatings light the bands that S reads and can inflate readings; verdicts and flags are unchanged. Tested per scan: no change on clean sets with yields; flagged scans in the top fifth of a coated archaeological collection 32.5% -> 8.4%."
+  "sort_penalty": "DECISIONS 99 (2026-10-05): within each verdict group, scans with a contaminant flag (plaster, wax, ester, C1; heat excluded, as in the lift block of DECISIONS 53) sort after the clean ones. Coatings light the bands that S reads and can inflate readings; verdicts and flags are unchanged. Tested per scan: no change on clean sets with yields; flagged scans in the top fifth of a coated archaeological collection 32.5% -> 8.4%.",
+  "panel_notes": "2026-10-18: C-H note thresholds and the readers-disagree scales from the 7 clean collections (policy U, 2%); checked on unreleased held-out collections never used to set them (marine-mammal bone, a low-collagen terrestrial set and two cave assemblages, eight batches): C-H note at most 3.6% per collection, readers-disagree note at most 2.9% additional; frozen before the held-out check."
  },
  "parameters": {
   "kind": "collagen_rule_L2",
@@ -46,6 +47,33 @@
     "model_id": "collagen.spyder.1500_snv_transfer_free",
     "role": "second_opinion",
     "shown_for_classes": [
+     "asd.labspec4.hires"
+    ]
+   },
+   {
+    "key": "lowrange",
+    "model_id": "collagen.spyder.1545_lowrange",
+    "role": "low_range",
+    "shown_for_classes": [
+     "asd.labspec4.std",
+     "asd.labspec4.hires"
+    ]
+   },
+   {
+    "key": "ch1728",
+    "model_id": "collagen.spyder.1728_ch",
+    "role": "panel",
+    "shown_for_classes": [
+     "asd.labspec4.std",
+     "asd.labspec4.hires"
+    ]
+   },
+   {
+    "key": "nb1545",
+    "model_id": "collagen.spyder.1545_narrow",
+    "role": "panel",
+    "shown_for_classes": [
+     "asd.labspec4.std",
      "asd.labspec4.hires"
     ]
    }
@@ -109,6 +137,8 @@
    "precedence_supporting": [
     "above_bone_range",
     "possible_thin_coating",
+    "ch_above_nh",
+    "readers_disagree_strongly",
     "contaminants_not_checked",
     "models_disagree",
     "positive_signs",
@@ -146,7 +176,10 @@
      ]
     },
     "ryder_2045_model_key": "ryder2045",
-    "ryder_2045_at_least": 0.34
+    "ryder_2045_at_least": 0.34,
+    "suppressed_by_notes": [
+     "ch_above_nh"
+    ]
    },
    "precedence_last": [
     "zooms_faint_protein"
@@ -163,8 +196,11 @@
     "plus_d",
     "above_bone_range",
     "possible_thin_coating",
+    "ch_above_nh_possible",
+    "ch_above_nh_strong",
     "contaminants_not_checked",
     "models_disagree",
+    "readers_disagree_strongly",
     "positive_signs_all_six",
     "positive_signs_clear",
     "bands_too_noisy",
@@ -177,7 +213,128 @@
     "zooms_better_1545_flat",
     "zooms_faint_protein",
     "zooms_better_ryder"
-   ]
+   ],
+   "panel": {
+    "readers": {
+     "ch": "ch1728",
+     "narrow1545": "nb1545",
+     "raw2045": "ryder2045"
+    },
+    "ch_above_nh": {
+     "cons3_bin_edges": [
+      1.0,
+      4.0,
+      8.0
+     ],
+     "possible_above": [
+      1.3381,
+      2.2977,
+      2.5264,
+      3.3734
+     ],
+     "strong_above": [
+      2.3587,
+      4.2638,
+      4.8034,
+      6.653
+     ]
+    },
+    "readers_disagree_strongly": {
+     "cons3_bin_edges": [
+      1.0,
+      4.0,
+      8.0
+     ],
+     "level": 2.0,
+     "contrasts": {
+      "CH": {
+       "median": [
+        0.3175,
+        0.3316,
+        0.2495,
+        0.0938
+       ],
+       "q98": [
+        1.4248,
+        2.3224,
+        2.8269,
+        3.537
+       ]
+      },
+      "CHN": {
+       "median": [
+        -0.3175,
+        -0.3316,
+        -0.2495,
+        -0.0938
+       ],
+       "q98": [
+        0.5784,
+        0.6641,
+        1.5871,
+        1.6645
+       ]
+      },
+      "GL": {
+       "median": [
+        -0.3214,
+        -0.137,
+        0.1752,
+        0.193
+       ],
+       "q98": [
+        0.1943,
+        0.7314,
+        1.1143,
+        2.309
+       ]
+      },
+      "SHP": {
+       "median": [
+        -0.1615,
+        0.0728,
+        0.1127,
+        0.1219
+       ],
+       "q98": [
+        0.2556,
+        0.7314,
+        0.9448,
+        2.3049
+       ]
+      },
+      "SP3": {
+       "median": [
+        0.4394,
+        0.557,
+        0.725,
+        1.0956
+       ],
+       "q98": [
+        1.7231,
+        2.4616,
+        4.0205,
+        4.4584
+       ]
+      },
+      "RAW": {
+       "median": [
+        1.221,
+        0.2388,
+        0.2201,
+        0.2289
+       ],
+       "q98": [
+        3.7423,
+        2.165,
+        1.9904,
+        3.9106
+       ]
+      }
+     }
+    },
+    "note": "Panel notes (DECISIONS 111, 115, 119; never change the verdict or the sort). ch_above_nh: the C-H 1728 nm reader minus CONS3 above possible_above (policy-U 2% thresholds by CONS3 bin; about 2% of clean bone) -> ch_above_nh_possible, above strong_above (twice as far above the clean median) -> ch_above_nh_strong. readers_disagree_strongly: six reader contrasts (CH = ch - m, CHN = m - ch, GL = m - narrow1545, SHP = wc1500 - narrow1545, SP3 = spread of the CONS3 parts, RAW = |m - raw2045|), each normalised by the clean median and 98th percentile of its CONS3 bin; the note fires when any exceeds level (CH left to the C-H note when that note fired); when it fires, models_disagree is not added."
+   }
   },
   "second_opinion": {
    "classes": [
@@ -2359,6 +2516,389 @@
      "model_verdict": "Unlikely",
      "notes_shown": "zooms_better_protein",
      "notes_all": "zooms_better_protein",
+     "flags": ""
+    }
+   },
+   {
+    "name": "lift_good_with_reduced_checks",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.1,
+      "F05": 0.3
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed: reduced (below 1800 nm only; noise in 2000-2100 nm)",
+     "gated": false,
+     "signs_reduced": [
+      "plaster"
+     ]
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "lift_good",
+     "model_verdict": "Unlikely",
+     "notes_shown": "lift_good",
+     "notes_all": "lift_good,positive_signs_all_six,signs_reduced",
+     "flags": ""
+    }
+   },
+   {
+    "name": "lift_blocked_reduced_c1_fired",
+    "inputs": {
+     "m": 0.2,
+     "components": {
+      "wc2045": 0.2,
+      "wc1500": 0.1,
+      "F05": 0.3
+     },
+     "evidence_level": "strong",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [
+      "C1"
+     ],
+     "c1_status": "assessed: reduced (below 1800 nm only; noise in 2000-2100 nm)",
+     "gated": false
+    },
+    "expected": {
+     "verdict": "Unlikely",
+     "rule_step": "lift_blocked",
+     "model_verdict": "Unlikely",
+     "notes_shown": "lift_blocked_contaminant",
+     "notes_all": "lift_blocked_contaminant,signs_reduced",
+     "flags": "flag_contaminant"
+    }
+   },
+   {
+    "name": "panel_ch_possible",
+    "inputs": {
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "m": 0.6,
+     "components": {
+      "wc2045": 0.6,
+      "wc1500": 0.6,
+      "F05": 0.6
+     },
+     "models": {
+      "ch1728": 2.1,
+      "nb1545": 0.6,
+      "ryder2045": 0.6
+     }
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "ch_above_nh_possible",
+     "notes_all": "ch_above_nh_possible",
+     "flags": ""
+    }
+   },
+   {
+    "name": "panel_ch_strong",
+    "inputs": {
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "m": 0.6,
+     "components": {
+      "wc2045": 0.6,
+      "wc1500": 0.6,
+      "F05": 0.6
+     },
+     "models": {
+      "ch1728": 3.1,
+      "nb1545": 0.6,
+      "ryder2045": 0.6
+     }
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "ch_above_nh_strong",
+     "notes_all": "ch_above_nh_strong",
+     "flags": ""
+    }
+   },
+   {
+    "name": "panel_ch_just_below_possible",
+    "inputs": {
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "m": 0.6,
+     "components": {
+      "wc2045": 0.6,
+      "wc1500": 0.6,
+      "F05": 0.6
+     },
+     "models": {
+      "ch1728": 1.9,
+      "nb1545": 0.6,
+      "ryder2045": 0.6
+     }
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "panel_disagree_glue_direction",
+    "inputs": {
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "m": 3.5,
+     "components": {
+      "wc2045": 3.5,
+      "wc1500": 3.5,
+      "F05": 3.5
+     },
+     "models": {
+      "ch1728": 3.5,
+      "nb1545": 1.5,
+      "ryder2045": 3.5
+     }
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "readers_disagree_strongly",
+     "notes_all": "readers_disagree_strongly",
+     "flags": ""
+    }
+   },
+   {
+    "name": "panel_disagree_suppresses_models_disagree",
+    "inputs": {
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "m": 3.5,
+     "components": {
+      "wc2045": 2.5,
+      "wc1500": 3.5,
+      "F05": 4.5
+     },
+     "models": {
+      "ch1728": 3.5,
+      "nb1545": 1.5,
+      "ryder2045": 3.5
+     }
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "readers_disagree_strongly",
+     "notes_all": "readers_disagree_strongly",
+     "flags": ""
+    }
+   },
+   {
+    "name": "panel_models_disagree_alone",
+    "inputs": {
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "m": 3.5,
+     "components": {
+      "wc2045": 2.5,
+      "wc1500": 3.5,
+      "F05": 4.5
+     },
+     "models": {
+      "ch1728": 3.5,
+      "nb1545": 3.5,
+      "ryder2045": 3.5
+     }
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "models_disagree",
+     "notes_all": "models_disagree",
+     "flags": ""
+    }
+   },
+   {
+    "name": "panel_ch_strong_not_double_counted",
+    "inputs": {
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "m": 0.6,
+     "components": {
+      "wc2045": 0.6,
+      "wc1500": 0.6,
+      "F05": 0.6
+     },
+     "models": {
+      "ch1728": 4.1,
+      "nb1545": 0.6,
+      "ryder2045": 0.6
+     }
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "ch_above_nh_strong",
+     "notes_all": "ch_above_nh_strong",
+     "flags": ""
+    }
+   },
+   {
+    "name": "panel_ch_and_glue_direction",
+    "inputs": {
+     "evidence_level": "trace",
+     "zooms_verdict": "Borderline",
+     "zooms_pattern": "D",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "m": 3.5,
+     "components": {
+      "wc2045": 3.5,
+      "wc1500": 3.5,
+      "F05": 3.5
+     },
+     "models": {
+      "ch1728": 8.5,
+      "nb1545": 1.5,
+      "ryder2045": 3.5
+     }
+    },
+    "expected": {
+     "verdict": "Good",
+     "rule_step": "model_verdict",
+     "model_verdict": "Good",
+     "notes_shown": "ch_above_nh_strong",
+     "notes_all": "ch_above_nh_strong,readers_disagree_strongly",
+     "flags": ""
+    }
+   },
+   {
+    "name": "panel_readers_missing",
+    "inputs": {
+     "evidence_level": "trace",
+     "zooms_verdict": "Unlikely",
+     "zooms_pattern": "B",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "m": 0.6,
+     "components": {
+      "wc2045": 0.6,
+      "wc1500": 0.6,
+      "F05": 0.6
+     },
+     "models": {
+      "ryder2045": 0.6
+     }
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "",
+     "notes_all": "",
+     "flags": ""
+    }
+   },
+   {
+    "name": "panel_ch_suppresses_zooms_line",
+    "inputs": {
+     "evidence_level": "trace",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "m": 1.2,
+     "components": {
+      "wc2045": 1.2,
+      "wc1500": 1.2,
+      "F05": 1.2
+     },
+     "models": {
+      "ch1728": 3.7,
+      "nb1545": 1.2,
+      "ryder2045": 1.2
+     }
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "ch_above_nh_possible",
+     "notes_all": "ch_above_nh_possible,positive_signs_all_six",
+     "flags": ""
+    }
+   },
+   {
+    "name": "panel_zooms_line_without_ch",
+    "inputs": {
+     "evidence_level": "trace",
+     "zooms_verdict": "Good",
+     "zooms_pattern": "E",
+     "signs_fired": [],
+     "c1_status": "assessed",
+     "gated": false,
+     "m": 1.2,
+     "components": {
+      "wc2045": 1.2,
+      "wc1500": 1.2,
+      "F05": 1.2
+     },
+     "models": {
+      "ch1728": 1.2,
+      "nb1545": 1.2,
+      "ryder2045": 1.2
+     }
+    },
+    "expected": {
+     "verdict": "Borderline",
+     "rule_step": "model_verdict",
+     "model_verdict": "Borderline",
+     "notes_shown": "zooms_better_good,positive_signs_all_six",
+     "notes_all": "zooms_better_good,positive_signs_all_six",
      "flags": ""
     }
    }

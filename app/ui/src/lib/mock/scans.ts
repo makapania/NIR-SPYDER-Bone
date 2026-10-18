@@ -91,6 +91,8 @@ const MODEL_IDS: Record<ModelKey, [string, string]> = {
   f05: ['collagen.nh3.1500_2045_2175', '1.0.0'],
   ryder2045: ['collagen.ryder2026.2045', '2.0.0'],
   s1r2: ['collagen.1500_snv.transfer_free', '1.0.0'],
+  lowrange: ['collagen.spyder.1545_lowrange', '1.0.0'],
+  ch1728: ['collagen.spyder.1728_ch', '1.0.0'],
 };
 
 const synthCache = new Map<string, Synth>();
@@ -126,7 +128,7 @@ export function buildResult(spec: MockScanSpec, analysis: Analysis, cls: Instrum
   const tagged = { ...r, arrivedSeq: live.arrivedSeq, fileRevision: live.revision, scanKind: live.kind };
   if (live.kind === 'sample') return tagged;
   // Listed, not scored: a white-reference save (PLAN Step 1) or a file that is not a readable ASD scan.
-  const none: ScanResult['models'] = { cons3: null, wc2045: null, wc1500: null, f05: null, ryder2045: null, s1r2: null };
+  const none: ScanResult['models'] = { cons3: null, wc2045: null, wc1500: null, f05: null, ryder2045: null, s1r2: null, lowrange: null, ch1728: null };
   const why = live.kind === 'reference' ? 'reference scan (not scored)' : 'not a readable ASD scan';
   const na = { status: 'not_assessed', reason: why } as const;
   return {
@@ -225,7 +227,7 @@ function buildScored(spec: MockScanSpec, analysis: Analysis, cls: InstrumentClas
   }
   const cons3 = median3(...comps);
   const models: ScanResult['models'] = spec.unusable
-    ? { cons3: null, wc2045: null, wc1500: null, f05: null, ryder2045: null, s1r2: null }
+    ? { cons3: null, wc2045: null, wc1500: null, f05: null, ryder2045: null, s1r2: null, lowrange: null, ch1728: null }
     : {
         cons3: reading('cons3', cons3),
         wc2045: reading('wc2045', comps[0]),
@@ -233,6 +235,9 @@ function buildScored(spec: MockScanSpec, analysis: Analysis, cls: InstrumentClas
         f05: reading('f05', comps[2]),
         ryder2045: reading('ryder2045', ryder),
         s1r2: hires ? reading('s1r2', s1) : null,
+        // the low-range estimate reads lower than the consensus from ~3% up; the C–H reader tracks it on clean bone
+        lowrange: reading('lowrange', 0.2 + 0.68 * cons3 + j(0.3)),
+        ch1728: reading('ch1728', cons3 + j(0.6)),
       };
 
   if (spec.unusable) {

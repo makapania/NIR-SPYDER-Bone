@@ -122,8 +122,19 @@ def build_input(o, case, bases, registry):
 
 
 def _gate(status):
+    """The B6b gate reason in a sign status: 'gated: <reason>', or a reduced fallback's 'assessed: reduced (...; <reason>)'."""
     s = str(status or "")
+    if s.startswith("assessed: reduced (") and s.endswith(")"):
+        return s[len("assessed: reduced ("):-1].split("; ", 1)[1]
     return s[len("gated: "):] if s.startswith("gated: ") else None
+
+
+def _reduced(P, rec, ctx):
+    """{sign: fallback variant} for the signs the record ran in a reduced form (check.acquisition fallbacks)."""
+    st = P.stream_transfer(ctx["instrument_class"], ctx.get("serial"))
+    key = "none" if st in (None, "none") else st.sha256
+    fb = (P.cp("acquisition")["B6b_signs_gate"].get("fallbacks_by_transfer_key") or {}).get(key) or {}
+    return {s: fb[s]["variant"] for s in rec["checks"]["B6b"].get("signs_reduced", []) if s in fb}
 
 
 def check_inputs(P, chk, rec, ctx):
@@ -135,12 +146,15 @@ def check_inputs(P, chk, rec, ctx):
     if chk in ("evidence_levels", "zooms_patterns"):
         return {"sd_E": rec["band_noise"]["sd_E"]}
     if chk == "signs":
-        return {"gates": {n: _gate(rec["signs"][n].get("status")) for n in ("plaster", "wax", "ester", "burnt")}}
+        red = {s: v for s, v in _reduced(P, rec, ctx).items() if s != "C1"}
+        return {"gates": {n: _gate(rec["signs"][n].get("status")) for n in ("plaster", "wax", "ester", "burnt")},
+                **({"reduced": red} if red else {})}
     if chk == "c1":
         spec = any(rec["signs"][n].get("fired") for n in P.cp("c1")["runs_only_if_not_fired"])
+        red = _reduced(P, rec, ctx).get("C1")
         return {"gate": _gate(rec["C1"].get("status")), "specific_fired": bool(spec),
                 "tail_unreliable": bool(rec["checks"]["longwave"]["tail_unreliable_c1"]),
-                "longwave_mode": P.cp("longwave")["when_unreliable"]["c1"]}
+                "longwave_mode": P.cp("longwave")["when_unreliable"]["c1"], **({"reduced": red} if red else {})}
     if chk == "b9":
         return {"truncated": bool(rec["checks"]["longwave"]["tail_unreliable"])
                 and P.cp("longwave")["when_unreliable"]["b9"] == "truncated"}

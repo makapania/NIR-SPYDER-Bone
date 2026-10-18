@@ -77,6 +77,25 @@
     "B8_splice_step"
    ],
    "properties": {
+    "B6_noise": {
+     "type": "object",
+     "required": [
+      "cuts",
+      "check_if_cut_within_sd"
+     ],
+     "properties": {
+      "cuts": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 1
+      },
+      "check_if_cut_within_sd": {
+       "type": "number"
+      }
+     }
+    },
     "B6b_signs_gate": {
      "type": "object",
      "required": [
@@ -161,6 +180,49 @@
       "unknown_transfer_key_uses": {
        "type": "string",
        "pattern": "^(none|[0-9a-f]{64})$"
+      },
+      "fallbacks_by_transfer_key": {
+       "type": "object",
+       "propertyNames": {
+        "pattern": "^[0-9a-f]{64}$"
+       },
+       "additionalProperties": {
+        "type": "object",
+        "propertyNames": {
+         "enum": [
+          "plaster",
+          "C1"
+         ]
+        },
+        "additionalProperties": {
+         "type": "object",
+         "required": [
+          "variant",
+          "n2_window_nm",
+          "n2_at_most"
+         ],
+         "properties": {
+          "variant": {
+           "enum": [
+            "band_1446",
+            "swir1"
+           ]
+          },
+          "n2_window_nm": {
+           "type": "array",
+           "items": {
+            "type": "number"
+           },
+           "minItems": 2,
+           "maxItems": 2
+          },
+          "n2_at_most": {
+           "type": "number"
+          }
+         },
+         "additionalProperties": false
+        }
+       }
       }
      }
     },

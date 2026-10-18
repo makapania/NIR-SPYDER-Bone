@@ -18,7 +18,7 @@ export const BANDS: BandDef[] = [
   { id: 'ch1728', nm: 1728, w: 1.0, faint: 0.5, core: true, label: 'C–H' },
   { id: 'nh2044', nm: 2044, w: 1.6, faint: 0, core: false, label: 'N–H' },
   { id: 'amide2175', nm: 2175, w: 1.1, faint: 0, core: true, label: 'amide' },
-  { id: 'ch2262', nm: 2262, w: 1.6, faint: 1, core: true, label: 'protein O–H' },
+  { id: 'ch2262', nm: 2262, w: 1.6, faint: 1, core: true, label: 'combination' },
   { id: 'ch2284', nm: 2284, w: 1.14, faint: 0, core: false, label: 'amide III' },
 ];
 

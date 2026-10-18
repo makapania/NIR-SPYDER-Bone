@@ -8,7 +8,7 @@
   import VerdictGlyph from './VerdictGlyph.svelte';
   import Icon from './Icon.svelte';
   import { formatReading, shortName, timeOf } from '../display';
-  import { zoomsLine } from '../notes';
+  import { strongPanelNote, zoomsLine } from '../notes';
   import { flagLabel, noteText } from '../strings';
   import { isUnscored, type SortMode } from '../sort';
   import type { ScanResult } from '../types';
@@ -78,6 +78,8 @@
           {#if !isUnscored(s)}
             {@const zl = zoomsLine(s.notes)}
             {#if zl}<span class="zmark" data-zooms={zl.key} title={noteText(zl)}><Icon name="zooms" size={11} color="var(--accent)" /><span class="zt">ZooMS</span></span>{/if}
+            {@const pn = strongPanelNote(s.notes)}
+            {#if pn}<span class="pmark" data-panel={pn.key} title={noteText(pn)}><Icon name={pn.key === 'ch_above_nh_strong' ? 'flask' : 'layers'} size={11} color="var(--ink-2)" /><span class="pt">{pn.key === 'ch_above_nh_strong' ? 'C–H' : 'Readers'}</span></span>{/if}
           {/if}
           {#if newIds.has(s.scanId)}
             {#if (s.fileRevision ?? 1) > 1}
@@ -287,6 +289,27 @@
     font-size: 10.5px;
     line-height: 16px;
   }
+  /* a strong panel note (C–H "likely", readers disagree strongly), in the list: quiet and neutral, never a verdict or flag
+     colour; shrinks to its mark first */
+  /* the least important item in the row: it shrinks first and can vanish when a narrow row has no room (the verdict card
+     still shows the note) */
+  .pmark {
+    flex: 0 4 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 6px 0 4px;
+    border-radius: 999px;
+    color: var(--ink-2);
+    background: var(--panel-2);
+    box-shadow: inset 0 0 0 1px var(--line);
+    font-weight: 650;
+    font-size: 10.5px;
+    line-height: 16px;
+  }
   .time {
     flex: none;
   }
@@ -301,10 +324,12 @@
     }
     /* flags become the mark alone (label in the tooltip and the verdict panel) so the reading stays whole */
     .ft,
-    .zt {
+    .zt,
+    .pt {
       display: none;
     }
-    .zmark {
+    .zmark,
+    .pmark {
       padding: 0 4px;
     }
     .flag {

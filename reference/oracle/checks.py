@@ -95,8 +95,12 @@ def acquisition(wl, R, P, dn=None, joins=(1000.0, 1800.0), no_dn_status="not ass
 def b6b(P, n2c, tkey="none"):
     """Per-sign B6b gates (phase 0c, DECISIONS 76), decided on the AS-MEASURED N2 once the stream's transfer key is
     known: the table for `tkey` ('none' or the transfer file's sha256; a key without an entry uses
-    unknown_transfer_key_uses). Returns (summary record, {sign: gate reason or None}). Summary: n2 = N2(n2_window_nm),
-    gated = every contaminant sign gated, signs_gated = the gated contaminant signs, outcome Note when any is gated."""
+    unknown_transfer_key_uses). A gated sign with a fallback for `tkey` (fallbacks_by_transfer_key; an unknown key has
+    none) runs its reduced variant when N2 of the fallback window <= n2_at_most (2026-10-13, PREREG_hires_fallback).
+    Returns (summary record, {sign: gate reason or None}, {sign: reduced variant}). Summary: n2 = N2(n2_window_nm),
+    signs_gated = contaminant signs gated with no eligible fallback (not checked), signs_reduced = gated signs whose
+    reduced variant is eligible (it runs, except C1 when a specific sign fired: C1 is then 'skipped' as usual),
+    gated = every contaminant sign in signs_gated, outcome Note when either list is non-empty."""
     g = P["B6b_signs_gate"]
     tab = g["by_transfer_key"].get(tkey)
     if tab is None:
@@ -109,11 +113,18 @@ def b6b(P, n2c, tkey="none"):
             continue
         lo, hi = e["n2_window_nm"]
         gates[s] = f"noise in {int(lo)}-{int(hi)} nm" if n2c(lo, hi) > e["n2_above"] else None
+    fb = (g.get("fallbacks_by_transfer_key") or {}).get(tkey) or {}
+    reduced = {}
+    for s in g["contaminant_signs"]:
+        f = fb.get(s)
+        if gates.get(s) and f and n2c(*f["n2_window_nm"]) <= f["n2_at_most"]:
+            reduced[s] = f["variant"]
     v = n2c(*g["n2_window_nm"])
-    sg = [s for s in g["contaminant_signs"] if gates.get(s)]
-    rec = {"status": "assessed", "n2": _f(v), "outcome": "Note" if sg else "ok",
-           "gated": len(sg) == len(g["contaminant_signs"]), "signs_gated": sg}
-    return rec, gates
+    sg = [s for s in g["contaminant_signs"] if gates.get(s) and s not in reduced]
+    sr = [s for s in g["contaminant_signs"] if s in reduced]
+    rec = {"status": "assessed", "n2": _f(v), "outcome": "Note" if (sg or sr) else "ok",
+           "gated": len(sg) == len(g["contaminant_signs"]), "signs_gated": sg, "signs_reduced": sr}
+    return rec, gates, reduced
 
 
 def unusable(acq):
@@ -304,13 +315,16 @@ def heat(wl, R_std, N17, P):
             "calcined": bool(calc), "fired": bool(charred or calc)}
 
 
-def signs(wl, R_std, P, Ph, gates):
+def signs(wl, R_std, P, Ph, gates, reduced=None):
     """Plaster, wax, ester and burnt (no clay: DECISIONS 41). gates: {sign: B6b gate reason or None} (per sign,
-    phase 0c); a gated sign is 'gated: <reason>' and not read. Every sign record ends with gated (bool)."""
+    phase 0c); a gated sign is 'gated: <reason>' and not read, unless reduced names its fallback (plaster 'band_1446':
+    the 1446 nm load alone, status 'assessed: reduced (1446 nm band only; <gate reason>)'). Every sign record ends with
+    gated (bool)."""
     names = ["plaster", "wax", "ester", "burnt"]
     gates = gates or {}
+    reduced = reduced or {}
     out = {}
-    if all(gates.get(n) for n in names):
+    if all(gates.get(n) for n in names) and not reduced.get("plaster"):
         return {n: {"status": f"gated: {gates[n]}", "fired": None, "gated": True} for n in names}
     N = K.derivative(R_std, P["kernel"])
     pl = P["plaster"]
@@ -338,7 +352,15 @@ def signs(wl, R_std, P, Ph, gates):
     hb = heat(wl, R_std, N, Ph)
     out["burnt"] = {"status": "assessed", **hb}
     for n in names:
-        if gates.get(n):
+        if n == "plaster" and gates.get(n) and reduced.get(n) == "band_1446":
+            r = pl["reduced_1446"]
+            v = (float(K.sharp(N, wl, *r["sharp"])[0]) - r["fauna_median"]) / r["plaster_contrast"]
+            if _nonfinite(v):
+                out[n] = {"status": NA, "joint_load": None, "load_1446": None, "fired": None, "gated": False}
+            else:
+                out[n] = {"status": f"assessed: reduced (1446 nm band only; {gates[n]})", "joint_load": None,
+                          "load_1446": v, "fired": bool(v > r["fires_if_load_above"]), "gated": False}
+        elif gates.get(n):
             out[n] = {"status": f"gated: {gates[n]}", "fired": None, "gated": True}
         else:
             out[n]["gated"] = False
@@ -375,17 +397,21 @@ def soft_tier(Ps, Pc1, instrument_class, n2c, sg, c1r):
             "eligible": eligible, "fired": fired, "components": comps if fired else []}
 
 
-def c1(wl, E, P, gate, specific_fired, tail_unreliable, longwave_mode="not_assessed"):
+def c1(wl, E, P, gate, specific_fired, tail_unreliable, longwave_mode="not_assessed", reduced=None):
     """gate: C1's B6b gate reason (None = not gated). tail_unreliable: the long-wave tail is unreliable FOR C1
     (check.longwave tail_unreliable_c1). longwave_mode: what to do then: 'truncated' (the variant without the
-    > 2300 nm band, P['truncated']) or 'not_assessed'. The record ends with gated (bool)."""
+    > 2300 nm band, P['truncated']) or 'not_assessed'. reduced: C1's fallback when gated ('swir1': P['swir1'], below
+    1800 nm only, no film rule; status 'assessed: reduced (below 1800 nm only; <gate reason>)'). The record ends with
+    gated (bool)."""
     nil = {"film": None, "film_fired": None}
-    if gate:
+    if gate and reduced != "swir1":
         return {"status": f"gated: {gate}", "excess": None, **nil, "fired": None, "gated": True}
     if specific_fired:
         return {"status": "skipped: a specific sign fired", "excess": None, **nil, "fired": None, "gated": False}
     Q, st = P, "assessed"
-    if tail_unreliable:
+    if gate:
+        Q, st = P["swir1"], f"assessed: reduced (below 1800 nm only; {gate})"
+    elif tail_unreliable:
         if longwave_mode != "truncated":
             return {"status": "not assessed: long-wave region too noisy", "excess": None, **nil, "fired": None,
                     "gated": False}

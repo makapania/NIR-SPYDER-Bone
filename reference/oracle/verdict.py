@@ -12,8 +12,10 @@ Radiocarbon and isotopes (rule L2):
   6. otherwise V.
 Notes: at most `max_shown` under the verdict: first the note of the rule that set the verdict (profile order:
 +D > flat bands lead > lift > blocked lift), then ONE supporting note (profile order: above bone range > possible
-thin coating > contaminants not checked > models disagree > positive signs > bands too noisy). Every note that
-applies is listed in notes_all (the details); c1_reduced (the truncated C1 ran) is details-only.
+thin coating > C-H note > readers disagree strongly > contaminants not checked > models disagree > positive signs >
+bands too noisy). Every note that
+applies is listed in notes_all (the details); c1_reduced (the truncated C1 ran) and signs_reduced (plaster or C1 ran a
+reduced fallback below 1800 nm on a noisy scan; params: signs) are details-only.
 Phase 0c notes (DECISIONS 72, 76): above_bone_range when m > above_bone_range_m_above (every analysis);
 possible_thin_coating when the soft tier fired (signs['soft']; it also suppresses the positive-signs line);
 contaminants_not_checked carries skipped (gated signs) and checked (assessed signs).
@@ -26,7 +28,8 @@ Borderline from the band pattern), zooms_better_1545 (ZooMS Borderline only thro
 when flat bands set the verdict). The band-pattern Borderline splits by strength (Matt): zooms_better_protein only
 with m >= zooms_better.protein.m_at_least AND at least n_type_lit_at_least of the N-type bands (NH2044, AM2175, the
 1545 vote band) lit and readable; otherwise the quieter zooms_faint_protein (params: the lit N-type bands, m), shown
-only when a slot is left (notes.precedence_last). No line when a sign in zooms_better.suppressed_by_signs FIRED (wax,
+only when a slot is left (notes.precedence_last). No line when a note in zooms_better.suppressed_by_notes fired (the C-H
+note, DECISIONS 120), nor when a sign in zooms_better.suppressed_by_signs FIRED (wax,
 ester, plaster, C1: coatings can create the C-H bands the patterns read; the lift's blockers); burnt, gated or
 unassessed signs do not suppress it. The line is shown after the rule's note and before the supporting note
 (notes.precedence_zooms), still at most max_shown in all.
@@ -35,6 +38,9 @@ published Ryder 2045 model (the profile model zooms_better.ryder_2045_model_key,
 >= zooms_better.ryder_2045_at_least (0.34, the paper's a priori ZooMS cut), zooms_better_ryder (params r, at_least) is the
 ZooMS line; a faint protein note then stays in the details (the last tier shows only when no ZooMS line does). Suppressed by
 the same fired signs.
+Panel notes (DECISIONS 111, 115, 119; notes.panel; see panel_notes): ch_above_nh_possible / ch_above_nh_strong (the C-H 1728 nm
+reader above CONS3, two levels) and readers_disagree_strongly (any of six reader contrasts far beyond clean bone; when it
+fires, models_disagree is not added). Notes only: they never change the verdict, the lift or the sort.
 The oracle emits note KEYS and their parameters; the UI holds the strings.
 """
 from __future__ import annotations
@@ -97,7 +103,7 @@ def _contaminant_check_state(prof, sg, c1r):
 
 
 def _common_notes(nt, m, sg, c1r):
-    """(above_bone_range, possible_thin_coating) notes and the c1_reduced note, for every analysis."""
+    """(above_bone_range, possible_thin_coating) notes and the c1_reduced / signs_reduced notes, for every analysis."""
     first, last = [], []
     ab = nt.get("above_bone_range_m_above")
     if ab is not None and m is not None and m > ab:
@@ -107,6 +113,9 @@ def _common_notes(nt, m, sg, c1r):
         first.append({"key": "possible_thin_coating", "components": list(soft.get("components", []))})
     if str(c1r.get("status", "")).startswith("assessed: truncated"):
         last.append({"key": "c1_reduced"})
+    red = [n for n in ("plaster", "C1") if _status(sg, c1r, n).startswith("assessed: reduced")]
+    if red:
+        last.append({"key": "signs_reduced", "signs": red})
     return first, last
 
 
@@ -141,13 +150,17 @@ def _band_line(zb, verdict, zo, step, m):
     return {"key": "zooms_faint_protein", "lit": lit, "m": m}
 
 
-def zooms_better(nt, verdict, zo, step="model_verdict", fired=(), m=None, models=None):
+def zooms_better(nt, verdict, zo, step="model_verdict", fired=(), m=None, models=None, notes_fired=()):
     """The ZooMS notes (0, 1 or 2): the band line, or the Ryder 2045 line on an Unlikely verdict that has no band line
-    (a faint protein note then follows it, for the details). models: the scan's models record (Ryder 2045's reading)."""
+    (a faint protein note then follows it, for the details). models: the scan's models record (Ryder 2045's reading).
+    notes_fired: base keys of the panel notes that fired; one in zooms_better.suppressed_by_notes (the C-H note,
+    DECISIONS 120) suppresses the line as a fired sign does."""
     zb = nt.get("zooms_better")
     if not zb or not zb.get("enabled"):
         return []
     if any(s in zb.get("suppressed_by_signs", []) for s in fired):
+        return []
+    if any(n in zb.get("suppressed_by_notes", []) for n in notes_fired):
         return []
     band = _band_line(zb, verdict, zo, step, m)
     if band and band["key"] != "zooms_faint_protein":
@@ -158,6 +171,74 @@ def zooms_better(nt, verdict, zo, step="model_verdict", fired=(), m=None, models
         if r is not None and r >= cut:
             return [{"key": "zooms_better_ryder", "r": r, "at_least": cut}] + ([band] if band else [])
     return [band] if band else []
+
+
+PANEL_CONTRASTS = ("CH", "CHN", "GL", "SHP", "SP3", "RAW")
+
+
+def _panel_bin(edges, m):
+    return sum(1 for e in edges if m >= e)
+
+
+def panel_notes(nt, m, comps, models):
+    """The panel notes (DECISIONS 111, 115, 119; notes.panel; never change the verdict). Returns (notes, readers-disagree
+    fired). ch_above_nh: the C-H reader (readers.ch) minus m above possible_above / strong_above of m's bin ->
+    ch_above_nh_possible / ch_above_nh_strong (params ch, m). readers_disagree_strongly: the six contrasts CH = ch - m,
+    CHN = m - ch, GL = m - narrow1545, SHP = wc1500 - narrow1545, SP3 = max - min of the CONS3 parts, RAW = |m - raw2045|,
+    each (x - median) / (q98 - median) of m's bin; fires when any present one exceeds level (CH skipped when the C-H note
+    fired; a contrast with a missing reading is skipped); params contrasts (in that order), m.
+    Also returns the verdict block's `panel` record (DECISIONS 121): ch, ch_gap, ch_possible_above / ch_strong_above for m's
+    bin, and contrasts [{name, value, fires_above, fraction}] (1 = at the line), CH included."""
+    pn = nt.get("panel")
+    if not pn or m is None:
+        return [], False, None
+    rd = pn["readers"]
+    val = lambda k: ((models or {}).get(rd[k]) or {}).get("value")
+    ch, nb, raw = val("ch"), val("narrow1545"), val("raw2045")
+    out, ch_fired = [], False
+    c = pn.get("ch_above_nh")
+    rec = {"ch": ch, "ch_gap": None if ch is None else ch - m}
+    if c:
+        bc = _panel_bin(c["cons3_bin_edges"], m)
+        rec["ch_possible_above"] = c["possible_above"][bc]
+        rec["ch_strong_above"] = c["strong_above"][bc]
+    if c and ch is not None:
+        b = _panel_bin(c["cons3_bin_edges"], m)
+        g = ch - m
+        if g > c["strong_above"][b]:
+            out.append({"key": "ch_above_nh_strong", "ch": ch, "m": m}); ch_fired = True
+        elif g > c["possible_above"][b]:
+            out.append({"key": "ch_above_nh_possible", "ch": ch, "m": m}); ch_fired = True
+    r = pn.get("readers_disagree_strongly")
+    if not r:
+        return out, False, rec
+    parts = [comps.get(k) for k in ("wc2045", "wc1500", "F05")]
+    w1500 = comps.get("wc1500")
+    gaps = {"CH": None if ch is None else ch - m, "CHN": None if ch is None else m - ch,
+            "GL": None if nb is None else m - nb, "SHP": None if nb is None or w1500 is None else w1500 - nb,
+            "SP3": None if any(x is None for x in parts) else max(parts) - min(parts),
+            "RAW": None if raw is None else abs(m - raw)}
+    b = _panel_bin(r["cons3_bin_edges"], m)
+    listed = []
+    for name in PANEL_CONTRASTS:
+        sc = r["contrasts"].get(name)
+        if sc is None or gaps[name] is None:
+            continue
+        med, q = sc["median"][b], sc["q98"][b]
+        listed.append({"name": name, "value": gaps[name], "fires_above": med + r["level"] * (q - med),
+                       "fraction": (gaps[name] - med) / (q - med) / r["level"]})
+    rec["contrasts"] = listed
+    fired = []
+    for name in PANEL_CONTRASTS:
+        sc = r["contrasts"].get(name)
+        if sc is None or gaps[name] is None or (name == "CH" and ch_fired):
+            continue
+        med, q = sc["median"][b], sc["q98"][b]
+        if (gaps[name] - med) / (q - med) > r["level"]:
+            fired.append(name)
+    if fired:
+        out.append({"key": "readers_disagree_strongly", "contrasts": fired, "m": m})
+    return out, bool(fired), rec
 
 
 def collagen_verdict(prof, m, comps, ev, zo, sg, c1r, gated, models=None):
@@ -211,13 +292,16 @@ def collagen_verdict(prof, m, comps, ev, zo, sg, c1r, gated, models=None):
                 notes.append({"key": "lift_blocked_noisy", "m": m, "level": level})
     promising = v in ("Good", "Borderline")
     nt = prof["notes"]
-    notes += zooms_better(nt, v, zo, step, contam, m, models)
+    # the panel notes first: a fired C-H note can suppress the ZooMS line (DECISIONS 120); listed after the common notes
+    pnotes, strong_disagree, panel_rec = panel_notes(nt, m, comps, models)
+    notes += zooms_better(nt, v, zo, step, contam, m, models, [_base_key(n["key"]) for n in pnotes])
     first, last = _common_notes(nt, m, sg, c1r)
     soft_fired = any(n["key"] == "possible_thin_coating" for n in first)
     notes += first
+    notes += pnotes
     if promising and unchecked:
         notes.append({"key": "contaminants_not_checked", "skipped": skipped, "checked": checked})
-    if models_disagree(comps, cuts, nt):
+    if not strong_disagree and models_disagree(comps, cuts, nt):
         notes.append({"key": "models_disagree", "components": dict(comps)})
     if promising and not contam and not unchecked and not soft_fired:
         ps = nt["positive_signs"]
@@ -231,6 +315,8 @@ def collagen_verdict(prof, m, comps, ev, zo, sg, c1r, gated, models=None):
     out["notes_all"] = notes
     out.update(verdict=v, rule_step=step)
     out["notes_shown"] = shown_notes(notes, nt, lifted=step.startswith("lift_") and step != "lift_blocked")
+    if panel_rec is not None:
+        out["panel"] = panel_rec
     return out
 
 
@@ -239,7 +325,8 @@ def _base_key(k):
             "lift_blocked_noisy": "lift_blocked", "positive_signs_all_six": "positive_signs",
             "positive_signs_clear": "positive_signs", "zooms_better_good": "zooms_better",
             "zooms_better_protein": "zooms_better", "zooms_better_1545": "zooms_better",
-            "zooms_better_1545_flat": "zooms_better", "zooms_better_ryder": "zooms_better"}.get(k, k)
+            "zooms_better_1545_flat": "zooms_better", "zooms_better_ryder": "zooms_better",
+            "ch_above_nh_possible": "ch_above_nh", "ch_above_nh_strong": "ch_above_nh"}.get(k, k)
 
 
 def shown_notes(notes, nt, lifted=False):
@@ -275,7 +362,7 @@ def shown_notes(notes, nt, lifted=False):
 
 def zooms_verdict(prof, zo, sg, c1r, m=None):
     """The band-pattern verdict (incl. its 1545 nm vote). With a 'notes' block: above_bone_range and
-    possible_thin_coating (one shown, profile order), c1_reduced details-only."""
+    possible_thin_coating (one shown, profile order), c1_reduced and signs_reduced details-only."""
     out = {"verdict": zo["verdict"], "rule_step": "zooms_pattern", "pattern": zo["pattern"],
            "flags": flags_for(prof, sg, c1r), "notes_all": [], "notes_shown": []}
     nt = prof.get("notes")

@@ -141,6 +141,12 @@ Below the verdict you will usually see a collagen reading, such as "≈ 1.7% (±
 "< 0.5%", and high ones coarsely (up to "> 6%"), because above a few percent the exact number does not change the
 decision. The reading is the **consensus of three collagen models**, not a measurement.
 
+Under it, in quiet grey, a **low-range estimate** (for example "Low-range estimate ≈ 1.2%") reads the same scan with a
+model fitted only on bones below 6% collagen. Below about 4% it usually sits closer to the measured yield than the
+consensus, which tends to over-read low bones; around 3–6% it commonly reads lower than the consensus, and above that
+it reads well below the yield. It is a second number for the low end, shown for every scan. **It never sets the
+verdict.**
+
 ### The collagen models
 
 The details panel shows:
@@ -153,6 +159,12 @@ The details panel shows:
   verdict.
 - On high-resolution scans only: **1545 nm, no transfer needed** (reads 1500–1550 nm), a second opinion that reads the
   scan exactly as measured. It does not set the verdict; if it differs from the main reading, a note says so.
+- Two **panel readers**, which never set the verdict. **Low-range estimate (narrow 1545 nm band)** (reads 1533–1557
+  nm) is the low-range estimate shown under the verdict (see above); it reads the 1545 nm N–H band as a narrow band
+  against its shoulders.
+- **C–H 1728 nm** (reads 1716–1740 nm) reads collagen from the C–H band at 1728 nm. On clean bone it agrees with the
+  N–H models; lipids, waxes and many consolidants add C–H without nitrogen and raise it. The app compares it with the
+  consensus for the C–H note (below).
 
 "OH-corrected" means the model allows for differences in the OH/water bands at 1450 and 1930 nm, which vary between
 bones as the bone's bound water and OH groups are altered over time. These bands are shaded on the charts. The
@@ -173,8 +185,8 @@ than its verdict suggests, a line appears under the verdict, for example:
   proposed for ZooMS.
 
 The line helps you keep promising ZooMS spots in view. It never changes the verdict. In the scans list such rows carry
-a small **ZooMS** tag. The line is not shown when a contaminant sign fired, because coatings can create the bands it
-reads.
+a small **ZooMS** tag. The line is not shown when a contaminant sign fired or the C–H note shows ("extra organic
+material"), because coatings can create the bands it reads.
 
 ### Organic evidence and the collagen bands
 
@@ -182,8 +194,9 @@ The **Evidence of organics** section judges the bands directly, with no model: a
 Strong / Can't tell**), a row of dots (one per band), and a **ZooMS band check** that describes the band pattern in words
 (for example "All six collagen bands resolved", or "Too noisy to read at 2044/2175 nm"). The bands are C–H at 1689 and
 1728 nm; N–H with amide II at 2044 nm; the amide envelope at 2175 nm (several amide combination bands together);
-protein O–H at 2262 nm (the O–H of hydroxyproline and the water bound to the protein: part of the collagen signal,
-not a C–H band and not the altered OH/water bands that the OH correction allows for); amide III with CH₂ at 2284 nm;
+a combination band at 2262 nm (its assignment is uncertain: the published O–H/bound-water assignment does not fit
+the arithmetic, it is not a clean C–H band, and it does not follow the OH/water bands here; it rises with collagen in the
+reference bones, and coatings can raise it too); amide III with CH₂ at 2284 nm;
 and the bonded N–H band at 1545 nm, read on the OH-corrected window. The protein bands named in the ZooMS check are
 2044 and 2175 nm; the 1545 nm band adds a separate vote.
 
@@ -206,8 +219,28 @@ does not move it).
 
 Under the verdict, up to two short notes explain what decided the result: for example that flat protein bands lowered
 the verdict, that resolved bands raised it on a clean scan, that the scan was too noisy to check for contaminants, or
-that the three models fall on different sides of a verdict line. Anything else is listed under **Also noted** in the
-details panel.
+that the three models fall on different sides of a verdict line (the verdict then uses the middle value). Anything else
+is listed under **Also noted** in the details panel.
+
+Two notes compare readers that fail in different ways. **They never change the verdict.**
+
+- **C–H above N–H.** On clean bone the C–H reader and the N–H consensus agree. When C–H reads higher than clean bone
+  shows, the note says "Possible extra organic material"; when it reads far higher (rare on clean bone), "Likely extra organic material"
+  (the bone's own fat, wax or consolidant, for example). It means C–H that collagen does not explain, not necessarily a
+  contaminant: fat in the bone itself counts, so fresh or fatty bone can raise it, and old bone that has lost its collagen
+  can keep some other organic matter. About 1 clean scan in 50 reaches the first level (some sites run a little higher
+  than others); the second level is rare on clean bone. Animal glue adds both C–H and N–H, so it does not show here.
+- **The collagen readers disagree strongly.** When readers that agree on clean bone end up much further apart than
+  they ever do there, the note asks you to treat the percentage with caution. It does not name a cause: the spectrum
+  says something is unusual, not what. When it shows, the plainer "models fall on different sides of a verdict line"
+  note is not repeated.
+
+The stronger of these, "Likely extra organic material" and "The collagen readers disagree strongly", also put a small
+quiet tag in the scans list (**C–H** or **Readers**), so you can see them without opening each scan. At the bottom of
+the details panel, **How this verdict was made** gives the scan's own numbers: the three consensus models and their
+spread, how far the C–H reader sits from the consensus against the C–H note's two levels, the most unusual difference
+between readers (the pair closest to the line where the disagreement note fires, each pair judged against its own line),
+and the noise in the reading.
 
 ---
 
@@ -215,7 +248,10 @@ details panel.
 
 The main chart plots your scan against reference bones of measured collagen yield (0, 1, 3, 6 and 10%; the mean
 spectra of public calibration bones from Ryder et al. 2026), dashed, each level toggleable. Buttons switch between
-**Reflectance**, **Absorbance** and **2nd derivative** (the default; bands point up). A **Display smoothing** menu
+**Reflectance**, **Absorbance** and **2nd derivative** (the default). The 2nd derivative is drawn inverted
+(−d²A/dλ²), so absorption bands point up and a deeper band is a taller peak; the small **Bands down** button beside the
+axis label shows the conventional d²A/dλ² (bands point down, as in most papers) in every chart, and the app remembers
+your choice. It changes the picture only, never a reading. A **Display smoothing** menu
 changes the chart only; the models always use their own fixed smoothing. Shaded strips mark the model windows and the
 OH/water bands.
 
@@ -233,7 +269,13 @@ close-ups.
 ## 7. Getting good scans
 
 - **Use enough averages.** When a scan is too noisy to judge or to check for contaminants, the app suggests rescanning
-  with 100–200 averages. Dark spots read noisier, and high-res instruments are noisier above 2300 nm.
+  with 100–200 averages. Dark spots read noisier, and high-res instruments are noisier above about 1800 nm, most of all
+  above 2300 nm. On a noisy high-res scan the plaster and general organic checks fall back to a reduced form read below
+  1800 nm (the details say so). In tests it found most added plaster and can catch heavy consolidants, but it misses
+  thin coats, glue and many consolidants. More averages may let the full checks run.
+- **"Noise could change the verdict"** means the collagen reading sits within noise reach of a verdict cut (0.5% or
+  3%). A rescan of the same spot with more averages settles it. Noise far from any cut is mentioned quietly under
+  Checks: it does not change the verdict.
 - **Take a white reference** as the instrument requires. White-reference saves are listed in the app but never scored.
 - **Scan several spots per bone** and treat each scan on its own. Some spots are good, some are bad.
 - **Keep the probe on clean, flat bone.** If a scan comes back **Rescan** ("Low signal across the whole range. The probe
@@ -271,6 +313,10 @@ close-ups.
   may have been glued or coated, check its history and treat a Borderline reading with extra caution.
 - **Readings higher than archaeological bone normally holds** get a note: modern bone, glue or another protein may be
   present.
+- **Agreement is not proof.** Collagen-like contaminants can fool several readers together, so agreement between
+  readers does not prove the collagen is uncontaminated. Animal glue is itself collagen: even a little of it lights the
+  same protein bands the checks read, the ZooMS line included, before any warning appears. On bone that may have been
+  glued, a positive reading or protein signal does not show that the protein is the bone's own.
 - **The bands are suggestive, not proof.** Reading band patterns is a screening judgement.
 - **An Unlikely verdict is about one scanned spot**, not the whole bone. Another spot may do better.
 

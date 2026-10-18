@@ -12,7 +12,7 @@ import type { ModelKey, ScanResult } from './types';
 export const CITATION =
   'Ryder, C. et al. 2026. Refining near-infrared spectroscopy for collagen quantification in archaeological bone. Journal of Archaeological Science 185:106448. doi:10.1016/j.jas.2025.106448';
 
-const MODEL_COLS: ModelKey[] = ['wc2045', 'wc1500', 'f05', 'ryder2045', 's1r2'];
+const MODEL_COLS: ModelKey[] = ['wc2045', 'wc1500', 'f05', 'ryder2045', 's1r2', 'lowrange', 'ch1728'];
 
 function cell(v: string): string {
   return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;

@@ -132,7 +132,7 @@ fn rust_pipeline_reproduces_the_oracle_goldens() {
         bad.len(),
         bad[..bad.len().min(40)].join("\n")
     );
-    assert_eq!(cases, 61);
+    assert_eq!(cases, 64);
 }
 
 /// Numbers (Python repr) within 1e-9 + 1e-9 |want|; JSON-valued cells element-wise; everything else exactly.

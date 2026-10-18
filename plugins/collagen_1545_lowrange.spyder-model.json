@@ -1,0 +1,717 @@
+{
+ "format": "spyder-bone/model",
+ "format_version": 1,
+ "engine_min": "1.0",
+ "id": "collagen.spyder.1545_lowrange",
+ "version": "1.0.0",
+ "status": "active",
+ "title": "Collagen, low-range estimate (narrow 1545 nm N–H band, fitted below 6%)",
+ "short_name": "Low-range estimate",
+ "kind": "regression",
+ "role": "collagen_percent",
+ "description": "A low-range collagen estimate shown under the consensus (CONS3), never setting the verdict. It reads the narrow 1545 nm N–H band as a contrast: the second derivative (SG35 cubic) of log10(1/R) averaged over 1543-1547 nm minus the mean of the two shoulders at 1533-1537 and 1553-1557 nm, turned into % collagen by a straight line fitted on the reference bones below 6% yield. Below about 4% it sits closer to the measured yields than CONS3, which over-reads low bones; around 3-6% it commonly reads lower than CONS3, and above 6% it reads well below the yield (fitted for the low range only). Collagen-free bone reads near zero rather than below it.",
+ "citation": {
+  "text": "SPYDER Bone (Low-range estimate); calibration data Ryder, C. et al. 2026. Refining near-infrared spectroscopy for collagen quantification in archaeological bone. Journal of Archaeological Science 185:106448 (calibration spectra and yields: supplement mmc2).",
+  "doi": "10.1016/j.jas.2025.106448"
+ },
+ "authors": [
+  "M. Sponheimer (PI)"
+ ],
+ "created": "2026-10-18",
+ "exported": "2026-10-18",
+ "provenance": {
+  "training_data": "Ryder et al. 2026 JAS supplement mmc2 (the reference bones with yield below 6%)",
+  "training_data_sha256": "2855d9c8e4867e806a30b57c227004db1e1585b2389c70b351b577583fe75f12",
+  "n_train": 92,
+  "model_algorithm": "ordinary least squares line of yield on one contrast reading; the -1e5 scale, the 5-point band means and the centre-minus-shoulders contrast folded into 15 coefficients on the SG35 second derivative; x_center = 0; offset = intercept",
+  "selection": "pre-registered low-range test (candidate A2) and the later panel and held-out checks; chosen over a low-range refit of CONS3 itself because the narrow contrast responds differently to some materials (it is far less moved by one of the two tested fresh hide glues) and reads collagen-free bone near zero",
+  "environment": {
+   "python": "3.12.10",
+   "numpy": "2.4.4",
+   "scipy": "research path"
+  }
+ },
+ "instrument": {
+  "trained_on_class": "asd.labspec4.std",
+  "grid": {
+   "start_nm": 350.0,
+   "step_nm": 1.0,
+   "n": 2151
+  },
+  "training_splices_nm": [
+   1000.0,
+   1800.0
+  ],
+  "description": "ASD LabSpec 4 Standard-Res, contact probe, 350-2500 nm at 1 nm"
+ },
+ "input": {
+  "quantity": "reflectance",
+  "scale": "fraction",
+  "range_nm": [
+   350,
+   2500
+  ]
+ },
+ "preprocessing": [
+  {
+   "op": "absorbance",
+   "clip_min": 1e-06
+  },
+  {
+   "op": "savgol",
+   "window": 35,
+   "polyorder": 3,
+   "deriv": 2,
+   "delta": 1.0,
+   "mode": "zero_edges",
+   "note": "17 edge points zeroed; immaterial here (SG support 1516-1574 nm, inside one detector segment)"
+  }
+ ],
+ "features": {
+  "windows_nm": [
+   [
+    1533,
+    1557
+   ]
+  ],
+  "exclude_nm": [],
+  "wavelengths_nm": [
+   1543.0,
+   1544.0,
+   1545.0,
+   1546.0,
+   1547.0,
+   1533.0,
+   1534.0,
+   1535.0,
+   1536.0,
+   1537.0,
+   1553.0,
+   1554.0,
+   1555.0,
+   1556.0,
+   1557.0
+  ]
+ },
+ "regression": {
+  "x_center": [
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "coefficients": [
+   50262.42584766263,
+   50262.42584766263,
+   50262.42584766263,
+   50262.42584766263,
+   50262.42584766263,
+   -25131.212923831314,
+   -25131.212923831314,
+   -25131.212923831314,
+   -25131.212923831314,
+   -25131.212923831314,
+   -25131.212923831314,
+   -25131.212923831314,
+   -25131.212923831314,
+   -25131.212923831314,
+   -25131.212923831314
+  ],
+  "offset": 0.08555855975451405
+ },
+ "output": {
+  "name": "collagen",
+  "units": "wt% collagen",
+  "y_transform": {
+   "type": "none"
+  },
+  "clip": {
+   "min": null,
+   "max": null
+  },
+  "decimals": 1,
+  "reading_rule": "predictions below ~1% = none detectable; negative values are not collagen amounts"
+ },
+ "error": {
+  "rmsecv": 0.894,
+  "units": "wt% collagen",
+  "display": "approx",
+  "note": "leave-one-out on the reference bones below 6%; a gentle \"+/- about\" hint only; larger at a new site and above 4%"
+ },
+ "domain": {
+  "method": "none",
+  "note": "no T2/Q domain block: a single contrast reading has no multivariate domain"
+ },
+ "golden": {
+  "spectra_file": "golden_spectra_public_v2.json",
+  "tolerance": {
+   "abs": 1e-09,
+   "rel": 1e-09
+  },
+  "cases": [
+   {
+    "name": "mmc2_Reference_Sample_1",
+    "spectrum_sha256": "ef8ddf9e2c7d95bc6ca3d426aca0859ecb56e566fc930cb047d336251ebf75ea",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.1589417215396699,
+     "linear": 0.1589417215396699
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)",
+    "features": [
+     1.2982401569849075e-05,
+     1.2968228057377645e-05,
+     1.2944230899964218e-05,
+     1.2899986420189915e-05,
+     1.2820698788312563e-05,
+     1.3443637918243159e-05,
+     1.3396795119414258e-05,
+     1.3325888242860353e-05,
+     1.3237834607179573e-05,
+     1.315949404925485e-05,
+     1.2086503371488608e-05,
+     1.2001717325115793e-05,
+     1.1931780835263165e-05,
+     1.187672364907406e-05,
+     1.185071555577711e-05
+    ]
+   },
+   {
+    "name": "mmc2_Reference_Sample_44",
+    "spectrum_sha256": "398b24182857f70334a551d5929031b7269827a47f9dbba57b41b103ef460df4",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 1.5216553826555195,
+     "linear": 1.5216553826555195
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_79",
+    "spectrum_sha256": "2b0379847078cea3a05aa8c409bf74dbafdfe68f7bd676cb7c67ce13fd4922bb",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.231636740931452,
+     "linear": 2.231636740931452
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_93",
+    "spectrum_sha256": "ed59c79c87c4d871d9e9f05a767334aad6f4f449ea7e2f457293f19e739c5a15",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 5.681579114225368,
+     "linear": 5.681579114225368
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_112",
+    "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 7.392233006882066,
+     "linear": 7.392233006882066
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Reference_Sample_140",
+    "spectrum_sha256": "4c653c83b8f5dc1332a3301889d6c3fc2878be99b8bdcd56aa0a7a86d6d74089",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 14.204540112202958,
+     "linear": 14.204540112202958
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Zafarraya_16",
+    "spectrum_sha256": "3d0986c98d39f90856a9c3622d22c3d4785cd244e91efbc7ed1a18b3d482a516",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.15350195333569494,
+     "linear": 0.15350195333569494
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "mmc2_Zafarraya_30",
+    "spectrum_sha256": "510d5bca138e112c8bd55869901c9c60e7f06c05601557701a1bd18fa3f2dce4",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 9.121925859105747,
+     "linear": 9.121925859105747
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_clip_vnir",
+    "spectrum_sha256": "9397e5f18b1934942e6ce74004cc4acac37aacf4a8cfa2373e61a538abf4434f",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.231636740931452,
+     "linear": 2.231636740931452
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_dark_x0.25",
+    "spectrum_sha256": "f02a9fb48712fdbaee5b06d41a03ad274a66cb46192b954c5b6c849dbce73424",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.231636740931637,
+     "linear": 2.231636740931637
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_cal_median",
+    "spectrum_sha256": "b37678c5836380d86b47b72d1a5ee0ad6607a56f4c82a09377c96f694b777cdd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.3932709709532145,
+     "linear": 3.3932709709532145
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_val_a",
+    "spectrum_sha256": "8b6d90414c7e27c97959797113d8113b67823a3c347bbee2b4e2b6612f56162e",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.022731127761771622,
+     "linear": 0.022731127761771622
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "ryder_val_b",
+    "spectrum_sha256": "ac79a69bf508c165ba7d61e8f880947c7cca5368e177843eb5bf5f1f4c18c360",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 2.4170212714316572,
+     "linear": 2.4170212714316572
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_steps_join1830",
+    "spectrum_sha256": "32aa71ee6174f8244a09f1798a9d4fbf6e8260257964ad95db57c759689bb626",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1830.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.3932709709532145,
+     "linear": 3.3932709709532145
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_bison_28",
+    "spectrum_sha256": "6eec034385d09bd8b741a2acb157d8a43b7ac62318864f2f52209484f9a8955c",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.3939133349939584,
+     "linear": 0.3939133349939584
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_bison_33",
+    "spectrum_sha256": "bf391ad251be0c40ba44881bb6ce2791d60946de297a6ecfd66fd93dfdc674f8",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 5.973144160717961,
+     "linear": 5.973144160717961
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_dodo_19617_TMT_R_10",
+    "spectrum_sha256": "49534f016e933ac0fbfb7b38d5bfe277f0a9d8280039d0a87297f11830737dd5",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.44884230113997586,
+     "linear": 0.44884230113997586
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_dodo_19626_L_Femur_2",
+    "spectrum_sha256": "afa25626f5ca0ceca2eaa5a25f462c8e1d0e73211074058bf92d6c7191f458db",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 10.879929311895877,
+     "linear": 10.879929311895877
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_CF_98",
+    "spectrum_sha256": "c5a1fd5b302082dd74f1042c291d311c15513cf630507ad9a54dbc848b89007f",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 0.10485082358374076,
+     "linear": 0.10485082358374076
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "arcm_CF_44",
+    "spectrum_sha256": "fa9b74715d155a565f422ba7e7f8273d8fddc0fbc15f5836ca283ee0e361fe71",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 6.192389598541499,
+     "linear": 6.192389598541499
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS79",
+    "spectrum_sha256": "604808f4d0a5727f1d1f6f10b31c7a6684c9d9e492e1a1caa30426941b5dd9a2",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 3.4689389494392744,
+     "linear": 3.4689389494392744
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS112",
+    "spectrum_sha256": "154f959e33e2a3dd1458e357aa819bd3c23d7742bd2cd2111f5265ab02255a35",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 11.604830902695383,
+     "linear": 11.604830902695383
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS44_join1830",
+    "spectrum_sha256": "20e1797178a18f2abefdb44ef94195924006a3eb9205720a0ee6f87901959424",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1830.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 2.3496241799673223,
+     "linear": 2.3496241799673223
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_hireslike_RS3_clipvnir",
+    "spectrum_sha256": "56079ac7eab77fcdbc1004bb4e796a348dd0262927f30957fa377e0b83d2295d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": -0.013491467035450719,
+     "linear": -0.013491467035450719
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_above60",
+    "spectrum_sha256": "48924bd678ca86c006f8f12c2b4c1ae19e7cad75a5e088721b273cbaee800bdd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.299836345630985,
+     "linear": 3.299836345630985
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_below60",
+    "spectrum_sha256": "77ef55a3eb355056157975574d717da2b7dde09759674f8fde9654b8d43db696",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.3039946421479423,
+     "linear": 3.3039946421479423
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "synthetic_noise_N2_15p6",
+    "spectrum_sha256": "7ada546edaee373a0b6833e7d87b221bb483d96faef4ab7b4bee43d1a0d1c24b",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 3.3668148654126404,
+     "linear": 3.3668148654126404
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_std",
+    "spectrum_sha256": "59e894856873cf0808e936c7439573263e474c3b21381f840f6fc60547edb1c2",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 6.980504146014342,
+     "linear": 6.980504146014342
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_hires",
+    "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 15.124282945723495,
+     "linear": 15.124282945723495
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_std",
+    "spectrum_sha256": "28431d2a7330915c7d70dcfab578247421b37bf7f056f57d081d3b7a83c478fd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 6.7478803060663415,
+     "linear": 6.7478803060663415
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_hires",
+    "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 16.056863864001905,
+     "linear": 16.056863864001905
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_std",
+    "spectrum_sha256": "d45ca81886bb691bfc7f85c462b5ebd34378b46f973c51c352a3b825c075a9cd",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.std"
+    },
+    "expected": {
+     "value": 6.977803051909101,
+     "linear": 6.977803051909101
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_hires",
+    "spectrum_sha256": "17e9ad8ea4576c88b0a02412672cff5119a44404e6ff433fb0cc6990ed2ebf0d",
+    "scan_context": {
+     "splices_nm": [
+      1000.0,
+      1800.0
+     ],
+     "instrument_class": "asd.labspec4.hires"
+    },
+    "expected": {
+     "value": 16.293933754006343,
+     "linear": 16.293933754006343
+    },
+    "generated_by": "research: scipy savgol_filter + numpy (spyder_ref.golden_gen)"
+   }
+  ]
+ },
+ "licence": "CC-BY-4.0",
+ "statistics": {
+  "rmsecv_loo": 0.894,
+  "mae_lt4_R140_loo": 0.568,
+  "mae_lt4_Z31": 0.812,
+  "note": "rmsecv_loo: leave-one-out on the reference bones below 6% (the fitting range); mae_lt4: mean absolute error below 4% yield, R140 = Ryder et al. 2026 reference bones (leave-one-out), Z31 = the 31 scans of the 15 contaminant-free Zafarraya bones in the same supplement. Fitted below 6%: it reads about 1 point low around 4-6% and well below the yield above 6%."
+ }
+}

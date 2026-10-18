@@ -46,6 +46,9 @@
     yFrom?: Float32Array[];
     /** Include zero in the y range and draw the zero line (derivative views). */
     zero?: boolean;
+    /** Draw every series negated: the derivative views arrive as −d²A/dλ² (bands up); flip shows the
+     *  conventional d²A/dλ² (bands down). */
+    flip?: boolean;
     shades?: Shade[];
     joins?: number[];
     xTicks?: number[];
@@ -71,6 +74,7 @@
     xRange,
     yFrom,
     zero = false,
+    flip = false,
     shades = [],
     joins = [],
     xTicks,
@@ -135,7 +139,7 @@
     let hi = -Infinity;
     for (const d of yFrom ?? series.map((s) => s.data)) {
       for (let i = i0; i < i1; i++) {
-        const v = d[i];
+        const v = flip ? -d[i] : d[i];
         if (Number.isFinite(v)) {
           if (v < lo) lo = v;
           if (v > hi) hi = v;
@@ -165,7 +169,7 @@
     const cols: (number | null)[][] = series.map((s) => {
       const ys: (number | null)[] = new Array(i1 - i0);
       for (let i = i0; i < i1; i++) {
-        const v = s.data[i];
+        const v = flip ? -s.data[i] : s.data[i];
         ys[i - i0] = Number.isFinite(v) ? v : null;
       }
       return ys;
@@ -464,12 +468,13 @@
         let bx = a;
         (u.data[0] as number[]).forEach((x, i) => {
           const v = d[i];
-          if (x >= a && x <= b && v != null && v > best) {
-            best = v;
+          // a band's peak: the maximum bands-up, the minimum when flipped
+          if (x >= a && x <= b && v != null && (flip ? -v : v) > best) {
+            best = flip ? -v : v;
             bx = x;
           }
         });
-        if (Number.isFinite(best)) pts.push({ x: u.valToPos(bx, 'x', true), y: u.valToPos(best, 'y', true), s: s.peakLabel, c: cssVar(s.color) });
+        if (Number.isFinite(best)) pts.push({ x: u.valToPos(bx, 'x', true), y: u.valToPos(flip ? -best : best, 'y', true), s: s.peakLabel, c: cssVar(s.color) });
       });
       pts.sort((p, q) => p.y - q.y);
       const gap = 10.5 * dpr;
@@ -564,7 +569,7 @@
 
   $effect(() => {
     // rebuild whenever the inputs or the theme change
-    void [series, xRange, yFrom, shades, themeKey, cornerLabel, zero];
+    void [series, xRange, yFrom, shades, themeKey, cornerLabel, zero, flip];
     build();
   });
 

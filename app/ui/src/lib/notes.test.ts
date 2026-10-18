@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickNotes } from './notes';
+import { noteIcon, pickNotes, strongPanelNote } from './notes';
 import type { Note, NoteKey } from './types';
 
 const n = (key: NoteKey): Note => ({ key, params: {} });
@@ -52,5 +52,28 @@ describe('note precedence: at most two under the verdict', () => {
     expect(p.headline.map((x) => x.key)).toEqual(['lift_good', 'contaminants_not_checked']);
     expect(p.details.map((x) => x.key)).toEqual(['bands_too_noisy']);
     expect(pickNotes(notes, []).headline).toEqual([]);
+  });
+});
+
+describe('the panel notes (2026-10-18): supporting slot, after a thin coating and before the noise and models notes', () => {
+  it('C–H above N–H outranks the strong disagreement, which outranks contaminants not checked and models disagree', () => {
+    expect(pickNotes([n('models_disagree'), n('contaminants_not_checked'), n('readers_disagree_strongly'), n('ch_above_nh_possible')]).headline.map((x) => x.key)).toEqual(['ch_above_nh_possible']);
+    expect(pickNotes([n('models_disagree'), n('readers_disagree_strongly')]).headline.map((x) => x.key)).toEqual(['readers_disagree_strongly']);
+    expect(pickNotes([n('ch_above_nh_strong'), n('possible_thin_coating')]).headline.map((x) => x.key)).toEqual(['possible_thin_coating']);
+    expect(pickNotes([n('positive_signs_all_six'), n('ch_above_nh_strong'), n('lift_good')]).headline.map((x) => x.key)).toEqual(['lift_good', 'ch_above_nh_strong']);
+  });
+  it('icons: the C–H note is a contaminant-type note, the disagreement note a models note', () => {
+    expect(noteIcon('ch_above_nh_possible')).toBe('flask');
+    expect(noteIcon('ch_above_nh_strong')).toBe('flask');
+    expect(noteIcon('readers_disagree_strongly')).toBe('layers');
+  });
+});
+
+describe('the scan list tag: strong panel notes only (Matt, 2026-10-18)', () => {
+  const k = (key: NoteKey) => ({ key });
+  it('the C–H "likely" level first, then readers disagree strongly; nothing for the weaker levels', () => {
+    expect(strongPanelNote([k('readers_disagree_strongly'), k('ch_above_nh_strong')])?.key).toBe('ch_above_nh_strong');
+    expect(strongPanelNote([k('readers_disagree_strongly')])?.key).toBe('readers_disagree_strongly');
+    expect(strongPanelNote([k('ch_above_nh_possible'), k('models_disagree')])).toBeUndefined();
   });
 });

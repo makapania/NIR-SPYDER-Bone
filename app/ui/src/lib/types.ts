@@ -76,7 +76,7 @@ export interface Zooms {
   vote1545?: boolean;
 }
 
-export type ModelKey = 'cons3' | 'wc2045' | 'wc1500' | 'f05' | 'ryder2045' | 's1r2';
+export type ModelKey = 'cons3' | 'wc2045' | 'wc1500' | 'f05' | 'ryder2045' | 's1r2' | 'lowrange' | 'ch1728';
 export interface ModelReading {
   key: ModelKey;
   id: string; // e.g. collagen.ryder2026.2045
@@ -88,7 +88,7 @@ export interface ModelReading {
   domainNote: boolean;
   /** Noise propagated to this reading (B6), % collagen. */
   impliedSd?: number | null;
-  /** B6 "Check": the noise widens this reading's error. */
+  /** B6 "Check": noise could carry this reading across a verdict cut (DECISIONS 109). */
   noiseCheck?: boolean;
   /** What the model read: a transfer id@version, or "none" (as measured). */
   transfer?: string | null;
@@ -139,6 +139,10 @@ export type NoteKey =
   // supporting notes (precedence order)
   | 'above_bone_range'
   | 'possible_thin_coating'
+  // the panel notes (2026-10-18): C–H above N–H (two levels) and a cause-neutral strong disagreement
+  | 'ch_above_nh_possible'
+  | 'ch_above_nh_strong'
+  | 'readers_disagree_strongly'
   | 'contaminants_not_checked'
   | 'models_disagree'
   | 'positive_signs_all_six'
@@ -146,11 +150,31 @@ export type NoteKey =
   | 'bands_too_noisy'
   // details only
   | 'c1_reduced'
+  | 'signs_reduced'
   | 'second_opinion_differs'
   | 'serial_class_mismatch'
   | 'header_class_mismatch'
   | 'no_transfer_available'
   | 'no_model_reading';
+
+/** One reader comparison (DECISIONS 119): its value, the value at which the readers-disagree note fires, and how far
+ *  along it is (1 = at the line). Names: CH, CHN, GL, SHP, SP3, RAW. */
+export interface PanelContrast {
+  name: string;
+  value: number;
+  firesAbove: number;
+  fraction: number;
+}
+
+/** The panel record: the C–H reading, its gap to the consensus and the C–H note's two levels for this scan, and every
+ *  reader comparison. */
+export interface PanelInfo {
+  ch: number | null;
+  chGap: number | null;
+  chPossibleAbove: number | null;
+  chStrongAbove: number | null;
+  contrasts: PanelContrast[];
+}
 
 export interface Note {
   key: NoteKey;
@@ -217,6 +241,8 @@ export interface ScanResult {
   inputSha256?: string | null;
   /** Milliseconds the core took to analyse this scan. */
   scoreMs?: number;
+  /** The verdict block's panel record (radiocarbon / isotopes; DECISIONS 119, 121): the details panel's numbers. */
+  panel?: PanelInfo | null;
 
   // Live folder watching (UI-side; not export fields).
   /** Delivery order within the current watch; "newest first" uses it while live. */

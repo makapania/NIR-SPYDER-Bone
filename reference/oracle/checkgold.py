@@ -6,14 +6,16 @@ Check-file case:   {"name", "spectrum_sha256" (the standard-resolution-stream sp
                    'acquisition' and 'longwave'), "inputs": {...}, "expected": {flat dotted keys: value}}
   inputs: acquisition: {"transfer_key": "none" | transfer file sha256} (the per-sign B6b table);
           evidence_levels / zooms_patterns: {"sd_E": {band: SD in E units}}
-          signs: {"gates": {sign: gate reason or null}};  c1: {"gate" (reason or null), "specific_fired",
-          "tail_unreliable", "longwave_mode"};  b9: {"truncated": bool};  longwave: {"instrument_class"}
+          signs: {"gates": {sign: gate reason or null}, optional "reduced": {sign: fallback variant}};
+          c1: {"gate" (reason or null), "specific_fired", "tail_unreliable", "longwave_mode", optional "reduced"};  b9: {"truncated": bool};  longwave: {"instrument_class"}
 Profile case:      {"name", "inputs": {"m", "components", "evidence_level", "zooms_verdict", "zooms_pattern",
                    "signs_fired": [...], "c1_status", "gated", optional "signs_gated": [...] (per-sign gates),
+                   optional "signs_reduced": [...] (signs running a reduced fallback; fired if in signs_fired),
                    "soft_components": [...] (the soft tier fired), optional "zooms_shown_verdict" (the ZooMS verdict
                    after the 1545 nm vote; default zooms_verdict), optional "n_type_lit": [...] (the ZooMS-check bands
                    lit and readable, e.g. AM2175, NH2044, NH1545c; default none), optional "ryder2045" (the
-                   published Ryder 2045 reading; default none), optional "zooms_check": {"bands": {band: {"lit",
+                   published Ryder 2045 reading; default none), optional "models": {key: value} (other profile model
+                   readings, e.g. the panel readers ch1728 / nb1545; default none), optional "zooms_check": {"bands": {band: {"lit",
                    "readable"}}, "vote_band": {"id", "lit", "readable"}} (the ZooMS check record as production writes it;
                    overrides n_type_lit)}, "expected": {...}}   (no spectrum)
                    zooms_verdict is the band-pattern verdict (what +D, the lift and the positive-signs line read) for
@@ -80,11 +82,11 @@ def compute_check(name, P, wl, x, inputs):
         E = K.derivative(x, p["kernel"])
         if name == "c1":
             return flatten(checks.c1(wl, E, p, inputs.get("gate"), inputs["specific_fired"], inputs["tail_unreliable"],
-                                     inputs.get("longwave_mode", "not_assessed")))
+                                     inputs.get("longwave_mode", "not_assessed"), inputs.get("reduced")))
         fn = checks.evidence if name == "evidence_levels" else checks.zooms
         return flatten(fn(wl, E, p, P.bands(), inputs["sd_E"]))
     if name == "signs":
-        return flatten(checks.signs(wl, x, p, P.cp("heat"), inputs.get("gates", {})))
+        return flatten(checks.signs(wl, x, p, P.cp("heat"), inputs.get("gates", {}), inputs.get("reduced", {})))
     if name == "heat":
         N = K.derivative(x, P.cp("signs")["kernel"])
         return flatten(checks.heat(wl, x, N, p))
@@ -99,6 +101,9 @@ def compute_profile(doc, inputs):
     for s in inputs.get("signs_gated", []):
         if s in sg:
             sg[s] = {"fired": None, "status": "gated"}
+    for s in inputs.get("signs_reduced", []):
+        if s in sg:
+            sg[s] = {"fired": s in inputs["signs_fired"], "status": "assessed: reduced"}
     if inputs.get("soft_components"):
         sg["soft"] = {"fired": True, "components": list(inputs["soft_components"])}
     c1 = {"status": inputs["c1_status"], "fired": "C1" in inputs["signs_fired"]}
@@ -112,6 +117,7 @@ def compute_profile(doc, inputs):
             zo["vote_band"] = dict(inputs["zooms_check"]["vote_band"])
     if pp["kind"] == "collagen_rule_L2":
         models = {"ryder2045": {"value": inputs["ryder2045"]}} if "ryder2045" in inputs else {}
+        models.update({k: {"value": v} for k, v in inputs.get("models", {}).items()})   # panel readers (notes.panel)
         r = VD.collagen_verdict(pp, inputs["m"], inputs.get("components", {}), ev, zo, sg, c1, inputs.get("gated", False),
                                 models)
     else:

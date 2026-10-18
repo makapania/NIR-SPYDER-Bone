@@ -7,8 +7,11 @@
 //! (none gated by its own B6b gate; C1 assessed), otherwise the would-be lift is "blocked"; flags (contaminant,
 //! burnt) are badges and NEVER change the verdict.
 //! Notes: the rule's note first (+D > flat bands lead > lift > blocked lift), then one supporting note (profile
-//! order: above bone range > possible thin coating > contaminants not checked > models disagree > positive signs >
-//! bands too noisy); all in `notes_all`; c1_reduced is details-only. Phase 0c (DECISIONS 72, 76): above_bone_range
+//! order: above bone range > possible thin coating > C-H note > readers disagree strongly > contaminants not checked >
+//! models disagree > positive signs > bands too noisy); all in `notes_all`; c1_reduced is details-only.
+//! Panel notes (DECISIONS 111, 115, 119; `panel_notes`): ch_above_nh_possible / ch_above_nh_strong (the C-H 1728 nm
+//! reader above CONS3, two levels) and readers_disagree_strongly (any of six reader contrasts far beyond clean bone; when
+//! it fires, models_disagree is not added). Notes only: never the verdict, the lift or the sort. Phase 0c (DECISIONS 72, 76): above_bone_range
 //! (m above the profile's line, every analysis), possible_thin_coating (the soft tier, signs.soft; it suppresses
 //! the positive-signs line), contaminants_not_checked with params skipped / checked.
 //! Models disagree (DECISIONS 65): the three CONS3 components fall in different verdict bands (straddle a cut)
@@ -18,7 +21,8 @@
 //! counts), a note says so and never changes the verdict: zooms_better_good (ZooMS Good), zooms_better_protein
 //! (ZooMS Borderline from the band pattern), zooms_better_1545 (ZooMS Borderline only through the 1545 vote;
 //! zooms_better_1545_flat when flat bands set the verdict). No line when a sign of `suppressed_by_signs` FIRED (wax,
-//! ester, plaster, C1: coatings can create the C-H bands); burnt, gated or unassessed signs do not suppress it. The
+//! ester, plaster, C1: coatings can create the C-H bands), nor when a note of `suppressed_by_notes` fired (the C-H note,
+//! DECISIONS 120); burnt, gated or unassessed signs do not suppress it. The
 //! band-pattern Borderline splits by strength (Matt): zooms_better_protein only with m >= the profile's line AND at
 //! least two N-type bands (NH2044, AM2175, the 1545 vote band) lit and readable; else the quieter
 //! zooms_faint_protein (params: the lit N-type bands, m), shown only when a slot is left (`precedence_last`). It is
@@ -102,6 +106,123 @@ fn fired(rec: &Obj) -> bool {
     rec.get("fired").is_some_and(V::truthy)
 }
 
+/// A profile model's finite reading from the scan's models record.
+fn model_value(models: &Obj, key: &str) -> Option<f64> {
+    models
+        .get(key)
+        .and_then(V::as_obj)
+        .and_then(|o| o.get("value"))
+        .and_then(V::as_f64)
+        .filter(|v| v.is_finite())
+}
+
+/// The panel notes (DECISIONS 111, 115, 119; oracle `verdict.panel_notes`) and whether readers_disagree_strongly fired.
+/// ch_above_nh_possible / ch_above_nh_strong: the C-H reader minus m above the profile's levels for m's bin (params ch,
+/// m). readers_disagree_strongly: CH = ch - m, CHN = m - ch, GL = m - narrow1545, SHP = wc1500 - narrow1545, SP3 = the
+/// spread of the CONS3 parts, RAW = |m - raw2045|, each (x - median) / (q98 - median) of m's bin; fires when any present
+/// one exceeds the level (CH skipped when the C-H note fired; a contrast with a missing reading is skipped); params
+/// contrasts (in [`PANEL_CONTRASTS`] order), m. Notes only: never the verdict, the lift or the sort.
+/// Also returns the verdict block's `panel` record (DECISIONS 121, the details panel's numbers): ch (the C-H reading),
+/// ch_gap (ch - m), ch_possible_above / ch_strong_above (the C-H note's levels for m's bin), and contrasts [{name, value,
+/// fires_above (the value at which it would fire), fraction ((x - median) / (q98 - median) / level; 1 = at the line)}] for
+/// every contrast with its readings, CH included.
+fn panel_notes(
+    p: &RuleL2,
+    m: f64,
+    comps: &[(String, Option<f64>)],
+    models: &Obj,
+) -> (Vec<Obj>, bool, Option<Obj>) {
+    let Some(pn) = &p.notes.panel else {
+        return (Vec::new(), false, None);
+    };
+    let bin = |edges: &[f64]| edges.iter().filter(|&&e| m >= e).count();
+    let ch = model_value(models, &pn.ch_key);
+    let nb = model_value(models, &pn.narrow1545_key);
+    let raw = model_value(models, &pn.raw2045_key);
+    let mut out = Vec::new();
+    let mut ch_fired = false;
+    let mut rec = Obj::new().with("ch", ch).with("ch_gap", ch.map(|c| c - m));
+    if let Some(c) = &pn.ch_above_nh {
+        let b = bin(&c.bin_edges);
+        rec.set("ch_possible_above", c.possible_above[b]);
+        rec.set("ch_strong_above", c.strong_above[b]);
+    }
+    if let (Some(c), Some(chv)) = (&pn.ch_above_nh, ch) {
+        let b = bin(&c.bin_edges);
+        let g = chv - m;
+        let key = if g > c.strong_above[b] {
+            Some("ch_above_nh_strong")
+        } else if g > c.possible_above[b] {
+            Some("ch_above_nh_possible")
+        } else {
+            None
+        };
+        if let Some(k) = key {
+            out.push(Obj::new().with("key", k).with("ch", chv).with("m", m));
+            ch_fired = true;
+        }
+    }
+    let Some(r) = &pn.disagree else {
+        return (out, false, Some(rec));
+    };
+    let comp = |n: &str| comps.iter().find(|(k, _)| k == n).and_then(|(_, v)| *v);
+    let parts: Vec<Option<f64>> = ["wc2045", "wc1500", "F05"].iter().map(|n| comp(n)).collect();
+    let spread = if parts.iter().all(Option::is_some) {
+        let v: Vec<f64> = parts.iter().flatten().copied().collect();
+        Some(v.iter().copied().fold(f64::NEG_INFINITY, f64::max) - v.iter().copied().fold(f64::INFINITY, f64::min))
+    } else {
+        None
+    };
+    let gap = |name: &str| -> Option<f64> {
+        match name {
+            "CH" => ch.map(|c| c - m),
+            "CHN" => ch.map(|c| m - c),
+            "GL" => nb.map(|n| m - n),
+            "SHP" => match (comp("wc1500"), nb) {
+                (Some(w), Some(n)) => Some(w - n),
+                _ => None,
+            },
+            "SP3" => spread,
+            "RAW" => raw.map(|x| (m - x).abs()),
+            _ => None,
+        }
+    };
+    let b = bin(&r.bin_edges);
+    let listed: Vec<V> = r
+        .contrasts
+        .iter()
+        .filter_map(|(name, med, q98)| {
+            gap(name).map(|g| {
+                V::Map(
+                    Obj::new()
+                        .with("name", name.as_str())
+                        .with("value", g)
+                        .with("fires_above", med[b] + r.level * (q98[b] - med[b]))
+                        .with("fraction", (g - med[b]) / (q98[b] - med[b]) / r.level),
+                )
+            })
+        })
+        .collect();
+    rec.set("contrasts", V::List(listed));
+    let fired_list: Vec<String> = r
+        .contrasts
+        .iter()
+        .filter(|(name, _, _)| !(name == "CH" && ch_fired))
+        .filter(|(name, med, q98)| gap(name).is_some_and(|g| (g - med[b]) / (q98[b] - med[b]) > r.level))
+        .map(|(name, _, _)| name.clone())
+        .collect();
+    let any = !fired_list.is_empty();
+    if any {
+        out.push(
+            Obj::new()
+                .with("key", "readers_disagree_strongly")
+                .with("contrasts", strs(&fired_list))
+                .with("m", m),
+        );
+    }
+    (out, any, Some(rec))
+}
+
 /// (contaminant signs fired, burnt signs fired), in the profile's flag order.
 fn signs_state(prof: &AnalysisProfile, x: &VerdictInputs) -> (Vec<String>, Vec<String>) {
     let get = |n: &str| -> bool {
@@ -183,7 +304,7 @@ fn contaminant_check_state(
     (skipped, checked)
 }
 
-/// (above_bone_range, possible_thin_coating) and (c1_reduced): the notes every analysis shares.
+/// (above_bone_range, possible_thin_coating) and (c1_reduced, signs_reduced): the notes every analysis shares.
 fn common_notes(above: Option<f64>, m: Option<f64>, x: &VerdictInputs) -> (Vec<Obj>, Vec<Obj>) {
     let mut first = Vec::new();
     let mut last = Vec::new();
@@ -205,6 +326,19 @@ fn common_notes(above: Option<f64>, m: Option<f64>, x: &VerdictInputs) -> (Vec<O
     if status_of(x, "C1").starts_with("assessed: truncated") {
         last.push(Obj::new().with("key", "c1_reduced"));
     }
+    // a gated plaster or C1 ran its reduced fallback below 1800 nm (2026-10-13; details-only)
+    let red: Vec<String> = ["plaster", "C1"]
+        .into_iter()
+        .filter(|n| status_of(x, n).starts_with("assessed: reduced"))
+        .map(str::to_string)
+        .collect();
+    if !red.is_empty() {
+        last.push(
+            Obj::new()
+                .with("key", "signs_reduced")
+                .with("signs", super::val::strs(&red)),
+        );
+    }
     (first, last)
 }
 
@@ -225,6 +359,7 @@ fn base_key(k: &str) -> &str {
         | "zooms_better_1545"
         | "zooms_better_1545_flat"
         | "zooms_better_ryder" => "zooms_better",
+        "ch_above_nh_possible" | "ch_above_nh_strong" => "ch_above_nh",
         other => other,
     }
 }
@@ -290,12 +425,15 @@ fn band_lit(z: &Obj, b: &str) -> bool {
 
 /// The ZooMS line's note key (DECISIONS 80 amended) when the ZooMS verdict (after the 1545 nm vote) ranks above
 /// `verdict`; None otherwise (ZooMS Can't tell, Rescan or not bone never count), or when a suppressing contaminant
-/// sign fired (`fired`: the contaminant signs that fired). `step`: the rule step that set the verdict; `m`: CONS3.
+/// sign fired (`fired`: the contaminant signs that fired), or a suppressing note fired (`notes_fired`: base keys of the
+/// panel notes that fired, e.g. "ch_above_nh"; DECISIONS 120). `step`: the rule step that set the verdict; `m`: CONS3.
+#[allow(clippy::too_many_arguments)]
 pub fn zooms_better(
     p: &RuleL2,
     verdict: &str,
     step: &str,
     fired: &[String],
+    notes_fired: &[&str],
     m: f64,
     x: &VerdictInputs,
 ) -> Vec<Obj> {
@@ -303,6 +441,9 @@ pub fn zooms_better(
         || fired
             .iter()
             .any(|s| p.notes.zooms_better_suppressed_by.contains(s))
+        || notes_fired
+            .iter()
+            .any(|n| p.notes.zooms_better_suppressed_by_notes.iter().any(|s| s == n))
     {
         return Vec::new();
     }
@@ -484,10 +625,15 @@ pub fn collagen_verdict(
     }
     let promising = v == "Good" || v == "Borderline";
     let nt = &p.notes;
-    notes.extend(zooms_better(p, &v, &step, &contam, m, x));
+    // the panel notes first: a fired C-H note can suppress the ZooMS line (DECISIONS 120); listed after the common notes
+    let (pnotes, strong_disagree, panel_rec) = panel_notes(p, m, comps, x.models);
+    let pkeys = keys_of(&pnotes);
+    let notes_fired: Vec<&str> = pkeys.iter().map(|k| base_key(k)).collect();
+    notes.extend(zooms_better(p, &v, &step, &contam, &notes_fired, m, x));
     let (first, last) = common_notes(nt.above_bone_range_m_above, Some(m), x);
     let soft_fired = keys_of(&first).iter().any(|k| k == "possible_thin_coating");
     notes.extend(first);
+    notes.extend(pnotes);
     if promising && unchecked {
         notes.push(
             Obj::new()
@@ -496,7 +642,7 @@ pub fn collagen_verdict(
                 .with("checked", strs(&checked)),
         );
     }
-    if models_disagree(comps, p) {
+    if !strong_disagree && models_disagree(comps, p) {
         let mut c = Obj::new();
         for (k, x) in comps {
             c.set(k, *x);
@@ -529,6 +675,9 @@ pub fn collagen_verdict(
     out.set("verdict", v);
     out.set("rule_step", step);
     out.set("notes_shown", strs(&shown_notes(&keys, p, lifted)));
+    if let Some(pr) = panel_rec {
+        out.set("panel", pr);
+    }
     out
 }
 

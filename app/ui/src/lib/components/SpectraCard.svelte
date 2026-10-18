@@ -1,6 +1,7 @@
 <script lang="ts">
   // The spectra card: the main plot over the reference bones, and the two model-window close-ups.
-  // Second derivative is drawn as −d²A/dλ² (bands up); default view 1100–2450 nm. Display smoothing
+  // Second derivative is drawn as −d²A/dλ² (bands up) unless the viewer flips it to the conventional d²A/dλ²
+  // (bands down; display only, remembered per viewer); default view 1100–2450 nm. Display smoothing
   // changes only the main plot. On high-res the main plot shows the transferred spectrum (what every model and
   // band rule reads) with "As measured" one toggle away. The 2045 close-up defaults to the OH-corrected view:
   // the window features with the OH/water direction projected out, exactly as the OH-corrected model sees them
@@ -20,6 +21,9 @@
     mode: Mode;
     smoothing: number;
     lens: 'ohc' | 'raw';
+    /** Draw the 2nd derivative the conventional way (bands down) instead of bands up. */
+    bandsDown: boolean;
+    onBandsDown: (down: boolean) => void;
     /** High-res main plot: the transferred spectrum ('std', default) or the scan as measured ('meas'). */
     stream: 'std' | 'meas';
     ohWindows: OhWindowInfo[];
@@ -41,6 +45,8 @@
     mode,
     smoothing,
     lens,
+    bandsDown,
+    onBandsDown,
     stream,
     ohWindows,
     themeKey,
@@ -158,7 +164,9 @@
       ? 'Reflectance'
       : mode === 'A'
         ? 'Absorbance, log₁₀(1/R)'
-        : `−d²A/dλ² (×10⁻⁵), display smoothing SG ${smoothing}`,
+        : bandsDown
+          ? `2nd derivative, d²A/dλ² (×10⁻⁵): bands point down · display smoothing SG ${smoothing}`
+          : `Inverted 2nd derivative, −d²A/dλ² (×10⁻⁵): bands point up · display smoothing SG ${smoothing}`,
   );
   const streamNote = $derived(
     !hires ? '' : asMeasured ? ' · high-res, as measured (the models read the transferred spectrum)' : ' · high-res, transferred to standard resolution',
@@ -201,11 +209,13 @@
 
   <div class="chartwrap">
     <div class="main">
-      <div class="ylabel">{yLabel}{streamNote}</div>
+      <div class="ylabel">{yLabel}{streamNote}{#if mode === 'D2'}<button class="flipbtn" onclick={() => onBandsDown(!bandsDown)}
+            title={bandsDown ? 'Show the inverted 2nd derivative (bands point up), the app’s default' : 'Show the conventional 2nd derivative (bands point down), as in most papers'}
+            >{bandsDown ? 'Bands up' : 'Bands down'}</button>{/if}</div>
       <div class="plotbox">
         {#if views && usable}
           <SpectrumPlot startNm={views.startNm} series={mainSeries} xRange={mode === 'D2' ? [1100, 2450] : [350, 2500]}
-            zero={mode === 'D2'} shades={mainShades} joins={[1000, 1800]} bandLabels={mode === 'D2'}
+            zero={mode === 'D2'} flip={mode === 'D2' && bandsDown} shades={mainShades} joins={[1000, 1800]} bandLabels={mode === 'D2'}
             xTicks={mode === 'D2' ? [1250, 1500, 1750, 2000, 2250] : [500, 1000, 1500, 2000, 2500]} yDecimals={mode === 'D2' ? 0 : 2}
             {themeKey} ariaLabel="Spectrum of {scan.file} over the reference bones" readout onDrawn={onMainDrawn} />
         {:else if views}
@@ -224,7 +234,7 @@
       </div>
       <div class="plotlens" class:on={views && usable}>
         {#if views && usable}
-          <SpectrumPlot startNm={views.startNm} series={lens2045} xRange={range2045} zero
+          <SpectrumPlot startNm={views.startNm} series={lens2045} xRange={range2045} zero flip={bandsDown}
             shades={[{ lo: 2030, hi: 2060, kind: 'window' }]}
             small axes xTicks={[2030, 2045, 2060]} refLabelsIn={[2030, 2060]}
             cornerLabel={flagged ? 'coating sign' : undefined} {themeKey} ariaLabel="2045 nm model window ({ohc2045 ? 'OH-corrected' : 'uncorrected'})" />
@@ -244,7 +254,7 @@
       <div class="lenshead"><span class="ttl">1545 nm model</span><span class="muted small">1500–1550 nm · {ohc1500 ? 'OH-corrected' : 'uncorrected'}</span></div>
       <div class="plotlens" class:on={views && usable}>
         {#if views && usable}
-          <SpectrumPlot startNm={views.startNm} series={lens1500} xRange={range1500} zero
+          <SpectrumPlot startNm={views.startNm} series={lens1500} xRange={range1500} zero flip={bandsDown}
             shades={[{ lo: 1500, hi: 1550, kind: 'window' }, ...(band1545 && ohc1500 ? [{ lo: 1543, hi: 1547, kind: 'band' as const, state: band1545.state, flagged }] : [])]} small axes xTicks={[1500, 1525, 1550]} refLabelsIn={[1500, 1525]}
             cornerLabel={flagged ? 'coating sign' : undefined} {themeKey} ariaLabel="1545 nm model window (reads 1500–1550 nm)" />
         {/if}
@@ -341,6 +351,19 @@
     font-size: var(--fs-xs);
     color: var(--ink-3);
     padding-left: 46px;
+  }
+  .flipbtn {
+    margin-left: 8px;
+    padding: 0 6px;
+    font-size: var(--fs-xs);
+    line-height: 1.5;
+    color: var(--ink-3);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-sm);
+    background: transparent;
+  }
+  .flipbtn:hover {
+    color: var(--ink);
   }
   .plotbox {
     position: relative;

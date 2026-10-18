@@ -39,6 +39,16 @@
     }
   }
 
+  const D2_KEY = 'spyder.d2';
+  /** 2nd-derivative orientation: bands up (the default) or the conventional bands down. */
+  function loadBandsDown(): boolean {
+    try {
+      return localStorage.getItem(D2_KEY) === 'down';
+    } catch {
+      return false;
+    }
+  }
+
   const CVD_KEY = 'spyder.cvd';
   function loadCvd(): boolean {
     try {
@@ -66,6 +76,7 @@
   let organicOnly = $state(false);
   let mode = $state<Mode>('D2');
   let smoothing = $state(31);
+  let bandsDown = $state(loadBandsDown());
   let lens = $state<'ohc' | 'raw'>(has('asmeasured') ? 'raw' : 'ohc');
   /** High-res main plot: transferred (what the models read) or as measured. */
   let stream = $state<'std' | 'meas'>('std');
@@ -129,6 +140,7 @@
     try {
       localStorage.setItem(THEME_KEY, theme);
       localStorage.setItem(CVD_KEY, cvd ? 'on' : 'off');
+      localStorage.setItem(D2_KEY, bandsDown ? 'down' : 'up');
     } catch {
       /* not persisted; fine */
     }
@@ -467,7 +479,7 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="app">
-  <Toolbar {session} {theme} {cvd} {watch} onCvd={() => (cvd = !cvd)} onClass={setClass} onOpenFiles={openFiles}
+  <Toolbar version={info?.version ?? null} {session} {theme} {cvd} {watch} onCvd={() => (cvd = !cvd)} onClass={setClass} onOpenFiles={openFiles}
     onOpenFolder={openFolder} onWatch={() => watchFolder()} onPause={pauseWatch} onResume={resumeWatch} onStop={stopWatch}
     onTheme={() => (theme = theme === 'dark' ? 'light' : 'dark')} onExport={exportCsv} exportDisabled={scored === 0}
     onHelp={() => (helpOpen = true)} />
@@ -504,9 +516,9 @@
       {:else if selected}
         <section class="card hero" aria-label="Selected scan">
           <VerdictCard scan={selected} isNewest={selected.scanId === newestId} />
-          <BandCloseUps scan={selected} {views} refs={refs31} {themeKey} {highlight} />
+          <BandCloseUps scan={selected} {views} refs={refs31} {themeKey} {highlight} {bandsDown} />
         </section>
-        <SpectraCard scan={selected} {views} {refs} {refsOn} {mode} {smoothing} {lens} {stream} ohWindows={display?.ohWindows ?? []}
+        <SpectraCard scan={selected} {views} {refs} {refsOn} {mode} {smoothing} {lens} {bandsDown} onBandsDown={(d) => (bandsDown = d)} {stream} ohWindows={display?.ohWindows ?? []}
           {themeKey} {highlight} onMode={(m) => (mode = m)} onSmoothing={(w) => (smoothing = w)} onLens={(l) => (lens = l)}
           onStream={(st) => (stream = st)} onToggleRef={(l) => (refsOn = { ...refsOn, [l]: !refsOn[l] })} {onMainDrawn} />
       {:else}
@@ -524,7 +536,7 @@
 
     {#if selected && !isUnscored(selected)}
       <DetailsPanel scan={selected} rank={sortMode === 'promising' ? (ranks.get(selected.scanId) ?? null) : null} total={scans.length}
-        views={views} refs={refs31} onHighlight={(k) => (highlight = k)} />
+        views={views} refs={refs31} {bandsDown} onHighlight={(k) => (highlight = k)} />
     {/if}
   </div>
 

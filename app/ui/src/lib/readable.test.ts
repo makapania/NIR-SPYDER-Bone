@@ -54,6 +54,10 @@ describe('readable export', () => {
     expect(header).toContain('2045 nm, OH-corrected');
     expect(header).toContain('N–H set, 2175 + 2045 nm, OH-corrected');
     expect(header).toContain('1545 nm, no transfer needed');
+    // the panel readers (2026-10-18), after the second opinion
+    expect(header).toContain('Low-range estimate (narrow 1545 nm band)');
+    expect(header).toContain('C–H 1728 nm');
+    expect(col('Low-range estimate (narrow 1545 nm band)')).toBeGreaterThan(col('1545 nm, no transfer needed'));
   });
   it('writes sentences, never internal keys or JSON', () => {
     const cells = body.flat().join(' | ');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatModel, formatReading, trackPos, zoomsHeadline } from './display';
+import { MODEL_NAME, formatModel, formatReading, trackPos, zoomsHeadline } from './display';
 
 describe('display policy (PLAN Step 10, A20)', () => {
   it('never shows a number below 0.5, and never a negative', () => {
@@ -59,5 +59,16 @@ describe('the 1545 nm ZooMS vote (DECISIONS 75)', () => {
   it('a vote-lifted pattern never reads "flat" alone', () => {
     const z = { pattern: 'B' as const, litCount: 2, readableCount: 6, verdict: 'borderline' as const, vote1545: true };
     expect(zoomsHeadline(z)).toContain('1545 nm N–H band shows protein');
+  });
+});
+
+describe('model names (DECISIONS 77): the panel readers (2026-10-18)', () => {
+  it('names the low-range estimate and the C–H reader by where they read', () => {
+    expect(MODEL_NAME.lowrange).toBe('Low-range estimate (narrow 1545 nm band)');
+    expect(MODEL_NAME.ch1728).toBe('C–H 1728 nm');
+  });
+  it('the low-range estimate in the verdict card uses the display policy (short form)', () => {
+    expect(formatReading(1.23, true)).toBe('≈ 1.2%');
+    expect(formatReading(0.1, true)).toBe('< 0.5%');
   });
 });

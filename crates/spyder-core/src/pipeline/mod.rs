@@ -364,7 +364,8 @@ impl<'r> Engine<'r> {
         let acqp = self.cp("acquisition");
         let CheckParams::Acquisition {
             input_matrix: im,
-            b6_check_if_implied_sd_above,
+            b6_cuts,
+            b6_check_if_cut_within_sd,
             ..
         } = acqp
         else {
@@ -429,7 +430,7 @@ impl<'r> Engine<'r> {
             Selection::Apply(t) => t.file_sha256.clone(),
             _ => NO_TRANSFER.to_string(),
         };
-        let (b6b, gates, gated) = checks::b6b(acqp, &mut n2c, &gate_key);
+        let (b6b, gates, gated, reduced) = checks::b6b(acqp, &mut n2c, &gate_key);
         acq.set("B6b", b6b);
         let bad: Vec<&str> = ["B1", "B2", "B3", "B4"]
             .into_iter()
@@ -600,27 +601,10 @@ impl<'r> Engine<'r> {
         for (_, mr) in mo.0.iter_mut() {
             if let V::Map(mr) = mr {
                 let sd = mr.get("implied_sd").and_then(V::as_f64);
+                let value = mr.get("value").and_then(V::as_f64);
                 mr.set(
                     "B6",
-                    Obj::new()
-                        .with(
-                            "status",
-                            if sd.is_some() {
-                                "assessed"
-                            } else {
-                                "not assessed: no noise gain for this model and transfer"
-                            },
-                        )
-                        .with(
-                            "outcome",
-                            sd.map(|s| {
-                                if s > *b6_check_if_implied_sd_above {
-                                    "Check"
-                                } else {
-                                    "ok"
-                                }
-                            }),
-                        ),
+                    b6_noise(value, sd, b6_cuts, *b6_check_if_cut_within_sd),
                 );
             }
         }
@@ -637,7 +621,14 @@ impl<'r> Engine<'r> {
         self.check_dep("signs", &mut deps);
         self.check_dep("heat", &mut deps);
         self.check_dep("c1", &mut deps);
-        let mut sg = checks::signs(wl, &r_std, self.cp("signs"), self.cp("heat"), &gates);
+        let mut sg = checks::signs(
+            wl,
+            &r_std,
+            self.cp("signs"),
+            self.cp("heat"),
+            &gates,
+            &reduced,
+        );
         let c1p = self.cp("c1");
         let spec = match c1p {
             CheckParams::C1 {
@@ -659,6 +650,7 @@ impl<'r> Engine<'r> {
             spec,
             tail_unreliable_c1,
             c1_mode,
+            reduced.get("C1").map(String::as_str),
         );
         let soft = checks::soft_tier(self.cp("signs"), c1p, cls, &mut n2c, &sg, &c1r);
         sg.set("soft", soft);
@@ -902,6 +894,30 @@ fn empty_verdict(verdict: &str, step: &str) -> Obj {
         .with("flags", V::List(vec![]))
 }
 
+/// B6 (DECISIONS 109; oracle `pipeline.b6_noise`): Check when a verdict cut lies within `within_sd` x the implied SD
+/// of the reading, i.e. when noise alone could carry the reading across a cut. No SD: not assessed; no finite
+/// reading: no outcome.
+fn b6_noise(value: Option<f64>, sd: Option<f64>, cuts: &[f64], within_sd: f64) -> Obj {
+    let Some(sd) = sd else {
+        return Obj::new()
+            .with(
+                "status",
+                "not assessed: no noise gain for this model and transfer",
+            )
+            .with("outcome", None::<&str>);
+    };
+    let outcome = value.filter(|v| v.is_finite()).map(|v| {
+        if cuts.iter().any(|c| (v - c).abs() <= within_sd * sd) {
+            "Check"
+        } else {
+            "ok"
+        }
+    });
+    Obj::new()
+        .with("status", "assessed")
+        .with("outcome", outcome)
+}
+
 // ---------------------------------------------------------------------- .asd metadata (oracle asd.read)
 const OLE_EPOCH_UNIX_DAYS: i64 = 25569;
 
@@ -1003,4 +1019,36 @@ fn joins_accepted(joins: &[f64], windows: &[(f64, f64)]) -> bool {
         && j.iter()
             .zip(windows)
             .all(|(x, (lo, hi))| lo <= x && x <= hi)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// DECISIONS 109; expected values written from the rule (LESSONS 44), as reference/tests/test_b6_cut_aware.py.
+    #[test]
+    fn b6_is_cut_aware() {
+        let cuts = [0.5, 3.0];
+        let out = |v: Option<f64>, sd: Option<f64>| {
+            b6_noise(v, sd, &cuts, 2.6)
+                .get("outcome")
+                .and_then(V::as_str)
+                .map(str::to_string)
+        };
+        let check = Some("Check".to_string());
+        let ok = Some("ok".to_string());
+        assert_eq!(out(Some(3.4), Some(0.2)), check); // 0.4 <= 0.52
+        assert_eq!(out(Some(0.1), Some(0.16)), check); // 0.4 <= 0.416
+        assert_eq!(out(Some(8.0), Some(1.5)), ok); // 5 > 3.9 (the old SD > 0.5 rule fired)
+        assert_eq!(out(Some(1.7), Some(0.4)), ok); // 1.2 and 1.3 > 1.04
+        assert_eq!(out(Some(12.0), Some(4.0)), check); // 9 <= 10.4
+        assert_eq!(out(None, Some(0.3)), None);
+        assert_eq!(out(Some(f64::NAN), Some(0.3)), None);
+        let na = b6_noise(Some(2.0), None, &cuts, 2.6);
+        assert_eq!(
+            na.get("status").and_then(V::as_str),
+            Some("not assessed: no noise gain for this model and transfer")
+        );
+        assert_eq!(na.get("outcome").and_then(V::as_str), None);
+    }
 }

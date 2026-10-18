@@ -91,6 +91,12 @@ fn each_profile_uses_its_own_verdict_model() {
     p["parameters"]["models"] = json!([{"key": "ryder2045", "model_id": "collagen.ryder2026.2045",
         "role": "verdict_input", "components": [],
         "shown_for_classes": ["asd.labspec4.std", "asd.labspec4.hires"]}]);
+    // the panel notes name readers this one-model list no longer has (the loader rejects that); their goldens go too
+    p["parameters"]["notes"].as_object_mut().unwrap().remove("panel");
+    p["golden"]["cases"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|c| !c["name"].as_str().unwrap().starts_with("panel_"));
     std::fs::write(&f, serde_json::to_vec_pretty(&p).unwrap()).unwrap();
     let reg = load(&d);
     let eng = Engine::new(&reg).expect("engine");
@@ -173,6 +179,7 @@ fn non_finite_heat_reading_is_not_assessed() {
         &vec![f64::NAN; 2151],
         checks["signs"],
         checks["heat"],
+        &Default::default(),
         &Default::default(),
     );
     for n in ["plaster", "wax", "ester", "burnt"] {

@@ -127,6 +127,7 @@ pub fn compute_check(
                 .transpose()?
                 .unwrap_or_else(|| "not_assessed".into());
             let gate = input_opt_str(inputs, "gate")?;
+            let reduced = input_opt_str(inputs, "reduced")?;
             flat_map(C::c1(
                 wl,
                 &e,
@@ -135,6 +136,7 @@ pub fn compute_check(
                 input_bool(inputs, "specific_fired")?,
                 input_bool(inputs, "tail_unreliable")?,
                 &mode,
+                reduced.as_deref(),
             ))
         }
         CheckParams::Signs { .. } => {
@@ -149,7 +151,13 @@ pub fn compute_check(
                     gates.insert(k, r);
                 }
             }
-            flat_map(C::signs(wl, x, p, need("heat")?, &gates))
+            let mut reduced = C::Reduced::new();
+            if let Some(r) = inputs.opt("reduced") {
+                for (k, v) in r.entries()? {
+                    reduced.insert(k, v.str()?.to_string());
+                }
+            }
+            flat_map(C::signs(wl, x, p, need("heat")?, &gates, &reduced))
         }
         CheckParams::Heat { .. } => {
             let CheckParams::Signs { kernel, .. } = need("signs")? else {
@@ -171,11 +179,19 @@ pub fn compute_profile(prof: &AnalysisProfile, inputs: &Node) -> PResult<BTreeMa
         None => Vec::new(),
         Some(g) => g.vec_str()?,
     };
+    let signs_reduced: Vec<String> = match inputs.opt("signs_reduced") {
+        None => Vec::new(),
+        Some(g) => g.vec_str()?,
+    };
     let mut sg = Obj::new();
     for s in ["plaster", "wax", "ester", "burnt"] {
         sg.set(
             s,
-            if gated || signs_gated.iter().any(|g| g == s) {
+            if signs_reduced.iter().any(|g| g == s) {
+                Obj::new()
+                    .with("fired", fired.iter().any(|f| f == s))
+                    .with("status", "assessed: reduced")
+            } else if gated || signs_gated.iter().any(|g| g == s) {
                 Obj::new().with("fired", V::Null).with("status", "gated")
             } else {
                 Obj::new()
@@ -249,6 +265,12 @@ pub fn compute_profile(prof: &AnalysisProfile, inputs: &Node) -> PResult<BTreeMa
     let mut models = Obj::new();
     if let Some(r) = inputs.opt("ryder2045") {
         models.set("ryder2045", Obj::new().with("value", r.f64()?));
+    }
+    // models: other profile model readings (the panel readers of notes.panel)
+    if let Some(ms) = inputs.opt("models") {
+        for (k, v) in ms.entries()? {
+            models.set(&k, Obj::new().with("value", v.f64()?));
+        }
     }
     let x = VerdictInputs {
         signs: &sg,

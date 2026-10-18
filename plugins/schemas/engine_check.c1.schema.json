@@ -185,6 +185,41 @@
        }
       }
      }
+    },
+    "swir1": {
+     "type": "object",
+     "required": [
+      "ch_bands_nm",
+      "nh_bands_nm",
+      "a",
+      "b",
+      "fires_if_excess_above"
+     ],
+     "properties": {
+      "ch_bands_nm": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 1
+      },
+      "nh_bands_nm": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 1
+      },
+      "a": {
+       "type": "number"
+      },
+      "b": {
+       "type": "number"
+      },
+      "fires_if_excess_above": {
+       "type": "number"
+      }
+     }
     }
    }
   },

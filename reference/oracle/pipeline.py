@@ -37,6 +37,18 @@ def _rss(terms, n2c):
     return math.sqrt(s)
 
 
+def b6_noise(value, sd, p):
+    """B6 (DECISIONS 109): Check when a verdict cut lies within check_if_cut_within_sd x the implied SD of the reading,
+    i.e. when noise alone could carry the reading across a cut. No SD: not assessed; no finite reading: no outcome."""
+    if sd is None:
+        return {"status": "not assessed: no noise gain for this model and transfer", "outcome": None}
+    v = _f(value)
+    if v is None:
+        return {"status": "assessed", "outcome": None}
+    near = any(abs(v - c) <= p["check_if_cut_within_sd"] * sd for c in p["cuts"])
+    return {"status": "assessed", "outcome": "Check" if near else "ok"}
+
+
 class Oracle:
     def __init__(self, roots):
         self.P = PluginSet(roots)
@@ -114,7 +126,7 @@ class Oracle:
         # applied after the Rescan check below
         st = P.stream_transfer(cls, serial)
         skey = transfer_key(st) if st not in (None, "none") else "none"
-        acq["B6b"], gates = checks.b6b(acqp, n2c, skey)
+        acq["B6b"], gates, reduced = checks.b6b(acqp, n2c, skey)
         gated = acq["B6b"]["gated"]
         rec["checks"] = acq
         bad = checks.unusable(acq)
@@ -177,18 +189,16 @@ class Oracle:
                                                   n2c, cls)
         b6p = acqp["B6_noise"]
         for k, mr in rec["models"].items():
-            sd = mr.get("implied_sd")
-            mr["B6"] = {"status": "assessed" if sd is not None else "not assessed: no noise gain for this model and transfer",
-                        "outcome": None if sd is None else ("Check" if sd > b6p["check_if_implied_sd_above"] else "ok")}
+            mr["B6"] = b6_noise(mr.get("value"), mr.get("implied_sd"), b6p)
         # evidence and ZooMS
         ev = checks.evidence(wl, E, evp, bands, sd_E)
         zo = checks.zooms(wl, E, P.cp("zooms_patterns"), bands, sd_E)
         rec["evidence"] = ev; rec["zooms_pattern"] = zo
         # signs and C1
-        sg = checks.signs(wl, R_std, P.cp("signs"), P.cp("heat"), gates)
+        sg = checks.signs(wl, R_std, P.cp("signs"), P.cp("heat"), gates, reduced)
         spec = any(sg[n].get("fired") for n in P.cp("c1")["runs_only_if_not_fired"])
         c1r = checks.c1(wl, E, P.cp("c1"), gates.get("C1"), spec, bool(lw["tail_unreliable_c1"]),
-                        lwp["when_unreliable"]["c1"])
+                        lwp["when_unreliable"]["c1"], reduced.get("C1"))
         sg["soft"] = checks.soft_tier(P.cp("signs"), P.cp("c1"), cls, n2c, sg, c1r)
         rec["signs"] = sg; rec["C1"] = c1r
         # ---- Step 9: verdicts
