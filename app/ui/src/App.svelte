@@ -15,6 +15,7 @@
   import { isUnscored, orderScans, promisingRanks, type SortMode } from './lib/sort';
   import { timeLong } from './lib/display';
   import { LatestOnly, chartIdentity, chartKey, shownViews, type HeldViews } from './lib/views';
+  import { clampListWidth, columnDefaults, listWidthBounds, parseListWidth } from './lib/layout';
   import type {
     Analysis,
     AppInfo,
@@ -49,6 +50,24 @@
     }
   }
 
+  // the scans list's width, when the viewer has widened it (null: the window's default)
+  const LIST_KEY = 'spyder.listWidth';
+  function loadListWidth(): number | null {
+    try {
+      return parseListWidth(localStorage.getItem(LIST_KEY));
+    } catch {
+      return null;
+    }
+  }
+  function saveListWidth(w: number | null) {
+    try {
+      if (w == null) localStorage.removeItem(LIST_KEY);
+      else localStorage.setItem(LIST_KEY, String(w));
+    } catch {
+      /* not remembered; fine */
+    }
+  }
+
   const CVD_KEY = 'spyder.cvd';
   function loadCvd(): boolean {
     try {
@@ -58,7 +77,7 @@
     }
   }
 
-  // Screenshot / test hooks: #light, #promising, #scan=Spectrum00039, #asmeasured
+  // Screenshot / test hooks: #light, #promising, #scan=Spectrum00039, #asmeasured, #bandsdown
   const hash = typeof location !== 'undefined' ? location.hash.replace('#', '').split('&') : [];
   const has = (k: string) => hash.includes(k);
   const hashScan = hash.find((h) => h.startsWith('scan='))?.slice(5);
@@ -76,7 +95,7 @@
   let organicOnly = $state(false);
   let mode = $state<Mode>('D2');
   let smoothing = $state(31);
-  let bandsDown = $state(loadBandsDown());
+  let bandsDown = $state(has('bandsdown') || loadBandsDown());
   let lens = $state<'ohc' | 'raw'>(has('asmeasured') ? 'raw' : 'ohc');
   /** High-res main plot: transferred (what the models read) or as measured. */
   let stream = $state<'std' | 'meas'>('std');
@@ -88,6 +107,19 @@
   let refs31 = $state<ReferenceSpectrum[]>([]);
   let message = $state('');
   let highlight = $state(-1);
+  let listWidth = $state<number | null>(loadListWidth());
+  let viewport = $state(typeof window !== 'undefined' ? window.innerWidth : 1440);
+  /** The list's width as drawn: the viewer's choice kept within this window's bounds, else the window's default. */
+  const listShown = $derived(listWidth == null ? columnDefaults(viewport).list : clampListWidth(listWidth, viewport));
+  const listBounds = $derived(listWidthBounds(viewport));
+  function setListWidth(w: number) {
+    listWidth = clampListWidth(w, viewport);
+    saveListWidth(listWidth);
+  }
+  function resetListWidth() {
+    listWidth = null;
+    saveListWidth(null);
+  }
   let info = $state<AppInfo | null>(null);
   let ipc = $state<IpcSelfTest | null>(null);
   // live folder watching
@@ -476,7 +508,7 @@
   });
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={onKey} bind:innerWidth={viewport} />
 
 <div class="app">
   <Toolbar version={info?.version ?? null} {session} {theme} {cvd} {watch} onCvd={() => (cvd = !cvd)} onClass={setClass} onOpenFiles={openFiles}
@@ -484,9 +516,10 @@
     onTheme={() => (theme = theme === 'dark' ? 'light' : 'dark')} onExport={exportCsv} exportDisabled={scored === 0}
     onHelp={() => (helpOpen = true)} />
 
-  <div class="body">
+  <div class="body" style={listWidth == null ? undefined : `--list-w: ${listShown}px`}>
     <ScanList scans={ordered} total={scans.length} {selectedId} {newIds} {arrivedId} {sortMode} {organicOnly}
-      onSelect={select} onSort={(m) => (sortMode = m)} onOrganic={() => (organicOnly = !organicOnly)} />
+      onSelect={select} onSort={(m) => (sortMode = m)} onOrganic={() => (organicOnly = !organicOnly)}
+      width={listShown} widthMin={listBounds.min} widthMax={listBounds.max} onWidth={setListWidth} onWidthReset={resetListWidth} />
 
     <main class="main">
       {#if info?.coreError}
@@ -516,7 +549,7 @@
       {:else if selected}
         <section class="card hero" aria-label="Selected scan">
           <VerdictCard scan={selected} isNewest={selected.scanId === newestId} />
-          <BandCloseUps scan={selected} {views} refs={refs31} {themeKey} {highlight} {bandsDown} />
+          <BandCloseUps scan={selected} {views} refs={refs31} {themeKey} {highlight} onHighlight={(k) => (highlight = k)} {bandsDown} />
         </section>
         <SpectraCard scan={selected} {views} {refs} {refsOn} {mode} {smoothing} {lens} {bandsDown} onBandsDown={(d) => (bandsDown = d)} {stream} ohWindows={display?.ohWindows ?? []}
           {themeKey} {highlight} onMode={(m) => (mode = m)} onSmoothing={(w) => (smoothing = w)} onLens={(l) => (lens = l)}
@@ -535,8 +568,7 @@
     </main>
 
     {#if selected && !isUnscored(selected)}
-      <DetailsPanel scan={selected} rank={sortMode === 'promising' ? (ranks.get(selected.scanId) ?? null) : null} total={scans.length}
-        views={views} refs={refs31} {bandsDown} onHighlight={(k) => (highlight = k)} />
+      <DetailsPanel scan={selected} rank={sortMode === 'promising' ? (ranks.get(selected.scanId) ?? null) : null} total={scans.length} />
     {/if}
   </div>
 
@@ -623,9 +655,10 @@
     background: var(--chart);
     z-index: 50;
   }
+  /* --list-w: set when the viewer widens the scans list (lib/layout.ts keeps it within bounds) */
   .body {
     display: grid;
-    grid-template-columns: 272px minmax(0, 1fr) 344px;
+    grid-template-columns: var(--list-w, 272px) minmax(0, 1fr) 344px;
     min-height: 0;
   }
   .main {
@@ -636,10 +669,74 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    container: maincol / inline-size;
   }
+  /* The hero card: the verdict and the collagen bands (BandCloseUps: summary, close-ups, legend). Peak distinctness first
+     (Matt, 2026-10-18): the close-ups keep about v0.3's horizontal scale and take the height. Beside the verdict when the
+     main column has room for them (a 1280 px window), as v0.3's close-ups were; else they go under it, centred. */
   .hero {
     display: grid;
-    grid-template-columns: minmax(340px, 1.2fr) minmax(0, 1.2fr);
+    grid-template-columns: minmax(290px, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      'verdict sum'
+      'verdict foot'
+      'plots plots';
+  }
+  .hero > :global(.verdict) {
+    grid-area: verdict;
+    border-radius: var(--r-lg) 0 0 0;
+  }
+  .hero > :global(.bandrow) {
+    justify-content: center;
+  }
+  .hero > :global(.bandfoot) {
+    align-self: end;
+  }
+  /* beside the verdict from a 560 px main column (the 1100 px window): from 720 px (1280 px) with a label line, below that
+     as narrow as v0.3's close-ups with two label lines; under the verdict only when the viewer has widened the scans list
+     on a small window */
+  @container maincol (min-width: 560px) {
+    .hero {
+      grid-template-columns: minmax(290px, 1fr) minmax(0, 1fr);
+      grid-template-areas:
+        'verdict sum'
+        'verdict plots'
+        'verdict foot';
+    }
+    .hero > :global(.verdict) {
+      border-radius: var(--r-lg) 0 0 var(--r-lg);
+    }
+    .hero > :global(.bandrow) {
+      justify-content: flex-start;
+    }
+    .hero > :global(.bandfoot) {
+      align-self: start;
+    }
+  }
+  @container maincol (min-width: 560px) and (max-width: 719.98px) {
+    .hero :global(.bandrow) {
+      gap: 4px;
+      padding: 4px 4px 2px;
+    }
+    .hero :global(.bandrow .cu) {
+      min-width: var(--minw-narrow);
+      padding: 4px 2px 2px;
+    }
+    .hero :global(.bandrow .cut .long) {
+      display: none;
+    }
+    .hero :global(.bandrow .cut .short) {
+      display: inline;
+    }
+    .hero :global(.bandrow .brk) {
+      width: 8px;
+    }
+  }
+  @container maincol (min-width: 720px) {
+    .hero {
+      grid-template-columns: minmax(300px, 1fr) minmax(min-content, 470px);
+    }
   }
   .empty {
     padding: 40px;
@@ -698,20 +795,17 @@
   }
   @media (max-width: 1366px) {
     .body {
-      grid-template-columns: 236px minmax(0, 1fr) 312px;
+      grid-template-columns: var(--list-w, 236px) minmax(0, 1fr) 312px;
     }
   }
   /* 150% Windows scaling on a 1920×1080 screen is a 1280×720 CSS viewport */
   @media (max-width: 1300px) {
     .body {
-      grid-template-columns: 216px minmax(0, 1fr) 290px;
+      grid-template-columns: var(--list-w, 216px) minmax(0, 1fr) 290px;
     }
     .main {
       padding: 10px 10px;
       gap: 8px;
-    }
-    .hero {
-      grid-template-columns: minmax(300px, 1.1fr) minmax(0, 1fr);
     }
   }
 </style>

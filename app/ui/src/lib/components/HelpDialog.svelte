@@ -3,6 +3,7 @@
   // The guide is the repository's USER_GUIDE.md, bundled at build time, so the app and the file never disagree.
   import guide from '../../../../../USER_GUIDE.md?raw';
   import { renderMarkdown } from '../markdown';
+  import { keepRanges } from '../display';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -12,7 +13,7 @@
   }
   let { open, version, onClose }: Props = $props();
 
-  const html = renderMarkdown(guide.replace(/^﻿?# [^\r\n]*(\r?\n)+/, '')); // the dialog's own header names it
+  const html = keepRanges(renderMarkdown(guide.replace(/^﻿?# [^\r\n]*(\r?\n)+/, ''))); // the dialog's own header names it
   let dlg: HTMLDialogElement | undefined = $state();
 
   $effect(() => {

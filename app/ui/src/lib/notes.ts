@@ -4,7 +4,9 @@
 // Then one supporting note: above bone range > possible thin coating > C–H above N–H > readers disagree strongly >
 // contaminants not checked > models disagree > positive signs > bands too noisy. Last, the faint protein sign for ZooMS, only if a slot is
 // still free. Everything else goes in the details. Flags (contaminant / heat signs) are not notes: they
-// have their own prominent chip and never count toward the two.
+// have their own prominent chip and never count toward the two. Nor do the strong warnings (C–H "likely", readers disagree
+// strongly; DECISIONS 130, 134): a fired one is always on the card in its own place, never takes the supporting slot, and
+// the quieter note keeps that slot.
 
 import type { Note, NoteKey } from './types';
 
@@ -26,25 +28,34 @@ export const SUPPORTING_NOTES: NoteKey[] = [
   'ch_above_nh_possible',
   'readers_disagree_strongly',
   'contaminants_not_checked',
-  'models_disagree',
+  // models_disagree is details-only (DECISIONS 136): it never takes a slot under the verdict
   'positive_signs_all_six',
   'positive_signs_clear',
   'bands_too_noisy',
 ];
 
 export interface PickedNotes {
-  /** Up to two, shown under the verdict. */
+  /** Up to two, shown under the verdict. Never a strong warning. */
   headline: Note[];
-  /** The rest, shown in the details column. */
+  /** Every strong warning that fired (C–H "likely" first, then readers disagree strongly): always on the verdict card. */
+  warnings: Note[];
+  /** The rest, shown in the details column (never a note the card shows). */
   details: Note[];
 }
 
-/** Picks the (at most two) headline notes. With `shown` (the core's choice, desktop app) those keys are used, in
- *  that order; without it (browser mock) the same precedence is applied here. */
+/** Picks the (at most two) headline notes and the strong warnings. With `shown` (the core's choice, desktop app) those keys
+ *  are used, in that order; without it (browser mock) the same precedence is applied here. The warnings come from `notes`
+ *  either way, so a fired warning reaches the card whether or not the core listed it in `shown` (older records, and cores
+ *  before DECISIONS 134, let a quieter note take its place). */
 export function pickNotes(notes: Note[], shown?: NoteKey[]): PickedNotes {
+  const warnings = strongWarnings(notes);
+  const rest = (headline: Note[]) => notes.filter((n) => !headline.includes(n) && !warnings.includes(n));
   if (shown) {
-    const headline = shown.map((k) => notes.find((n) => n.key === k)).filter((n): n is Note => n !== undefined);
-    return { headline, details: notes.filter((n) => !headline.includes(n)) };
+    const headline = shown
+      .filter((k) => !isStrongPanel(k))
+      .map((k) => notes.find((n) => n.key === k))
+      .filter((n): n is Note => n !== undefined);
+    return { headline, warnings, details: rest(headline) };
   }
   const first = (order: NoteKey[]) => {
     for (const k of order) {
@@ -53,17 +64,17 @@ export function pickNotes(notes: Note[], shown?: NoteKey[]): PickedNotes {
     }
     return null;
   };
-  const headline = [first(RULE_NOTES), first(ZOOMS_NOTES), first(SUPPORTING_NOTES)]
+  // the supporting slot skips the warnings (they have their own place), as the core does
+  const headline = [first(RULE_NOTES), first(ZOOMS_NOTES), first(SUPPORTING_NOTES.filter((k) => !isStrongPanel(k)))]
     .filter((n): n is Note => n !== null)
     .slice(0, 2);
   // the faint sign only when a slot is free and no ZooMS line shows (a Ryder line puts it in the details)
   const last = first(LAST_NOTES);
   if (last && headline.length < 2 && !headline.some((n) => ZOOMS_NOTES.includes(n.key))) headline.push(last);
-  const details = notes.filter((n) => !headline.includes(n));
-  return { headline, details };
+  return { headline, warnings, details: rest(headline) };
 }
 
-export type NoteIcon = 'up' | 'down' | 'info' | 'flask' | 'layers' | 'noise' | 'check' | 'zooms';
+export type NoteIcon = 'up' | 'down' | 'info' | 'flask' | 'disagree' | 'noise' | 'check' | 'zooms';
 
 export function noteIcon(k: NoteKey): NoteIcon {
   switch (k) {
@@ -80,7 +91,7 @@ export function noteIcon(k: NoteKey): NoteIcon {
       return 'flask';
     case 'models_disagree':
     case 'readers_disagree_strongly':
-      return 'layers';
+      return 'disagree';
     case 'bands_too_noisy':
     case 'contaminants_not_checked':
     case 'c1_reduced':
@@ -121,8 +132,20 @@ export function zoomsLine<T extends { key: NoteKey }>(notes: T[]): T | undefined
   return notes.find((n) => isZoomsLine(n.key));
 }
 
-/** The strong panel note for the scan list's quiet tag (Matt, 2026-10-18: strong ones only): the C–H note's "likely" level
+/** The two strong panel notes (C–H "likely", readers disagree strongly): warnings, in their own warning colour, on the verdict
+ *  card and in the scans list (Matt, 2026-10-18: "usually a time when there is a real problem"; reverses the quiet treatment
+ *  of DECISIONS 121). The milder levels stay quiet. */
+export const STRONG_PANEL_NOTES: NoteKey[] = ['ch_above_nh_strong', 'readers_disagree_strongly'];
+export const isStrongPanel = (k: NoteKey): boolean => STRONG_PANEL_NOTES.includes(k);
+
+/** The strong panel note for the scan list's mark (Matt, 2026-10-18: strong ones only): the C–H note's "likely" level
  *  first, else readers_disagree_strongly; undefined when neither fired. */
 export function strongPanelNote<T extends { key: NoteKey }>(notes: T[]): T | undefined {
   return notes.find((n) => n.key === 'ch_above_nh_strong') ?? notes.find((n) => n.key === 'readers_disagree_strongly');
+}
+
+/** Every strong warning that fired, in STRONG_PANEL_NOTES order (C–H "likely", then readers disagree strongly), each once.
+ *  Both can fire together; the card shows both (never one dropped silently). */
+export function strongWarnings<T extends { key: NoteKey }>(notes: T[]): T[] {
+  return STRONG_PANEL_NOTES.map((k) => notes.find((n) => n.key === k)).filter((n): n is T => n !== undefined);
 }

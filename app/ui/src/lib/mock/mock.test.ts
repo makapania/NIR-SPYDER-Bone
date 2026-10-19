@@ -38,7 +38,9 @@ describe('mock session covers every state the screen must show', () => {
 
   it('the faint protein sign is the quietest note: it takes a slot only when one is free', () => {
     const r = byN(26);
-    expect(pickNotes(r.notes).headline.map((n) => n.key)).toEqual(['models_disagree', 'zooms_faint_protein']);
+    // models disagree is details-only (DECISIONS 136), so the faint sign has a free slot here
+    expect(pickNotes(r.notes).headline.map((n) => n.key)).toEqual(['zooms_faint_protein']);
+    expect(pickNotes(r.notes).details.map((n) => n.key)).toContain('models_disagree');
     expect(byN(34).notes.map((n) => n.key)).toContain('zooms_better_protein');
   });
 

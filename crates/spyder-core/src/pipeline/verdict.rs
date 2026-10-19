@@ -8,10 +8,13 @@
 //! burnt) are badges and NEVER change the verdict.
 //! Notes: the rule's note first (+D > flat bands lead > lift > blocked lift), then one supporting note (profile
 //! order: above bone range > possible thin coating > C-H note > readers disagree strongly > contaminants not checked >
-//! models disagree > positive signs > bands too noisy); all in `notes_all`; c1_reduced is details-only.
+//! models disagree > positive signs > bands too noisy); all in `notes_all`; c1_reduced is details-only. The strong
+//! warnings (`notes.warnings`: ch_above_nh_strong, readers_disagree_strongly) never take the supporting slot: when one
+//! fires it is shown after the other notes, outside `max_shown` (DECISIONS 134).
 //! Panel notes (DECISIONS 111, 115, 119; `panel_notes`): ch_above_nh_possible / ch_above_nh_strong (the C-H 1728 nm
 //! reader above CONS3, two levels) and readers_disagree_strongly (any of six reader contrasts far beyond clean bone; when
-//! it fires, models_disagree is not added). Notes only: never the verdict, the lift or the sort. Phase 0c (DECISIONS 72, 76): above_bone_range
+//! it fires, models_disagree is not added). A panel note listed in `positive_signs.suppressed_by_notes` suppresses the
+//! positive-signs line: no encouraging line against conflicting evidence (DECISIONS 128). Notes only: never the verdict, the lift or the sort. Phase 0c (DECISIONS 72, 76): above_bone_range
 //! (m above the profile's line, every analysis), possible_thin_coating (the soft tier, signs.soft; it suppresses
 //! the positive-signs line), contaminants_not_checked with params skipped / checked.
 //! Models disagree (DECISIONS 65): the three CONS3 components fall in different verdict bands (straddle a cut)
@@ -194,17 +197,20 @@ fn panel_notes(
         }
     };
     let b = bin(&r.bin_edges);
+    // the line a contrast must pass: the clean-bone line of m's bin, and at least min_gap points (DECISIONS 133)
+    let line = |med: &[f64], q98: &[f64]| (med[b] + r.level * (q98[b] - med[b])).max(r.min_gap);
     let listed: Vec<V> = r
         .contrasts
         .iter()
         .filter_map(|(name, med, q98)| {
             gap(name).map(|g| {
+                let l = line(med, q98);
                 V::Map(
                     Obj::new()
                         .with("name", name.as_str())
                         .with("value", g)
-                        .with("fires_above", med[b] + r.level * (q98[b] - med[b]))
-                        .with("fraction", (g - med[b]) / (q98[b] - med[b]) / r.level),
+                        .with("fires_above", l)
+                        .with("fraction", (g - med[b]) / (l - med[b])),
                 )
             })
         })
@@ -215,7 +221,7 @@ fn panel_notes(
         .iter()
         .filter(|(name, _, _)| !(name == "CH" && ch_fired))
         .filter(|(name, med, q98)| {
-            gap(name).is_some_and(|g| (g - med[b]) / (q98[b] - med[b]) > r.level)
+            gap(name).is_some_and(|g| (g - med[b]) / (q98[b] - med[b]) > r.level && g > r.min_gap)
         })
         .map(|(name, _, _)| name.clone())
         .collect();
@@ -388,11 +394,12 @@ fn shown_notes(keys: &[String], p: &RuleL2, lifted: bool) -> Vec<String> {
             break;
         }
     }
+    let warning = |k: &str| nt.warnings.iter().any(|w| w == k);
     for pr in &nt.precedence_supporting {
         if lifted && pr == "positive_signs" && nt.positive_signs_hidden_after_lift {
             continue;
         }
-        if let Some(k) = keys.iter().find(|k| base_key(k) == pr) {
+        if let Some(k) = keys.iter().find(|k| base_key(k) == pr && !warning(k)) {
             shown.push(k.clone());
             break;
         }
@@ -410,6 +417,12 @@ fn shown_notes(keys: &[String], p: &RuleL2, lifted: bool) -> Vec<String> {
         }
     }
     shown.truncate(nt.max_shown);
+    // the strong warnings: always shown when they fire, outside the slots and max_shown (DECISIONS 134)
+    for w in &nt.warnings {
+        if let Some(k) = keys.iter().find(|k| *k == w) {
+            shown.push(k.clone());
+        }
+    }
     shown
 }
 
@@ -664,7 +677,11 @@ pub fn collagen_verdict(
                 .with("components", c),
         );
     }
-    if promising && contam.is_empty() && !unchecked && !soft_fired {
+    // no encouraging line when a panel note says the evidence conflicts (DECISIONS 128)
+    let panel_suppresses = notes_fired
+        .iter()
+        .any(|n| nt.positive_signs_suppressed_by_notes.iter().any(|s| s == n));
+    if promising && contam.is_empty() && !unchecked && !soft_fired && !panel_suppresses {
         if x.zooms_verdict == nt.positive_signs_all_six_zooms_verdict {
             notes.push(Obj::new().with("key", "positive_signs_all_six"));
         } else if nt.positive_signs_clear_levels.iter().any(|l| l == x.level)

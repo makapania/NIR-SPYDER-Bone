@@ -1,15 +1,16 @@
 <script lang="ts">
-  // Flat scan list (no grouping, no data entry). Each row: verdict glyph, reading per the display
-  // policy, evidence strip, file name, time, the FLAG mark when a contaminant or heat sign fired, and a
-  // small "ZooMS" mark when the scan has a ZooMS line (DECISIONS 80 amended). Rank badges only in
-  // "most promising first".
-  import EvidenceGlyph from './EvidenceGlyph.svelte';
+  // Flat scan list (no grouping, no data entry). Each row: verdict glyph (with the rank under it in "most promising
+  // first"), the reading per the display policy, then compact marks, each a symbol with the full text in its tooltip and
+  // accessible name (Matt, 2026-10-18: never cut-off words): the FLAG pennant when a contaminant or heat sign fired, the
+  // ZooMS mark (DECISIONS 80 amended), the strong panel note, NEW, and the band summary; then the file name (often a
+  // scan's only identity, so it gets the whole second line) and time. The list can be widened by its right edge.
+  import BandSummary from './BandSummary.svelte';
   import FlagMark from './FlagMark.svelte';
   import VerdictGlyph from './VerdictGlyph.svelte';
   import Icon from './Icon.svelte';
-  import { formatReading, shortName, timeOf } from '../display';
+  import { formatReading, shortName, splitName, timeOf } from '../display';
   import { strongPanelNote, zoomsLine } from '../notes';
-  import { flagLabel, noteText } from '../strings';
+  import { flagLabel, flagText, noteText } from '../strings';
   import { isUnscored, type SortMode } from '../sort';
   import type { ScanResult } from '../types';
 
@@ -25,8 +26,30 @@
     onSelect: (id: string) => void;
     onSort: (m: SortMode) => void;
     onOrganic: () => void;
+    /** The list's width as shown and its bounds (the drag handle on its right edge). */
+    width: number;
+    widthMin: number;
+    widthMax: number;
+    onWidth: (w: number) => void;
+    onWidthReset: () => void;
   }
-  let { scans, total, selectedId, newIds, arrivedId, sortMode, organicOnly, onSelect, onSort, onOrganic }: Props = $props();
+  let {
+    scans,
+    total,
+    selectedId,
+    newIds,
+    arrivedId,
+    sortMode,
+    organicOnly,
+    onSelect,
+    onSort,
+    onOrganic,
+    width,
+    widthMin,
+    widthMax,
+    onWidth,
+    onWidthReset,
+  }: Props = $props();
 
   let listEl: HTMLDivElement;
 
@@ -40,13 +63,41 @@
     return formatReading(s.models.cons3?.value, true);
   }
   const fired = (s: ScanResult) => s.signs.filter((x) => x.fired);
-  const ROW_FLAG: Record<string, string> = { wax: 'lipid', ester: 'consolidant', plaster: 'plaster', c1: 'organic', burnt: 'heat' };
+  /** Every fired sign in full, for the pennant's tooltip and accessible name. */
+  const flagsText = (s: ScanResult) =>
+    fired(s)
+      .map((f) => `${flagLabel(f.id)}: ${flagText(f.id, f.heatKind)}`)
+      .join(' ');
   const lifted = (s: ScanResult) => s.verdictRule === 'lift_good' || s.verdictRule === 'lift_borderline';
 
   $effect(() => {
     void selectedId;
     listEl?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
   });
+
+  // the width handle: pointer drag, arrow keys (Shift: bigger steps), Home/End, Enter or a double-click resets
+  let drag: { x: number; w: number } | null = null;
+  function grab(e: PointerEvent) {
+    drag = { x: e.clientX, w: width };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+  function move(e: PointerEvent) {
+    if (drag) onWidth(drag.w + e.clientX - drag.x);
+  }
+  function release() {
+    drag = null;
+  }
+  function handleKey(e: KeyboardEvent) {
+    const step = e.shiftKey ? 48 : 16;
+    if (e.key === 'ArrowRight') onWidth(width + step);
+    else if (e.key === 'ArrowLeft') onWidth(width - step);
+    else if (e.key === 'Home') onWidth(widthMin);
+    else if (e.key === 'End') onWidth(widthMax);
+    else if (e.key === 'Enter') onWidthReset();
+    else return;
+    e.preventDefault();
+  }
 </script>
 
 <aside class="scans" aria-label="Scans">
@@ -62,45 +113,45 @@
   <div class="group eyebrow">{sortMode === 'promising' ? 'Most promising first' : 'Newest first'}{organicOnly ? ' · any organic signal' : ''}</div>
   <div class="list" bind:this={listEl}>
     {#each scans as s, i (s.scanId)}
+      {@const nm = splitName(shortName(s.file))}
       <button class="srow" class:arrived={s.scanId === arrivedId} aria-current={s.scanId === selectedId}
         onclick={() => onSelect(s.scanId)} data-scan={s.file}>
         <span class="gl">{#if isUnscored(s)}<span class="unscored" title={s.scanKind === 'reference'
               ? 'Reference scan (not scored)'
               : s.scanKind === 'unscored'
                 ? 'Not scored: no verdict model is available'
-                : 'Not a readable ASD scan (not scored)'}><Icon name="file" size={16} color="var(--ink-3)" /></span>{:else}<VerdictGlyph verdict={s.verdict} size={18} />{/if}</span>
+                : 'Not a readable ASD scan (not scored)'}><Icon name="file" size={16} color="var(--ink-3)" /></span>{:else}<VerdictGlyph verdict={s.verdict} size={18} />{/if}{#if sortMode === 'promising'}<span
+              class="rank" title="{i + 1} in the most-promising order">{i + 1}</span>{/if}</span>
         <span class="v">
-          {#if sortMode === 'promising'}<span class="rank">{i + 1}</span>{/if}
           <span class="val">{rowValue(s)}</span>
-          {#each fired(s) as f (f.id)}
-            <span class="flag" title={flagLabel(f.id)}><FlagMark size={12} /><span class="ft">{ROW_FLAG[f.id]}</span></span>
-          {/each}
-          {#if !isUnscored(s)}
-            {@const zl = zoomsLine(s.notes)}
-            {#if zl}<span class="zmark" data-zooms={zl.key} title={noteText(zl)}><Icon name="zooms" size={11} color="var(--accent)" /><span class="zt">ZooMS</span></span>{/if}
-            {@const pn = strongPanelNote(s.notes)}
-            {#if pn}<span class="pmark" data-panel={pn.key} title={noteText(pn)}><Icon name={pn.key === 'ch_above_nh_strong' ? 'flask' : 'layers'} size={11} color="var(--ink-2)" /><span class="pt">{pn.key === 'ch_above_nh_strong' ? 'C–H' : 'Readers'}</span></span>{/if}
-          {/if}
-          {#if newIds.has(s.scanId)}
-            {#if (s.fileRevision ?? 1) > 1}
-              <span class="newtag" title="The file changed on disk; this is revision {s.fileRevision}">Changed</span>
-            {:else}
-              <span class="newtag">New</span>
+          <!-- the marks, in the order they give way when the row is narrow: the band summary first, then NEW, ZooMS, and last
+               the strong-note warning and the flag; a mark that does not fit is left out whole, never cut -->
+          <span class="marks">
+            {#if fired(s).length}
+              {@const ft = flagsText(s)}
+              <span class="mk flag" role="img" aria-label={ft} title={ft}><FlagMark size={12} />{#if fired(s).length > 1}<b>{fired(s).length}</b>{/if}</span>
             {/if}
-          {/if}
+            {#if !isUnscored(s)}
+              {@const pn = strongPanelNote(s.notes)}
+              {#if pn}<span class="mk pmark" role="img" data-panel={pn.key} aria-label={noteText(pn, s)} title={noteText(pn, s)}><Icon
+                    name={pn.key === 'ch_above_nh_strong' ? 'flask' : 'disagree'} size={12} color="var(--warn-on)" /></span>{/if}
+              {@const zl = zoomsLine(s.notes)}
+              {#if zl}<span class="mk zmark" role="img" data-zooms={zl.key} aria-label="ZooMS: {noteText(zl)}" title={noteText(zl)}><Icon name="zooms" size={12} color="var(--accent)" /></span>{/if}
+            {/if}
+            {#if newIds.has(s.scanId)}
+              {#if (s.fileRevision ?? 1) > 1}
+                <span class="newtag" title="The file changed on disk; this is revision {s.fileRevision}">Rev {s.fileRevision}</span>
+              {:else}
+                <span class="newtag" title="New since you last looked">New</span>
+              {/if}
+            {/if}
+            {#if !isUnscored(s)}<span class="sum"><BandSummary evidence={s.evidence} /></span>{/if}
+          </span>
         </span>
         <span class="f">
-          <span class="mono name">{shortName(s.file)}</span>
+          <span class="mono name" title={s.file}><span class="nh">{nm.head}</span>{#if nm.tail}<span class="nt">{nm.tail}</span>{/if}</span>
           {#if lifted(s)}<span title="Raised by the collagen bands" class="lift"><Icon name="up" size={12} color="var(--accent)" /></span>{/if}
           <span class="spacer"></span>
-          <span class="strip">
-            {#if s.evidence.bands.length}
-              {#each s.evidence.bands as b, k (b.id)}
-                {#if k === 2 || k === 4 || k === 6}<i></i>{/if}
-                <EvidenceGlyph state={b.state} size={8} />
-              {/each}
-            {/if}
-          </span>
           <span class="time">{timeOf(s.acquiredAt)}</span>
         </span>
       </button>
@@ -108,10 +159,14 @@
     {#if !scans.length}<p class="empty muted">No scans match.</p>{/if}
   </div>
   <div class="kbdhint"><kbd>↑</kbd> <kbd>↓</kbd> flip through scans</div>
+  <div class="grip" role="slider" aria-orientation="horizontal" aria-label="Scans list width" aria-valuetext="{width} pixels" aria-valuenow={width} aria-valuemin={widthMin}
+    aria-valuemax={widthMax} tabindex="0" title="Drag to widen the list (double-click: back to the default width)"
+    onpointerdown={grab} onpointermove={move} onpointerup={release} onpointercancel={release} ondblclick={onWidthReset} onkeydown={handleKey}></div>
 </aside>
 
 <style>
   .scans {
+    position: relative;
     border-right: 1px solid var(--line);
     display: flex;
     flex-direction: column;
@@ -151,9 +206,9 @@
   .srow {
     display: grid;
     grid-template-columns: 20px minmax(0, 1fr);
-    gap: 1px 10px;
+    gap: 1px 8px;
     align-items: center;
-    padding: 7px 10px;
+    padding: 7px 8px 7px 9px;
     border-radius: 9px;
     cursor: pointer;
     border: 0;
@@ -183,36 +238,61 @@
   .gl {
     grid-row: 1 / 3;
     line-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  .gl .rank {
+    min-width: 20px;
+    height: 15px;
+    padding: 0 2px;
+    font-size: 10px;
+    line-height: 15px;
   }
   .v {
     font-weight: 650;
     font-size: 14.5px;
     display: flex;
-    gap: 6px;
+    gap: 5px;
     align-items: center;
     min-width: 0;
     white-space: nowrap;
   }
-  /* The reading wins: it keeps at least ~"≈ 1.5%"; flag chips shrink to their mark first (full label in the
-     tooltip and the verdict panel). */
+  /* the reading is never cut or squeezed: the marks give way instead */
   .val {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 0 1 auto;
-    min-width: 3.6em;
-  }
-  .newtag,
-  .rank {
     flex: none;
   }
-  .newtag {
+  /* One line of marks; a mark that does not fit wraps onto a hidden second line, so it is left out whole (the verdict card
+     still shows it). The DOM order is the order they give way: the band summary first, the flag last. */
+  .marks {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 18px;
+    overflow: hidden;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    align-items: center;
+    gap: 0 4px;
+  }
+  .marks > * {
+    flex: none;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+  }
+  /* the band summary keeps its own column at the row's right end, over the time */
+  .sum {
     margin-left: auto;
+    padding-left: 2px;
   }
   .unscored {
     display: inline-block;
     line-height: 0;
   }
-  .newtag {
+  .marks > .newtag {
+    height: 16px;
     font-size: 9.5px;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -221,16 +301,6 @@
     background: var(--accent-soft);
     padding: 0 6px;
     border-radius: 999px;
-  }
-  .strip {
-    flex: none;
-    margin-right: 6px;
-    display: inline-flex;
-    gap: 2px;
-    align-items: center;
-  }
-  .strip i {
-    width: 3px;
   }
   .f {
     grid-column: 2;
@@ -241,74 +311,61 @@
     align-items: center;
     min-width: 0;
   }
-  .ft {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  /* a long name loses its middle, never its end (the counter, spot or repeat that tells scans apart) */
   .name {
     flex: 0 1 auto;
+    display: inline-flex;
     min-width: 10ch;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .flag {
+  .nh {
     flex: 0 1 auto;
-    min-width: 22px;
+    min-width: 3ch;
     overflow: hidden;
-    white-space: nowrap;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 0 6px 0 4px;
-    border-radius: 999px;
-    background: var(--flag-tint);
-    color: var(--flag-ink);
-    box-shadow: inset 0 0 0 1px var(--flag-edge);
-    font-weight: 650;
-    font-size: 10.5px;
-    line-height: 16px;
+    text-overflow: ellipsis;
+  }
+  .nt {
+    flex: none;
+  }
+  /* the whole name: the tooltip on hover, wrapped in place while the row has keyboard focus */
+  .srow:focus-visible .name {
+    display: block;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .lift {
     display: inline-flex;
   }
-  /* the ZooMS line, in the list: small, accent-coloured, never a verdict colour; shrinks to its mark first */
-  .zmark {
-    flex: 0 1 auto;
-    min-width: 19px;
-    overflow: hidden;
-    white-space: nowrap;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 0 6px 0 4px;
+  /* a mark: a fixed symbol in a small pill; the full text is its tooltip and accessible name */
+  .marks > .mk {
+    height: 16px;
+    min-width: 20px;
+    justify-content: center;
+    gap: 2px;
+    padding: 0 4px;
     border-radius: 999px;
-    color: var(--accent);
-    background: var(--accent-soft);
-    font-weight: 650;
-    font-size: 10.5px;
-    line-height: 16px;
   }
-  /* a strong panel note (C–H "likely", readers disagree strongly), in the list: quiet and neutral, never a verdict or flag
-     colour; shrinks to its mark first */
-  /* the least important item in the row: it shrinks first and can vanish when a narrow row has no room (the verdict card
-     still shows the note) */
-  .pmark {
-    flex: 0 4 auto;
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 0 6px 0 4px;
-    border-radius: 999px;
-    color: var(--ink-2);
-    background: var(--panel-2);
-    box-shadow: inset 0 0 0 1px var(--line);
-    font-weight: 650;
-    font-size: 10.5px;
-    line-height: 16px;
+  /* the flag: the pennant in the flag colour (DECISIONS 53, 54), with a count when more than one sign fired */
+  .mk.flag {
+    background: var(--flag-tint);
+    box-shadow: inset 0 0 0 1px var(--flag-edge);
+    color: var(--flag-ink);
+  }
+  .mk.flag b {
+    font-size: 10px;
+    font-weight: 750;
+    line-height: 1;
+  }
+  /* the ZooMS line: the peptide-peaks mark in the accent, never a verdict colour */
+  .mk.zmark {
+    background: var(--accent-soft);
+  }
+  /* a strong panel note (C–H "likely": a flask; readers disagree strongly: not equal): a warning, solid in the warning colour
+     with a square-cornered pill (the flag's is round, with the pennant) */
+  .marks > .mk.pmark {
+    background: var(--warn);
+    border-radius: 4px;
   }
   .time {
     flex: none;
@@ -316,28 +373,40 @@
   .empty {
     padding: 12px;
   }
-  /* narrow windows: the file name (often a scan's only identity) wins over the mini strip, and the
-     sort labels drop "first" so both fit */
+  /* narrow windows: the sort labels drop "first" so both fit */
   @media (max-width: 1300px) {
-    .strip {
-      display: none;
-    }
-    /* flags become the mark alone (label in the tooltip and the verdict panel) so the reading stays whole */
-    .ft,
-    .zt,
-    .pt {
-      display: none;
-    }
-    .zmark,
-    .pmark {
-      padding: 0 4px;
-    }
-    .flag {
-      padding: 0 4px;
-    }
     .opt {
       display: none;
     }
+  }
+  /* the width handle: a thin strip on the right edge, a line when hovered, dragged or focused */
+  .grip {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    bottom: 0;
+    width: 8px;
+    cursor: col-resize;
+    z-index: 3;
+    touch-action: none;
+  }
+  .grip::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 3px;
+    width: 2px;
+    background: transparent;
+    transition: background 0.15s;
+  }
+  .grip:hover::after,
+  .grip:active::after,
+  .grip:focus-visible::after {
+    background: var(--accent);
+  }
+  .grip:focus-visible {
+    outline: none;
   }
   .kbdhint {
     padding: 8px 16px 10px;

@@ -6,7 +6,8 @@
     down: 'M8 3v10M4 9l4 4 4-4',
     info: 'M8 1.8a6.2 6.2 0 1 0 0 12.4A6.2 6.2 0 0 0 8 1.8zM8 7.2v4M8 4.9v.1',
     flask: 'M6 2h4M6.5 2v4L3 13a1 1 0 0 0 .9 1.4h8.2A1 1 0 0 0 13 13L9.5 6V2M4.6 10.5h6.8',
-    layers: 'M8 2 2 5l6 3 6-3-6-3zM2 8l6 3 6-3M2 11l6 3 6-3',
+    // not equal: the collagen estimates disagree (both disagreement notes; Matt, 2026-10-18: an icon that shows disagreement)
+    disagree: 'M3 6.2h10M3 9.8h10M10.8 2.6 5.2 13.4',
     noise: 'M1.5 9.5l1.6-3 1.6 5 1.6-7 1.6 8 1.6-6 1.6 4 1.6-3 1.6 2',
     check: 'M8 1.8a6.2 6.2 0 1 0 0 12.4A6.2 6.2 0 0 0 8 1.8zM5.4 8.2l1.8 1.8 3.4-3.6',
     // peptide peaks (a mass spectrum): the ZooMS line

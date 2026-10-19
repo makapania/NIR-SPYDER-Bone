@@ -449,7 +449,8 @@
    "asserts": {
     "radiocarbon.verdict": "Borderline",
     "radiocarbon.notes_shown.0": "zooms_better_good",
-    "radiocarbon.notes_shown.1": "models_disagree"
+    "radiocarbon.notes_shown.1": "positive_signs_all_six",
+    "radiocarbon.notes_all.1.key": "models_disagree"
    }
   },
   {
@@ -2110,7 +2111,7 @@
    },
    "asserts": {
     "verdict": "Borderline",
-    "notes_shown": "zooms_better_good,models_disagree"
+    "notes_shown": "zooms_better_good,positive_signs_all_six"
    }
   },
   {
@@ -2198,7 +2199,7 @@
    },
    "asserts": {
     "notes_all": "models_disagree",
-    "notes_shown": "models_disagree"
+    "notes_shown": ""
    }
   },
   {
@@ -2303,7 +2304,7 @@
    },
    "asserts": {
     "notes_all": "models_disagree",
-    "notes_shown": "models_disagree"
+    "notes_shown": ""
    }
   },
   {
@@ -2324,7 +2325,7 @@
    },
    "asserts": {
     "notes_all": "models_disagree",
-    "notes_shown": "models_disagree"
+    "notes_shown": ""
    }
   },
   {
@@ -2797,7 +2798,7 @@
    "asserts": {
     "verdict": "Unlikely",
     "rule_step": "model_verdict",
-    "notes_shown": "models_disagree,zooms_faint_protein",
+    "notes_shown": "zooms_faint_protein",
     "notes_all": "zooms_faint_protein,models_disagree"
    }
   },
@@ -3160,7 +3161,7 @@
    "asserts": {
     "verdict": "Unlikely",
     "rule_step": "flat_bands_lead",
-    "notes_shown": "flat_bands_lead,models_disagree",
+    "notes_shown": "flat_bands_lead,zooms_faint_protein",
     "notes_all": "flat_bands_lead,zooms_faint_protein,models_disagree"
    }
   },
@@ -3754,7 +3755,7 @@
    },
    "asserts": {
     "notes_all": "models_disagree",
-    "notes_shown": "models_disagree"
+    "notes_shown": ""
    }
   },
   {
@@ -3806,7 +3807,7 @@
    },
    "asserts": {
     "notes_all": "ch_above_nh_strong,readers_disagree_strongly",
-    "notes_shown": "ch_above_nh_strong"
+    "notes_shown": "ch_above_nh_strong,readers_disagree_strongly"
    }
   },
   {
@@ -3855,7 +3856,7 @@
     }
    },
    "asserts": {
-    "notes_all": "ch_above_nh_possible,positive_signs_all_six",
+    "notes_all": "ch_above_nh_possible",
     "notes_shown": "ch_above_nh_possible"
    }
   },
@@ -3883,6 +3884,197 @@
    "asserts": {
     "notes_all": "zooms_better_good,positive_signs_all_six",
     "notes_shown": "zooms_better_good,positive_signs_all_six"
+   }
+  },
+  {
+   "name": "panel_readers_suppress_positive_signs",
+   "inputs": {
+    "evidence_level": "strong",
+    "zooms_verdict": "Good",
+    "zooms_pattern": "E",
+    "signs_fired": [],
+    "c1_status": "assessed",
+    "gated": false,
+    "m": 3.5,
+    "components": {
+     "wc2045": 3.5,
+     "wc1500": 3.5,
+     "F05": 3.5
+    },
+    "models": {
+     "ch1728": 3.5,
+     "nb1545": 1.5,
+     "ryder2045": 3.5
+    }
+   },
+   "asserts": {
+    "verdict": "Good",
+    "notes_all": "readers_disagree_strongly",
+    "notes_shown": "readers_disagree_strongly"
+   }
+  },
+  {
+   "name": "panel_positive_signs_without_panel_note",
+   "inputs": {
+    "evidence_level": "strong",
+    "zooms_verdict": "Good",
+    "zooms_pattern": "E",
+    "signs_fired": [],
+    "c1_status": "assessed",
+    "gated": false,
+    "m": 3.5,
+    "components": {
+     "wc2045": 3.5,
+     "wc1500": 3.5,
+     "F05": 3.5
+    },
+    "models": {
+     "ch1728": 3.5,
+     "nb1545": 3.5,
+     "ryder2045": 3.5
+    }
+   },
+   "asserts": {
+    "verdict": "Good",
+    "notes_all": "positive_signs_all_six",
+    "notes_shown": "positive_signs_all_six"
+   }
+  },
+  {
+   "name": "panel_ch_possible_suppresses_positive_clear",
+   "inputs": {
+    "evidence_level": "clear",
+    "zooms_verdict": "Borderline",
+    "zooms_pattern": "D",
+    "signs_fired": [],
+    "c1_status": "assessed",
+    "gated": false,
+    "m": 1.5,
+    "components": {
+     "wc2045": 1.5,
+     "wc1500": 1.5,
+     "F05": 1.5
+    },
+    "models": {
+     "ch1728": 4.1,
+     "nb1545": 1.5,
+     "ryder2045": 1.5
+    }
+   },
+   "asserts": {
+    "verdict": "Borderline",
+    "notes_all": "ch_above_nh_possible",
+    "notes_shown": "ch_above_nh_possible"
+   }
+  },
+  {
+   "name": "panel_disagree_tiny_gap_silent",
+   "inputs": {
+    "evidence_level": "trace",
+    "zooms_verdict": "Unlikely",
+    "zooms_pattern": "B",
+    "signs_fired": [],
+    "c1_status": "assessed",
+    "gated": false,
+    "m": 0.45,
+    "components": {
+     "wc2045": 0.75,
+     "wc1500": -0.35,
+     "F05": 0.45
+    },
+    "models": {
+     "ch1728": -0.42,
+     "nb1545": -0.32,
+     "ryder2045": 0.47
+    }
+   },
+   "asserts": {
+    "verdict": "Unlikely",
+    "notes_all": "zooms_better_ryder,models_disagree",
+    "notes_shown": "zooms_better_ryder"
+   }
+  },
+  {
+   "name": "panel_disagree_low_bin_fires_past_min_gap",
+   "inputs": {
+    "evidence_level": "trace",
+    "zooms_verdict": "Unlikely",
+    "zooms_pattern": "B",
+    "signs_fired": [],
+    "c1_status": "assessed",
+    "gated": false,
+    "m": 0.8,
+    "components": {
+     "wc2045": 0.8,
+     "wc1500": 0.8,
+     "F05": 0.8
+    },
+    "models": {
+     "ch1728": 0.8,
+     "nb1545": -0.5,
+     "ryder2045": 0.8
+    }
+   },
+   "asserts": {
+    "notes_all": "readers_disagree_strongly",
+    "notes_shown": "readers_disagree_strongly"
+   }
+  },
+  {
+   "name": "panel_warning_beside_thin_coating",
+   "inputs": {
+    "evidence_level": "strong",
+    "zooms_verdict": "Good",
+    "zooms_pattern": "E",
+    "signs_fired": [],
+    "c1_status": "assessed",
+    "gated": false,
+    "m": 14.07,
+    "components": {
+     "wc2045": 8.55,
+     "wc1500": 14.07,
+     "F05": 16.89
+    },
+    "models": {
+     "ch1728": 20.67,
+     "nb1545": 6.84,
+     "ryder2045": 11.29
+    },
+    "soft_components": [
+     "ester"
+    ]
+   },
+   "asserts": {
+    "verdict": "Good",
+    "notes_all": "possible_thin_coating,ch_above_nh_possible,readers_disagree_strongly",
+    "notes_shown": "possible_thin_coating,readers_disagree_strongly"
+   }
+  },
+  {
+   "name": "panel_warning_beside_ch_possible",
+   "inputs": {
+    "evidence_level": "strong",
+    "zooms_verdict": "Good",
+    "zooms_pattern": "E",
+    "signs_fired": [],
+    "c1_status": "assessed",
+    "gated": false,
+    "m": 14.07,
+    "components": {
+     "wc2045": 8.55,
+     "wc1500": 14.07,
+     "F05": 16.89
+    },
+    "models": {
+     "ch1728": 20.67,
+     "nb1545": 6.84,
+     "ryder2045": 11.29
+    }
+   },
+   "asserts": {
+    "verdict": "Good",
+    "notes_all": "ch_above_nh_possible,readers_disagree_strongly",
+    "notes_shown": "ch_above_nh_possible,readers_disagree_strongly"
    }
   }
  ]

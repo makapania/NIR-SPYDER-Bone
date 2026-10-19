@@ -263,20 +263,20 @@
   },
   {
    "file": "profiles/profile.isotopes.json",
-   "sha256": "b3a6f9aaab8953ba61258e8bfe61eaf91ec133e2dbfd82b5aea310ac2302d1c1",
-   "bytes": 71185,
+   "sha256": "c4d3a4b380062cd48e118e08e8206a5fd4f3ebc413491db051356e15de19e652",
+   "bytes": 77315,
    "format": "spyder-bone/analysis_profile",
    "id": "profile.isotopes",
-   "version": "2.1.0",
+   "version": "2.2.0",
    "status": "active"
   },
   {
    "file": "profiles/profile.radiocarbon.json",
-   "sha256": "1dc2e1a26756b85d88655b830a588cf6c49cdd836f153a6fbe3cfdc4b6815457",
-   "bytes": 71194,
+   "sha256": "41a7dd89aea6c413b164af7a22657b642760fdff2e25d675cf2480998af33fcd",
+   "bytes": 77324,
    "format": "spyder-bone/analysis_profile",
    "id": "profile.radiocarbon",
-   "version": "2.1.0",
+   "version": "2.2.0",
    "status": "active"
   },
   {

@@ -1,28 +1,29 @@
 <script lang="ts">
-  // The verdict: glyph + word, the reading (display policy), FLAG chips (prominent, own colour; they
-  // never change the verdict), the sentence and at most two notes (notes.ts precedence). One verdict for
-  // every analysis; the ZooMS line (DECISIONS 80 amended) is a note with its own accent, after the rule's note. The
-  // protein-band level sits in the "Collagen bands" header beside it (design pass v2: it saves a row
-  // here, and the per-band glyphs already sit on the bands in the close-ups).
-  import FlagMark from './FlagMark.svelte';
-  import Icon from './Icon.svelte';
+  // The verdict: glyph + word, the reading (display policy), then the compact items (CardItems): every fired flag and strong
+  // warning and the card's notes (notes.ts precedence) as short labels with their full text one interaction away, so the card
+  // stays short however many fire (Matt, 2026-10-18) and never pushes the spectrum down. The verdict's sentence and the
+  // low-range explanation are one interaction away too (tooltip on hover and keyboard focus; click or tap opens them in
+  // place); the sentence stays in view on a card with no flag or warning. One verdict for every analysis; flags and notes
+  // never change it.
+  import CardItems from './CardItems.svelte';
   import VerdictGlyph from './VerdictGlyph.svelte';
-  import { formatReading, timeLong } from '../display';
-  import { isFaint, isPositive, isZoomsLine, noteIcon, pickNotes } from '../notes';
-  import { LOWRANGE_EXPLAIN, NOTE_TEXT, NOT_BONE_TEXT, UNUSABLE_TEXT, flagLabel, flagText, noteText } from '../strings';
+  import { cardItems } from '../card';
+  import { formatReading, timeLong, keepRanges } from '../display';
+  import { isPositive } from '../notes';
+  import { LOWRANGE_EXPLAIN, NOTE_TEXT, NOT_BONE_TEXT, UNUSABLE_TEXT } from '../strings';
   import { verdictMeta, verdictSentence } from '../verdict';
   import type { ScanResult } from '../types';
 
   let { scan, isNewest }: { scan: ScanResult; isNewest: boolean } = $props();
 
+  const uid = $props.id();
   const meta = $derived(verdictMeta(scan.verdict));
   const m = $derived(scan.models.cons3?.value ?? null);
   // the low-range estimate (A2): a quiet, uncoloured line under the reading; it never sets the verdict
   const lr = $derived(scan.models.lowrange?.value ?? null);
   const showLr = $derived(lr != null && Number.isFinite(lr) && scan.verdict !== 'rescan' && scan.verdict !== 'not_bone');
-  const picked = $derived(pickNotes(scan.notes, scan.notesShown));
-  const flags = $derived(scan.signs.filter((s) => s.fired));
-  const ruleNote = $derived(picked.headline.some((n) => !isPositive(n.key) && ['plus_d', 'flat_bands', 'lift_good', 'lift_borderline'].includes(n.key)));
+  const items = $derived(cardItems(scan));
+  const ruleNote = $derived(items.notes.some((n) => n.note && !isPositive(n.note) && ['plus_d', 'flat_bands', 'lift_good', 'lift_borderline'].includes(n.note)));
   const sentence = $derived(
     ruleNote || scan.verdict === 'rescan' || scan.verdict === 'not_bone'
       ? ''
@@ -30,6 +31,24 @@
         ? NOTE_TEXT.no_model_reading({})
         : verdictSentence(scan.verdict),
   );
+  /** The sentence in view: on a card with no flag or warning (with one, "looks ample" would read against it; it stays one
+   *  interaction away on the verdict word). */
+  const sentenceShown = $derived(sentence !== '' && items.alerts.length === 0);
+  let openWord = $state(false);
+  let openLr = $state(false);
+  let quiet = $state<'' | 'word' | 'lr'>('');
+  const sig = $derived(scan.scanId);
+  $effect(() => {
+    void sig;
+    openWord = false;
+    openLr = false;
+  });
+  function esc(e: KeyboardEvent, which: 'word' | 'lr') {
+    if (e.key !== 'Escape') return;
+    quiet = which;
+    if (which === 'word') openWord = false;
+    else openLr = false;
+  }
 </script>
 
 <div class="verdict" style="--tint: var(--v-{meta.tone}-tint)">
@@ -41,7 +60,17 @@
   <div class="vrow">
     <span class="glyphbig"><VerdictGlyph verdict={scan.verdict} size={52} /></span>
     <div class="vtext">
-      <div class="vword" class:long={meta.word.length > 16} style="color: var(--v-{meta.tone}-ink)" data-testid="verdict-word">{meta.word}</div>
+      {#if sentence && !sentenceShown}
+        <!-- the sentence, one interaction away when a flag or warning holds the card -->
+        <div class="tipwrap">
+          <button type="button" class="vword asbtn" class:long={meta.word.length > 16} style="color: var(--v-{meta.tone}-ink)" data-testid="verdict-word"
+            aria-expanded={openWord} aria-controls="{uid}-sx" aria-describedby="{uid}-st"
+            onclick={() => ((openWord = !openWord), (quiet = 'word'))} onkeydown={(e) => esc(e, 'word')} onmouseleave={() => (quiet = '')} onblur={() => (quiet = '')}>{meta.word}</button>
+          <span class="tip" class:off={quiet === 'word' || openWord} role="tooltip" id="{uid}-st">{sentence}</span>
+        </div>
+      {:else}
+        <div class="vword" class:long={meta.word.length > 16} style="color: var(--v-{meta.tone}-ink)" data-testid="verdict-word">{meta.word}</div>
+      {/if}
       {#if scan.verdict === 'rescan'}
         <div class="vsub">{UNUSABLE_TEXT[scan.unusableReason ?? 'low_signal']}</div>
         {#if scan.unusableDetail}<div class="vmodel">{scan.unusableDetail}</div>{/if}
@@ -50,31 +79,33 @@
       {:else if scan.verdictRule === 'flat_bands'}
         <div class="vsub">No protein signal at this spot</div>
         <div class="vmodel">Collagen models: {formatReading(m)}</div>
-        {#if showLr}<div class="vmodel lowrange" data-testid="lowrange">Low-range estimate {formatReading(lr, true)}</div><div class="vmodel lrnote" data-testid="lowrange-note">{LOWRANGE_EXPLAIN}</div>{/if}
       {:else}
         <div class="vnum"><b>{formatReading(m)}</b> collagen</div>
-        <div class="vmodel">consensus of three collagen models</div>
-        {#if showLr}<div class="vmodel lowrange" data-testid="lowrange">Low-range estimate {formatReading(lr, true)}</div><div class="vmodel lrnote" data-testid="lowrange-note">{LOWRANGE_EXPLAIN}</div>{/if}
+        <div class="vmodel" title="The median of three collagen models; each is in the right-hand column">consensus of three models</div>
       {/if}
     </div>
   </div>
 
-  {#each flags as f (f.id)}
-    <div class="flagbox" data-testid="flag">
-      <span class="flagchip"><FlagMark size={15} on />{flagLabel(f.id)}</span>
-      <p>{flagText(f.id, f.heatKind)}</p>
+  {#if sentence && !sentenceShown}
+    <div class="vnote" id="{uid}-sx" hidden={!openWord}>{sentence}</div>
+  {/if}
+
+  <!-- under the reading at the card's full width, not indented beside the glyph (DECISIONS 123); one line, the explanation
+       one interaction away -->
+  {#if showLr}
+    <div class="lowrange tipwrap">
+      <button type="button" class="asbtn lrbtn" aria-expanded={openLr} aria-controls="{uid}-lx" aria-describedby="{uid}-lt"
+        onclick={() => ((openLr = !openLr), (quiet = 'lr'))} onkeydown={(e) => esc(e, 'lr')} onmouseleave={() => (quiet = '')} onblur={() => (quiet = '')}>
+        <span data-testid="lowrange">Low-range {formatReading(lr, true)} · not used for the verdict</span><span class="info" aria-hidden="true">i</span>
+      </button>
+      <span class="tip" class:off={quiet === 'lr' || openLr} role="tooltip" id="{uid}-lt">{keepRanges(LOWRANGE_EXPLAIN)}</span>
+      <div class="lrnote" id="{uid}-lx" data-testid="lowrange-note" hidden={!openLr}>{keepRanges(LOWRANGE_EXPLAIN)}</div>
     </div>
-  {/each}
+  {/if}
 
-  {#if sentence}<div class="vnote">{sentence}</div>{/if}
+  {#if sentenceShown}<div class="vnote">{sentence}</div>{/if}
 
-  {#each picked.headline as n (n.key)}
-    <div class="note" class:positive={isPositive(n.key)} class:zooms={isZoomsLine(n.key)} class:faint={isFaint(n.key)} data-note={n.key}>
-      <Icon name={noteIcon(n.key)} size={16} color={isFaint(n.key) ? 'var(--ink-3)' : 'var(--accent)'} />
-      <div>{noteText(n)}</div>
-    </div>
-  {/each}
-
+  <CardItems alerts={items.alerts} notes={items.notes} />
 </div>
 
 <style>
@@ -171,57 +202,102 @@
     font-size: var(--fs-sm);
     color: var(--ink-3);
   }
-  .vmodel.lowrange {
-    margin-top: 2px;
+  .lowrange {
+    font-size: var(--fs-sm);
+    color: var(--ink-3);
+    line-height: 1.4;
   }
-  .vmodel.lrnote {
+  .lrnote {
     font-size: var(--fs-xs);
-    max-width: 44ch;
   }
   .vnote {
     font-size: var(--fs-md);
     color: var(--ink-2);
     max-width: 44ch;
   }
-  /* chip floats at the start of the text, so a flag costs two or three lines, not four */
-  .flagbox {
-    display: flow-root;
-    padding: 9px 12px 9px 13px;
-    border-radius: 10px;
-    background: var(--flag-tint);
-    box-shadow: inset 3px 0 0 var(--flag), inset 0 0 0 1px var(--flag-edge);
-  }
-  .flagchip {
-    float: left;
-    margin: 0 9px 1px 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 3px 12px 3px 9px;
-    border-radius: 999px;
-    background: var(--flag);
-    color: var(--flag-on);
-    font-weight: 700;
-    font-size: var(--fs-md);
-    letter-spacing: 0.01em;
-  }
-  .flagbox p {
+  /* text that opens in place: drawn as plain text, a button for the keyboard, touch and screen readers */
+  .asbtn {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
     margin: 0;
-    font-size: var(--fs-sm);
-    color: var(--ink);
-    line-height: 1.45;
-    padding-top: 2px;
+    text-align: left;
+    cursor: pointer;
   }
-  .note {
-    border-radius: 9px;
-    background: var(--accent-soft);
-    padding: 8px 11px;
+  .asbtn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  button.vword {
+    font-family: var(--font-display);
+    font-size: var(--fs-hero);
+    line-height: 1.05;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    text-decoration: underline dotted 1.5px;
+    text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+    text-underline-offset: 5px;
+  }
+  button.vword.long {
+    font-size: 25px;
+  }
+  .lrbtn {
+    display: inline;
+    color: var(--ink-3);
     font-size: var(--fs-sm);
-    color: var(--ink-2);
-    display: grid;
-    grid-template-columns: 16px 1fr;
-    gap: 9px;
     line-height: 1.4;
+  }
+  .info {
+    display: inline-block;
+    vertical-align: -2px;
+    margin-left: 6px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px currentColor;
+    font: italic 700 9.5px/13px Georgia, serif;
+    text-align: center;
+    opacity: 0.8;
+  }
+  .lrnote {
+    margin-top: 3px;
+    font-size: var(--fs-xs);
+  }
+  .lrnote[hidden],
+  .vnote[hidden] {
+    display: none;
+  }
+  .tipwrap {
+    position: relative;
+  }
+  .tip {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 20;
+    width: max-content;
+    max-width: 250px;
+    padding: 7px 9px;
+    border-radius: 8px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    color: var(--ink-2);
+    font: 400 var(--fs-xs) / 1.45 var(--font-ui);
+    letter-spacing: 0;
+    pointer-events: none;
+    text-wrap: pretty;
+  }
+  .asbtn:hover + .tip,
+  .asbtn:focus-visible + .tip {
+    display: block;
+  }
+  .tip.off {
+    display: none !important;
   }
   /* short windows (150% scaling, 1366×768): tighter type so the chart stays in view */
   @media (max-height: 800px) {
@@ -229,7 +305,8 @@
       padding: 12px 16px 11px;
       gap: 7px;
     }
-    .vword {
+    .vword,
+    button.vword {
       font-size: 26px;
     }
     .vnum b {
@@ -241,22 +318,5 @@
     .vnote {
       font-size: var(--fs-sm);
     }
-  }
-  .note.positive {
-    background: transparent;
-    box-shadow: inset 0 0 0 1px var(--ink-4);
-    color: var(--ink);
-  }
-  /* the ZooMS line: the point of DECISIONS 80 (amended), so it reads at a glance; an accent edge, not a verdict colour */
-  .note.zooms {
-    color: var(--ink);
-    font-weight: 550;
-    box-shadow: inset 3px 0 0 var(--accent);
-  }
-  /* the faint protein sign: weak evidence, so quiet (no fill, muted text) */
-  .note.faint {
-    background: transparent;
-    color: var(--ink-3);
-    box-shadow: inset 0 0 0 1px var(--line);
   }
 </style>

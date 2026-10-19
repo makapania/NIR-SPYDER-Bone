@@ -90,8 +90,25 @@ export function trackPos(v: number): number {
   return Math.sqrt(Math.min(Math.max(v, 0), 7) / 7) * 100;
 }
 
+/** A numeric range ("2150–2200", "3–6%") kept on one line: word joiners (U+2060) around the en dash forbid a line break
+ *  there (DECISIONS 125: "2150–" / "2200" must not split). Display only; the text reads the same. */
+export function keepRanges(s: string): string {
+  return s.replace(/(\d)\u2013(?=\d)/g, '$1\u2060\u2013\u2060');
+}
+
 export function shortName(file: string): string {
   return file.replace(/\.(asd|sco)$/i, '');
+}
+
+/** A name split for middle truncation in the scans list: the head may shrink to an ellipsis, the tail always shows,
+ *  because the end of a scan's name is what tells scans apart (LabSpec's counter, a spot or repeat number). The tail
+ *  starts at the first separator in the last 10 characters when that leaves at least 4, else it is the last 7. */
+export function splitName(name: string): { head: string; tail: string } {
+  if (name.length <= 12) return { head: name, tail: '' };
+  const win = name.slice(-10);
+  const i = win.search(/[_\-. ]/);
+  const n = i >= 0 && win.length - i >= 5 ? win.length - i : 7;
+  return { head: name.slice(0, -n), tail: name.slice(-n) };
 }
 
 export function timeOf(iso: string): string {

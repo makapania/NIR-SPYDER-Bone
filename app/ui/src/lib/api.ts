@@ -17,6 +17,7 @@ import { ask, open, save } from '@tauri-apps/plugin-dialog';
 import { checkTestSignal, decodeF32, encodeF32, ipcTestSignal, splitViews } from './f32';
 import { folderName } from './live';
 import { MockBackend, VIEW_ORDER } from './mock';
+import pkg from '../../package.json';
 import type {
   Analysis,
   AppInfo,
@@ -108,7 +109,7 @@ class BrowserApi implements SpyderApi {
   protected mock = new MockBackend();
 
   async appInfo(): Promise<AppInfo> {
-    return { name: 'SPYDER Bone', version: '0.1.0', os: 'browser', arch: '', coreConnected: false, runtime: 'browser' };
+    return { name: 'SPYDER Bone', version: pkg.version, os: 'browser', arch: '', coreConnected: false, runtime: 'browser' };
   }
 
   async ipcSelfTest(): Promise<IpcSelfTest> {

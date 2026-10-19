@@ -141,7 +141,7 @@ Below the verdict you will usually see a collagen reading, such as "≈ 1.7% (±
 "< 0.5%", and high ones coarsely (up to "> 6%"), because above a few percent the exact number does not change the
 decision. The reading is the **consensus of three collagen models**, not a measurement.
 
-Under it, in quiet grey, a **low-range estimate** (for example "Low-range estimate ≈ 1.2%") reads the same scan with a
+Under it, in quiet grey, a **low-range estimate** (for example "Low-range estimate ≈ 1.2% · not used for the verdict") reads the same scan with a
 model fitted only on bones below 6% collagen. Below about 4% it usually sits closer to the measured yield than the
 consensus, which tends to over-read low bones; around 3–6% it commonly reads lower than the consensus, and above that
 it reads well below the yield. It is a second number for the low end, shown for every scan. **It never sets the
@@ -151,20 +151,25 @@ verdict.**
 
 The details panel shows:
 
-- **Consensus of three**: the median of the three models below it. This sets the verdict. Its typical error is about
-  ± 1 point below 3%.
-- **2045 nm, OH-corrected** (reads 2030–2060 nm), **1545 nm, OH-corrected** (reads 1500–1550 nm) and **N–H set, 2175 +
-  2045 nm, OH-corrected** (reads 1500–1550, 2030–2060 and 2150–2200 nm): the three inputs to the consensus.
+- **Consensus of three**: the median of the three models below it. It is the starting estimate; band evidence can
+  change the verdict. Its typical error is about ± 1 point below 3%. Right under it, **How this verdict was made** (see
+  Notes, below) opens the rule applied to this scan and its own numbers.
+- **2045 nm, OH-corrected** (reads 2030–2060 nm), **1545 nm, OH-corrected** (reads 1500–1550 nm) and **N–H set** (2175 +
+  2045 nm, OH-corrected; reads 1500–1550, 2030–2060 and 2150–2200 nm): the three inputs to the consensus. (The readable
+  export names it in full: "N–H set, 2175 + 2045 nm, OH-corrected".)
 - **Ryder 2045** (Ryder et al. 2026; reads 2030–2060 nm): the published model, shown for reference. It does not set the
   verdict.
 - On high-resolution scans only: **1545 nm, no transfer needed** (reads 1500–1550 nm), a second opinion that reads the
   scan exactly as measured. It does not set the verdict; if it differs from the main reading, a note says so.
-- Two **panel readers**, which never set the verdict. **Low-range estimate (narrow 1545 nm band)** (reads 1533–1557
-  nm) is the low-range estimate shown under the verdict (see above); it reads the 1545 nm N–H band as a narrow band
+- Two **additional estimates**, never used for the verdict (their tracks carry no verdict colours). **Low-range
+  estimate** (the narrow 1545 nm band; reads 1533–1557 nm) is the low-range estimate shown under the verdict (see above); it reads the 1545 nm N–H band as a narrow band
   against its shoulders.
 - **C–H 1728 nm** (reads 1716–1740 nm) reads collagen from the C–H band at 1728 nm. On clean bone it agrees with the
   N–H models; lipids, waxes and many consolidants add C–H without nitrogen and raise it. The app compares it with the
   consensus for the C–H note (below).
+
+When the target does not look like bone, the panel says **Not interpretable for this target** above the readings, which
+stay readable but mean little there.
 
 "OH-corrected" means the model allows for differences in the OH/water bands at 1450 and 1930 nm, which vary between
 bones as the bone's bound water and OH groups are altered over time. These bands are shaded on the charts. The
@@ -185,20 +190,34 @@ than its verdict suggests, a line appears under the verdict, for example:
   proposed for ZooMS.
 
 The line helps you keep promising ZooMS spots in view. It never changes the verdict. In the scans list such rows carry
-a small **ZooMS** tag. The line is not shown when a contaminant sign fired or the C–H note shows ("extra organic
+a small **ZooMS** mark (peptide peaks; hover over it for the line). The line is not shown when a contaminant sign fired or the C–H note shows ("extra organic
 material"), because coatings can create the bands it reads.
 
 ### Organic evidence and the collagen bands
 
-The **Evidence of organics** section judges the bands directly, with no model: a level (**None / Trace / Clear /
-Strong / Can't tell**), a row of dots (one per band), and a **ZooMS band check** that describes the band pattern in words
-(for example "All six collagen bands resolved", or "Too noisy to read at 2044/2175 nm"). The bands are C–H at 1689 and
+**Collagen bands**, beside the verdict, is the one place to see every band. It judges the bands directly, with no
+model: a level (**None / Trace / Clear / Strong / Can't tell**), which comes from the band rules and is not a percentage;
+a close-up of each band with its state marked over it; and a **ZooMS band check** with its own call and the band pattern
+in words (for example "All six collagen bands resolved", or "Too noisy to read at 2044/2175 nm"). Hover over (or tab
+to) a band's label for what it is. **About these bands**, under the close-ups, opens the technical notes. The bands are C–H at 1689 and
 1728 nm; N–H with amide II at 2044 nm; the amide envelope at 2175 nm (several amide combination bands together);
 a combination band at 2262 nm (its assignment is uncertain: the published O–H/bound-water assignment does not fit
 the arithmetic, it is not a clean C–H band, and it does not follow the OH/water bands here; it rises with collagen in the
 reference bones, and coatings can raise it too); amide III with CH₂ at 2284 nm;
-and the bonded N–H band at 1545 nm, read on the OH-corrected window. The protein bands named in the ZooMS check are
-2044 and 2175 nm; the 1545 nm band adds a separate vote.
+and the bonded N–H band at 1545 nm, marked **1545\***: it is the one band read on the OH-corrected curve (the altered
+OH / bound-water direction is taken out first), where collagen shows as a dip rather than a peak; when the band is lit, the close-up
+marks its direction with an arrow. The other bands are read on the plain curve. The protein bands named in the ZooMS check are 2044 and 2175 nm; the 1545 nm band
+adds a separate vote. The 2044 nm band sits on the shoulder of the OH/water band, so it can only add evidence; 2284 nm
+counts for the ZooMS pattern only, not for the level.
+
+In the scans list, a small set of bars sums up each scan's bands: one bar per band, in the close-ups' order (1545 | C–H
+1689 1728 | protein 2044 2175 | combination 2262 2284), taller for a stronger band, a stub when flat and a dotted
+outline when too noisy. The bars are a quick look, not a vote count: the level comes from the band rules, which weigh
+the bands differently. Hover over them for each band's state; hover over a shortened file name for the whole name.
+Every mark in a row is a small symbol (the flag's pennant, the ZooMS peaks, and for the two warnings below an orange
+square with a flask or a not-equal sign, ≠) with its full text on hover; when a row is short of room, the marks give way
+before the reading does (the band bars first, the warning and the flag last). Drag the list's right
+edge (or focus it and use the arrow keys) to widen it; a double-click puts it back.
 
 Band evidence works both ways. Flat protein bands lower a verdict ("No protein signal at this spot"); strong, clean
 bands on a scan with no contaminant sign can raise one.
@@ -218,29 +237,40 @@ does not move it).
 ### Notes
 
 Under the verdict, up to two short notes explain what decided the result: for example that flat protein bands lowered
-the verdict, that resolved bands raised it on a clean scan, that the scan was too noisy to check for contaminants, or
-that the three models fall on different sides of a verdict line (the verdict then uses the middle value). Anything else
-is listed under **Also noted** in the details panel.
+the verdict, that resolved bands raised it on a clean scan, or that the scan was too noisy to check for contaminants.
+Anything else is listed under **Also noted** in the details panel, including a note when the three models fall on
+different sides of a verdict line (the verdict then uses the middle value). That one stays out of the card: a spread of
+a point or so near a line is the models' ordinary error, and on its own it turned up more often on clean bone than on
+treated bone. Large disagreements get their own warning (below).
 
-Two notes compare readers that fail in different ways. **They never change the verdict.**
+Two notes compare readers that fail in different ways. **They never change the verdict.** When either one shows, the
+encouraging "Positive signs" line is left out: the evidence conflicts, so the app does not add good news on top of it.
 
-- **C–H above N–H.** On clean bone the C–H reader and the N–H consensus agree. When C–H reads higher than clean bone
-  shows, the note says "Possible extra organic material"; when it reads far higher (rare on clean bone), "Likely extra organic material"
-  (the bone's own fat, wax or consolidant, for example). It means C–H that collagen does not explain, not necessarily a
+- **C–H above N–H.** On clean bone the C–H reader and the N–H consensus agree. When the C–H band reads higher than the
+  protein (N–H) bands explain, the note says "Possible extra organic material"; when it reads far higher (rare on clean
+  bone), "Likely extra organic material" (the bone's own fat, wax or consolidant, for example). It means C–H that collagen does not explain, not necessarily a
   contaminant: fat in the bone itself counts, so fresh or fatty bone can raise it, and old bone that has lost its collagen
   can keep some other organic matter. About 1 clean scan in 50 reaches the first level (some sites run a little higher
   than others); the second level is rare on clean bone. Animal glue adds both C–H and N–H, so it does not show here.
-- **The collagen readers disagree strongly.** When readers that agree on clean bone end up much further apart than
+- **Collagen estimates disagree strongly.** When readers that agree on clean bone end up much further apart than
   they ever do there, the note asks you to treat the percentage with caution. It does not name a cause: the spectrum
-  says something is unusual, not what. When it shows, the plainer "models fall on different sides of a verdict line"
-  note is not repeated.
+  says something is unusual, not what. Under the heading the warning names the pair that is furthest apart and gives
+  both readings, for example "Ryder 2045 reads 1.0% against the consensus 6.5%, more than on clean bone". The gap is
+  always at least a point: near zero, smaller gaps turn up as often on clean bone as on treated bone, so they do not count.
+  When it shows, the plainer "models fall on different sides of a verdict line" note is not repeated in the details.
 
-The stronger of these, "Likely extra organic material" and "The collagen readers disagree strongly", also put a small
-quiet tag in the scans list (**C–H** or **Readers**), so you can see them without opening each scan. At the bottom of
-the details panel, **How this verdict was made** gives the scan's own numbers: the three consensus models and their
-spread, how far the C–H reader sits from the consensus against the C–H note's two levels, the most unusual difference
-between readers (the pair closest to the line where the disagreement note fires, each pair judged against its own line),
-and the noise in the reading.
+The stronger of these, "Likely extra organic material" and "Collagen estimates disagree strongly", usually mean a
+real problem, so they are **warnings**: an orange box on the verdict card, built like a flag but in its own colour, with a
+square chip carrying the note's icon (a flask for C–H, a not-equal sign, ≠, for the readers), and an orange mark in the
+scans list, so you see them without opening each scan. Like flags, they never change the verdict. (With the colour-blind
+toggle on, the warning colour is a bright yellow.) A warning that fires is always on the card, whatever other notes
+the scan has; it never gives way to a quieter note. The milder levels stay quiet notes. In the details panel, right under the consensus, **How this verdict was made** gives the rule applied
+to this scan, then its own numbers as labelled values: the three consensus models and their spread, how far the C–H
+reader sits from the consensus against the C–H note's two levels, the most unusual difference between readers (the pair
+closest to the line where the disagreement note fires, each pair judged against its own line), and the noise in the
+reading. The general rules (the verdict input, the screening lines, the evidence rule) are one click further, under
+**How the rules work**. Under **Checks**, the caveats that read the same on every scan (how far the contaminant checks
+carry over to high-res instruments; glues and thin coats) are under **Limits of the checks**.
 
 ---
 
@@ -259,10 +289,14 @@ On high-res scans the main chart shows the **transferred** spectrum (what every 
 click away.
 
 Two model-window close-ups sit beside the main chart: the **2045 nm model** window (showing the OH-corrected view the
-model actually reads, with an **Uncorrected** toggle) and the **1545 nm model** window. Under **Collagen bands**, three
-close-ups zoom onto the bands, each with a dashed 3% reference curve and a fixed vertical scale set by the 10%
-reference, so a flat band cannot be blown up to look lit. Hovering a band in the details panel highlights it in the
-close-ups.
+model actually reads, with an **Uncorrected** toggle) and the **1545 nm model** window. Under **Collagen bands**, four
+close-ups zoom onto the seven bands (the 1545 nm N–H band, C–H, protein and the combination bands), each on the curve the
+band rule reads, with a dashed 3% reference curve. The band side of each plot is fixed by the 10% reference, so a flat
+band cannot be blown up to look lit; the other side follows the drawn curves, so a lit peak fills the plot (for 1545\*,
+whose band points the other way, the 10% reference sets both sides). Each close-up shows only its bands and their shoulders, at about the same horizontal
+scale everywhere, and is as tall as the space allows, so peaks stay steep; the protein close-up leaves out 2078–2135 nm,
+which carries neither band, and marks the gap with a break (//). **Bands down** flips them with the main chart. Hovering
+a band's label highlights it on the main chart.
 
 ---
 
@@ -388,7 +422,8 @@ comes back), or **Watch folder…** (watching was stopped; start it again).
 The bundled model files failed to load. Files are listed but not scored. Reinstalling restores them.
 
 **Why do the three models disagree?**
-It is common on coated or treated bone, or bone with an altered OH/water band. The verdict uses the middle value.
+Small spreads, within about a point, are the models' ordinary error. Larger ones are common on coated or treated bone, or
+bone with an altered OH/water band, and the strong ones get a warning. The verdict uses the middle value.
 
 **Can I combine scans of one bone?**
 No. Every result is per scan. Scan several spots and judge each scan on its own.

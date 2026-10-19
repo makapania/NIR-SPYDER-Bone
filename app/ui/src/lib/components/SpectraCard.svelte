@@ -97,9 +97,6 @@
         ]
       : [],
   );
-  /** The charred mark lives in the visible range, outside the 2nd-derivative view. */
-  const heatOffView = $derived(heat?.heatKind === 'charred' && heat.edge50Nm != null && mode === 'D2');
-
   const mainSeries = $derived.by((): PlotSeries[] => {
     if (!views) return [];
     const out: PlotSeries[] = refs
@@ -187,9 +184,6 @@
       </select>
     </label>
     {#if smoothing !== 31 && mode === 'D2'}<span class="chainnote">Chart only: the models read SG 31.</span>{/if}
-    {#if heatOffView && usable}
-      <button class="heatbtn" onclick={() => onMode('R')} title="The heat sign is read on the visible edge (450 nm up), outside this view">Heat sign: show in Reflectance</button>
-    {/if}
     {#if hires}
       <div class="seg" role="group" aria-label="High-res spectrum">
         <button aria-pressed={stream === 'std'} onclick={() => onStream('std')}
@@ -490,14 +484,6 @@
     width: 14px;
     background: color-mix(in srgb, var(--flag) 18%, transparent);
     box-shadow: inset 1.5px 0 var(--flag), inset -1.5px 0 var(--flag);
-  }
-  .heatbtn {
-    font-size: var(--fs-xs);
-    color: var(--flag-ink);
-    border: 1px solid var(--flag-edge);
-    background: var(--flag-tint);
-    border-radius: var(--r-sm);
-    padding: 2px 8px;
   }
   .legend i.hatch {
     width: 14px;

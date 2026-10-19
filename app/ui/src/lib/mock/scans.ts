@@ -5,6 +5,7 @@
 // bands, protein bands, the 1545 nm band), Rescan and "Doesn't look like bone". Synthetic spectra; the
 // numbers mean nothing.
 
+import { BAND_1545 } from '../bands';
 import { decide, evidenceFrom, zoomsFrom } from './rules';
 import { minusD2, n2, synthesise, toReflectance, type Coat, type Synth, type SynthSpec } from './synth';
 import type {
@@ -13,6 +14,9 @@ import type {
   InstrumentClass,
   ModelKey,
   ModelReading,
+  Note,
+  NoteKey,
+  PanelInfo,
   ScanResult,
   Sign,
   SignId,
@@ -39,6 +43,14 @@ export interface MockScanSpec {
   unusable?: 'low_signal';
   /** Noise seed override (default from n). */
   seed?: number;
+  /** A file name other than LabSpec's default (invented long names, so the list's name fit can be checked). */
+  file?: string;
+  /** Notes the core would add that this mock does not compute (the panel notes), so the list's marks can be checked. */
+  extraNotes?: Note[];
+  /** The core's panel record (the reader comparisons), so a warning names its pair and readings as in the app. */
+  panel?: PanelInfo;
+  /** The C–H 1728 nm reader's value (default: the consensus with jitter). */
+  ch?: number;
   /** Set for a file that arrived in a watched folder: its real name, path and time (example score only). */
   live?: LiveInfo;
 }
@@ -56,7 +68,16 @@ export interface LiveInfo {
 
 export const MOCK_SPECS: MockScanSpec[] = [
   { n: 21, time: '13:02:11', synth: { c: 0.05, n2: 34, nz: 0.08 }, m: 0.2, lit1545: true },
-  { n: 22, time: '13:06:40', synth: { c: 2.0, n2: 78, nz: 0.18 }, m: 2.1 },
+  // the list's worst case: a long name, a flag (heat, which leaves the ZooMS line), the ZooMS line and a strong panel note
+  {
+    n: 22,
+    time: '13:06:40',
+    synth: { c: 2.0, n2: 45, nz: 0.18 },
+    m: 2.1,
+    burnt: true,
+    file: 'Session2_femur-shaft_lateral_after-brushing_rep1.asd',
+    extraNotes: [{ key: 'readers_disagree_strongly', params: { contrasts: ['CHN'] } }],
+  },
   { n: 23, time: '13:11:05', synth: { c: 1.5, n2: 36, nz: 0.08, off: 0.12 }, m: 1.5, burnt: true },
   { n: 24, time: '13:15:52', synth: { c: 0.1, n2: 380, nz: 1.6, off: 0.3 }, m: 0.2, ryder: 0.35 },
   { n: 25, time: '13:20:17', synth: { c: 4.0, n2: 40, nz: 0.1 }, m: 4.1, s1r2: 0.9 },
@@ -67,15 +88,88 @@ export const MOCK_SPECS: MockScanSpec[] = [
   { n: 30, time: '13:42:19', synth: { c: 4.8, n2: 36, nz: 0.08, coat: 'wax' }, comps: [0.3, 0.6, 0.2], ryder: 0.9 },
   { n: 31, time: '13:46:58', synth: { c: 5.5, n2: 35, nz: 0.08 }, comps: [1.6, 1.3, 1.9], ryder: 1.4 },
   { n: 32, time: '13:51:23', synth: { c: 2.5, n2: 37, nz: 0.08, coat: 'ester' }, comps: [3.9, 3.1, 3.6], ryder: 5.8 },
-  { n: 33, time: '13:55:40', synth: { c: 2.6, n2: 41, nz: 0.1 }, m: 2.8 },
+  {
+    n: 33,
+    time: '13:55:40',
+    synth: { c: 2.6, n2: 41, nz: 0.1 },
+    m: 2.8,
+    file: 'SiteA_Trench2_Layer4b_long-bone-fragment_0117_spot3_avg200.asd',
+    extraNotes: [{ key: 'readers_disagree_strongly', params: { contrasts: ['GL'] } }],
+  },
   { n: 34, time: '14:00:12', synth: { c: 0.3, n2: 39, nz: 0.1 }, m: 0.3, lit1545: true },
-  { n: 35, time: '14:04:49', synth: { c: 9.0, n2: 30, nz: 0.07 }, m: 8.8 },
+  { n: 35, time: '14:04:49', synth: { c: 9.0, n2: 30, nz: 0.07 }, m: 8.8, file: 'Rib_cleaned-surface_rep2.asd', extraNotes: [{ key: 'ch_above_nh_strong', params: { ch: 14.2 } }] },
   { n: 36, time: '14:09:31', synth: { c: 0.3, n2: 320, nz: 1.0, off: 0.25 }, m: 1.9, seed: 3 },
   { n: 37, time: '14:14:05', synth: { c: -0.35, n2: 32, nz: 0.06 }, m: 1.4 },
   { n: 38, time: '14:18:37', synth: { c: 3.2, n2: 140, nz: 0.25, off: 0.2 }, m: 3.4 },
   { n: 39, time: '14:23:10', synth: { c: 1.2, n2: 38, nz: 0.09 }, m: 1.2 },
   { n: 40, time: '14:27:46', synth: { c: 4.4, n2: 42, nz: 0.1 }, m: 4.3 },
+  // the warnings' place on the card (timed between the others, so the newest scan stays 40): a quiet supporting note and
+  // the readers warning (the
+  // crowded real case: possible thin coating held the one slot, so the warning reached only the details column) ...
+  {
+    n: 41,
+    time: '13:58:02',
+    synth: { c: 9.0, n2: 30, nz: 0.07 },
+    comps: [8.2, 13.6, 16.4],
+    ch: 20.1,
+    extraNotes: [
+      { key: 'possible_thin_coating', params: {} },
+      { key: 'ch_above_nh_possible', params: { ch: 20.1 } },
+      { key: 'readers_disagree_strongly', params: { contrasts: ['GL', 'SHP', 'SP3'] } },
+    ],
+    panel: {
+      ch: 20.1,
+      chGap: 6.5,
+      chPossibleAbove: 5.0,
+      chStrongAbove: 8.0,
+      contrasts: [
+        { name: 'GL', value: 7.0, firesAbove: 4.0, fraction: 1.75 },
+        { name: 'SHP', value: 7.0, firesAbove: 5.0, fraction: 1.4 },
+        { name: 'SP3', value: 8.2, firesAbove: 6.0, fraction: 1.37 },
+      ],
+    },
+  },
+  // ... the most crowded card: a flag, the rule's note, the ZooMS line, a supporting note and both warnings ...
+  {
+    n: 42,
+    time: '14:16:20',
+    synth: { c: 1.0, n2: 36, nz: 0.08 },
+    m: 0.4,
+    burnt: true,
+    ryder: 2.1,
+    ch: 3.4,
+    extraNotes: [
+      { key: 'possible_thin_coating', params: {} },
+      { key: 'ch_above_nh_strong', params: { ch: 3.4 } },
+      { key: 'readers_disagree_strongly', params: { contrasts: ['RAW'] } },
+    ],
+    panel: {
+      ch: 3.4,
+      chGap: 3.0,
+      chPossibleAbove: 1.2,
+      chStrongAbove: 2.4,
+      contrasts: [{ name: 'RAW', value: 1.7, firesAbove: 1.2, fraction: 1.42 }],
+    },
+  },
+  // ... and a plain scan whose only note is the warning
+  {
+    n: 43,
+    time: '14:25:30',
+    synth: { c: 5.0, n2: 38, nz: 0.09 },
+    comps: [3.2, 5.1, 8.4],
+    extraNotes: [{ key: 'readers_disagree_strongly', params: { contrasts: ['SP3'] } }],
+    panel: {
+      ch: null,
+      chGap: null,
+      chPossibleAbove: null,
+      chStrongAbove: null,
+      contrasts: [{ name: 'SP3', value: 5.2, firesAbove: 4.0, fraction: 1.3 }],
+    },
+  },
 ];
+
+/** Notes that keep the positive-signs line off a scan, as the core does (DECISIONS 128; the soft thin-coating tier). */
+const SILENCE_POSITIVE: NoteKey[] = ['ch_above_nh_possible', 'ch_above_nh_strong', 'readers_disagree_strongly', 'possible_thin_coating'];
 
 /** Extra scans for "Simulate a new scan" (live arrival). */
 export const SIM_SPECS: Omit<MockScanSpec, 'n' | 'time'>[] = [
@@ -95,12 +189,15 @@ const MODEL_IDS: Record<ModelKey, [string, string]> = {
   ch1728: ['collagen.spyder.1728_ch', '1.0.0'],
 };
 
+/** Mock depth of a lit 1545 nm dip (absorbance), so the close-up of a lit band shows a dip below the 3% reference's. */
+const DIP_1545 = 0.0019;
+
 const synthCache = new Map<string, Synth>();
 export function synthFor(spec: MockScanSpec): Synth {
-  const key = `${spec.n}|${spec.seed ?? ""}|${JSON.stringify(spec.synth)}`;
+  const key = `${spec.n}|${spec.seed ?? ""}|${spec.lit1545 ? 1 : 0}|${JSON.stringify(spec.synth)}`;
   let s = synthCache.get(key);
   if (!s) {
-    s = synthesise({ ...spec.synth, hires: true, seed: spec.seed ?? 1000 + spec.n * 97 });
+    s = synthesise({ ...spec.synth, dip1545: spec.lit1545 ? DIP_1545 : 0, hires: true, seed: spec.seed ?? 1000 + spec.n * 97 });
     synthCache.set(key, s);
   }
   return s;
@@ -149,7 +246,7 @@ export function buildResult(spec: MockScanSpec, analysis: Analysis, cls: Instrum
 
 function buildScored(spec: MockScanSpec, analysis: Analysis, cls: InstrumentClass): ScanResult {
   const live = spec.live;
-  const file = live?.file ?? `Spectrum000${spec.n}.asd`;
+  const file = live?.file ?? spec.file ?? `Spectrum000${spec.n}.asd`;
   const hires = cls === 'hires';
   const base = {
     scanId: `scan-${spec.n}`,
@@ -171,6 +268,11 @@ function buildScored(spec: MockScanSpec, analysis: Analysis, cls: InstrumentClas
   if (spec.lit1545) {
     // the OH-corrected 1545 nm trough, lit (u = 2.1; mock value)
     evidence.bands.push({ id: 'nh1545', nm: 1545, e: -1.26, u: 2.1, readable: true, lit: true, state: 'clear', evidenceState: 'clear' });
+  } else if (!spec.unusable && spec.synth.kind !== 'dark') {
+    // the core always reports the 1545 band: here flat, or too noisy by the six bands' readability rule
+    const readable = syn.sdE(1545) / Math.sqrt(5) / BAND_1545.w <= 0.25;
+    const state = readable ? 'flat' : 'cant_tell';
+    evidence.bands.push({ id: 'nh1545', nm: 1545, e: 0.3, u: -0.5, readable, lit: false, state, evidenceState: state });
   }
   const zooms = zoomsFrom(evidence, !!spec.lit1545);
   const n2main = n2(syn.A, 2000, 2100);
@@ -237,7 +339,7 @@ function buildScored(spec: MockScanSpec, analysis: Analysis, cls: InstrumentClas
         s1r2: hires ? reading('s1r2', s1) : null,
         // the low-range estimate reads lower than the consensus from ~3% up; the C–H reader tracks it on clean bone
         lowrange: reading('lowrange', 0.2 + 0.68 * cons3 + j(0.3)),
-        ch1728: reading('ch1728', cons3 + j(0.6)),
+        ch1728: reading('ch1728', spec.ch ?? cons3 + j(0.6)),
       };
 
   if (spec.unusable) {
@@ -264,7 +366,9 @@ function buildScored(spec: MockScanSpec, analysis: Analysis, cls: InstrumentClas
     b6bGated,
     c1Assessed: c1Status.status === 'assessed',
   });
-  const notes = [...d.notes];
+  const extra = spec.extraNotes ?? [];
+  const silenced = extra.some((n) => SILENCE_POSITIVE.includes(n.key));
+  const notes = [...d.notes.filter((n) => !(silenced && n.key.startsWith('positive_signs'))), ...extra];
   if (!hires && !live) notes.push({ key: 'serial_class_mismatch', params: { serial: MOCK_SERIAL, known: 'hires', set: 'standard' } });
   const notBone = b9 < 0.4 && !tailUnreliable;
   return {
@@ -278,6 +382,7 @@ function buildScored(spec: MockScanSpec, analysis: Analysis, cls: InstrumentClas
     signs,
     checks,
     alteredOhBand: (spec.synth.oh ?? 0) > 1,
+    ...(spec.panel ? { panel: spec.panel } : {}),
   };
 }
 

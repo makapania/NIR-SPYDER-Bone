@@ -111,8 +111,10 @@
 
   <div class="spacer"></div>
 
+  <!-- on/off shows without colour too: a filled chip and a tick when on (DECISIONS 123) -->
   <button class="chip cvd" aria-pressed={cvd} onclick={onCvd} aria-label="Colour-blind safe"
-    title="Colour-blind safe: swap the chart colours for a palette that stays distinct under colour-vision deficiency. Glyph shapes carry every meaning either way."><Icon name="eye" size={14} /><span class="lbl-cvd">Colour-blind safe</span></button>
+    title="Colour-blind safe palette: {cvd ? 'on' : 'off'}. It swaps the chart colours for a palette that stays distinct under colour-vision deficiency. Glyph shapes carry every meaning either way."><Icon
+      name="eye" size={14} /><span class="lbl-cvd">Colour-blind safe</span>{#if cvd}<Icon name="check" size={13} />{/if}</button>
   <button class="iconbtn" onclick={onTheme} aria-label="Switch to {theme === 'dark' ? 'light' : 'dark'} theme"
     title="Light / dark"><Icon name="theme" size={17} /></button>
   <button class="iconbtn" onclick={onHelp} aria-label="Help and About" title="Help and About (F1)" data-testid="help-btn"><Icon
@@ -155,6 +157,7 @@
   .cvd[aria-pressed='true'] {
     color: var(--accent);
     border-color: var(--accent);
+    background: var(--accent-soft);
   }
   .group {
     display: flex;

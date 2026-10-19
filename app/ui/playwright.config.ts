@@ -3,18 +3,21 @@ import { defineConfig, devices } from '@playwright/test';
 // Smoke tests run against the Vite dev server with the mocked api.ts (no Tauri, no core).
 // Local runs can use the installed Edge (PW_CHANNEL=msedge) instead of downloading Chromium.
 const channel = process.env.PW_CHANNEL;
+// PW_PORT runs the dev server on another port (a second checkout's server may hold 5173).
+const port = process.env.PW_PORT ?? '5173';
+const base = `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: 'e2e',
   timeout: 60_000,
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: base,
     viewport: { width: 1440, height: 900 },
     ...(channel ? { channel } : {}),
   },
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
+    command: `npm run dev -- --port ${port} --strictPort`,
+    url: base,
     reuseExistingServer: true,
     timeout: 60_000,
   },

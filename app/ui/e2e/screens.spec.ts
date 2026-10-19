@@ -11,7 +11,9 @@ interface Size {
   h: number;
   dpr: number;
 }
-const shots: [string, string, Size?][] = [
+/** After load: 'focus' tabs to the card's second warning (its tooltip), 'open' clicks it open in place. */
+type Act = 'focus' | 'open';
+const shots: [string, string, Size?, Act?][] = [
   ['01-dark-good', ''],
   ['02-dark-borderline-zooms-line-positive-signs', 'scan=Spectrum00039'],
   ['03-dark-consolidant-flag', 'scan=Spectrum00032'],
@@ -43,11 +45,51 @@ const shots: [string, string, Size?][] = [
   ['31-dark-150pct-1280x720-wax-flag', 'scan=Spectrum00030', { w: 1280, h: 720, dpr: 1.5 }],
   ['32-dark-1366x768-consolidant-flag', 'scan=Spectrum00032', { w: 1366, h: 768, dpr: 1 }],
   ['33-light-150pct-1280x720-cvd', 'light&cvd&scan=Spectrum00039', { w: 1280, h: 720, dpr: 1.5 }],
+  // the band close-ups as the one place to see every band (2026-10-18): a row of tall plots under the verdict on laptop
+  // widths, beside it on wide windows; both themes, every band state
+  ['40-closeups-dark-1280x800-all-six', 'scan=Spectrum00039', { w: 1280, h: 800, dpr: 1 }],
+  ['41-closeups-dark-1100x700-1545-dip', 'scan=Spectrum00021', { w: 1100, h: 700, dpr: 1 }],
+  ['42-closeups-light-1280x800-all-six', 'light&scan=Spectrum00039', { w: 1280, h: 800, dpr: 1 }],
+  ['43-closeups-light-1100x700-1545-dip', 'light&scan=Spectrum00021', { w: 1100, h: 700, dpr: 1 }],
+  ['44-closeups-dark-1280x800-consolidant-flag', 'scan=Spectrum00032', { w: 1280, h: 800, dpr: 1 }],
+  ['45-closeups-dark-1280x800-too-noisy', 'scan=Spectrum00036', { w: 1280, h: 800, dpr: 1 }],
+  ['46-closeups-dark-1280x800-flat-bands', 'scan=Spectrum00037', { w: 1280, h: 800, dpr: 1 }],
+  ['47-closeups-dark-1280x800-bands-down', 'bandsdown&scan=Spectrum00021', { w: 1280, h: 800, dpr: 1 }],
+  ['48-closeups-dark-1100x700-cvd', 'cvd&scan=Spectrum00034', { w: 1100, h: 700, dpr: 1 }],
+  ['49-closeups-dark-150pct-1280x720-1545-dip', 'scan=Spectrum00021', { w: 1280, h: 720, dpr: 1.5 }],
+  ['50-closeups-light-150pct-1280x720-wax-flag', 'light&scan=Spectrum00030', { w: 1280, h: 720, dpr: 1.5 }],
+  ['51-closeups-dark-1920x1080-beside-the-verdict', 'scan=Spectrum00039', { w: 1920, h: 1080, dpr: 1 }],
+  ['53-closeups-dark-1536x864-beside-the-verdict', 'scan=Spectrum00039', { w: 1536, h: 864, dpr: 1 }],
+  ['52-closeups-light-1100x700-bands-down-cvd', 'light&cvd&bandsdown&scan=Spectrum00034', { w: 1100, h: 700, dpr: 1 }],
+  // the scans list's band summary (the bars, DECISIONS 126)
+  ['55-list-bars-dark-1440x900', 'scan=Spectrum00039'],
 ];
+
+// The strong warnings' place on the verdict card (design/BRIEF_warning_place.md): a quiet supporting note with the readers
+// warning (41), the most crowded card (42: a flag, the rule's note, the ZooMS line, a supporting note and both warnings) and a
+// plain scan with only the warning (43); laptop widths, both themes and the colour-blind palette.
+// SCREENS_WARN=<label>[=<hash>],... adds them with an optional extra hash, e.g. SCREENS_WARN=final (the three placement
+// options compared were #warn=a, b and c at f4291e7, the compact card's #card=a, b and c at ef40ecd), plus the crowded
+// card with a warning's tooltip (keyboard focus) and with it opened in place.
+for (const spec of (process.env.SCREENS_WARN ?? '').split(',').filter(Boolean)) {
+  const [label, ...rest] = spec.split('=');
+  const extra = rest.join('=');
+  for (const [cn, cs] of [['41', 'quiet-note'], ['42', 'crowded'], ['43', 'plain']] as const)
+    for (const [tn, th] of [['dark', ''], ['light', 'light'], ['cvd', 'cvd']] as const)
+      for (const [w, h] of [[1100, 700], [1280, 800]] as const)
+        shots.push([
+          `wp-${label}-${cs}-${tn}-${w}`,
+          [`scan=Spectrum000${cn}`, th, extra].filter(Boolean).join('&'),
+          { w, h, dpr: 1 },
+        ]);
+  for (const act of ['focus', 'open'] as const)
+    for (const [tn, th] of [['dark', ''], ['light', 'light']] as const)
+      shots.push([`wp-${label}-crowded-${tn}-1280-${act}`, ['scan=Spectrum00042', th, extra].filter(Boolean).join('&'), { w: 1280, h: 800, dpr: 1 }, act]);
+}
 
 test.describe('screens', () => {
   test.skip(!dir, 'SCREENS_DIR not set');
-  for (const [name, hash, size] of shots) {
+  for (const [name, hash, size, act] of shots) {
     if (only && !name.includes(only)) continue;
     test(name, async ({ page, browser }) => {
       let p = page;
@@ -55,9 +97,21 @@ test.describe('screens', () => {
         const ctx = await browser.newContext({ viewport: { width: size.w, height: size.h }, deviceScaleFactor: size.dpr });
         p = await ctx.newPage();
       }
-      await p.goto(`http://localhost:5173/#${hash}`);
+      await p.goto(`http://localhost:${process.env.PW_PORT ?? '5173'}/#${hash}`);
       await p.waitForSelector('.uplot');
       await p.waitForTimeout(700);
+      if (act) {
+        const w = p.locator('.verdict [data-testid="warning"]').nth(1);
+        const b = w.locator('button').first();
+        if (act === 'focus') {
+          // keyboard focus, so the tooltip shows as it does for a keyboard user
+          await b.focus();
+          await p.keyboard.press('Shift+Tab');
+          await p.keyboard.press('Tab');
+        } else await b.click();
+        await p.mouse.move(5, 795);
+        await p.waitForTimeout(250);
+      }
       await p.screenshot({ path: `${dir}/${name}.png` });
       if (size) await p.context().close();
     });

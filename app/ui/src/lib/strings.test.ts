@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOWRANGE_EXPLAIN, NOTE_TEXT, ryderPct } from './strings';
+import { LOWRANGE_EXPLAIN, NOTE_TEXT, flatBandsCard, noteParts, ryderPct } from './strings';
 
 describe('the Ryder 2045 ZooMS line', () => {
   it('one decimal, two where one decimal would fall below the cut; the cut comes from the core', () => {
@@ -68,17 +68,18 @@ describe('UI string table lint', () => {
 describe('the panel notes (2026-10-18) and the shortened models-disagree note', () => {
   it('the C–H note has two levels, both naming examples, neither claiming certainty', () => {
     expect(NOTE_TEXT.ch_above_nh_possible({ ch: 3.1, m: 0.4 })).toBe(
-      "Possible extra organic material: C–H reads higher than N–H (the bone's own fat, wax or consolidant, for example).",
+      "Possible extra organic material: the C–H band reads higher than the protein (N–H) bands explain (the bone's own fat, wax or consolidant, for example).",
     );
     expect(NOTE_TEXT.ch_above_nh_strong({ ch: 5.2, m: 0.4 })).toBe(
-      "Likely extra organic material: C–H reads far higher than N–H (the bone's own fat, wax or consolidant, for example).",
+      "Likely extra organic material: the C–H band reads far higher than the protein (N–H) bands explain (the bone's own fat, wax or consolidant, for example).",
     );
     expect(NOTE_TEXT.ch_above_nh_strong({})).not.toMatch(/certain/i);
   });
   it('the strong-disagreement note names no cause', () => {
     const t = NOTE_TEXT.readers_disagree_strongly({ contrasts: ['GL'], m: 3.4 });
-    expect(t).toContain('disagree strongly');
-    expect(t).toContain('does not say why');
+    expect(t).toBe('Collagen estimates disagree strongly. Treat the percentage with caution; the cause is unknown.');
+    // the verdict card sets the lead in bold; the rest reads on from it
+    expect(noteParts({ key: 'readers_disagree_strongly', params: {} }).rest).toBe('. Treat the percentage with caution; the cause is unknown.');
     expect(t).not.toMatch(/glue|coat|contamin/i);
   });
   it('models disagree keeps only the verdict-line sentence', () => {
@@ -86,7 +87,22 @@ describe('the panel notes (2026-10-18) and the shortened models-disagree note', 
     expect(t).toBe('The three collagen models fall on different sides of a verdict line (0.4%, 0.9%, 4.1%); the verdict uses the middle value.');
     expect(t).not.toContain('coated');
   });
+  it('the caution notes split into a bold lead and the rest; other notes have no lead', () => {
+    expect(noteParts({ key: 'ch_above_nh_strong', params: {} })).toEqual({
+      lead: 'Likely extra organic material',
+      rest: ": the C–H band reads far higher than the protein (N–H) bands explain (the bone's own fat, wax or consolidant, for example).",
+    });
+    expect(noteParts({ key: 'readers_disagree_strongly', params: {} }).lead).toBe('Collagen estimates disagree strongly');
+    expect(noteParts({ key: 'ch_above_nh_possible', params: {} }).lead).toBe('Possible extra organic material');
+    const m = noteParts({ key: 'models_disagree', params: { a: 0.4, b: 0.9, c: 4.1 } });
+    expect(m.lead).toBe('');
+    expect(m.rest).toContain('different sides of a verdict line');
+  });
+  it('the flat-bands card note gives only the reason (the headline and the reading sit above it)', () => {
+    expect(flatBandsCard({ m: 1.4 })).toBe('The protein bands are flat, so the verdict follows the bands, not the models.');
+    expect(flatBandsCard({ m: 0.2 })).toBe('The protein bands are flat.');
+  });
   it('the low-range explanation', () => {
-    expect(LOWRANGE_EXPLAIN).toBe('Optimised for low collagen levels; commonly reads lower around 3–6%.');
+    expect(LOWRANGE_EXPLAIN).toBe('Tuned for low collagen; often reads lower at 3–6%.');
   });
 });

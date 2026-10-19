@@ -3,7 +3,7 @@
 // (strings.test.ts) keeps forbidden words out ("wet", "fail", "reject", exclamation marks).
 
 import { formatModel, formatReading } from './display';
-import type { Note, NoteKey, SignId } from './types';
+import type { Note, NoteKey, ScanResult, SignId } from './types';
 
 type P = Record<string, number | string | string[]>;
 const r = (p: P, k: string) => formatReading(typeof p[k] === 'number' ? (p[k] as number) : null);
@@ -69,11 +69,11 @@ export const NOTE_TEXT: Record<NoteKey, (p: P) => string> = {
   possible_thin_coating: () =>
     'Possible thin coating: a weak sign of glue or consolidant at this spot. It may be nothing, but check the spot before sampling.',
   ch_above_nh_possible: () =>
-    "Possible extra organic material: C–H reads higher than N–H (the bone's own fat, wax or consolidant, for example).",
+    "Possible extra organic material: the C–H band reads higher than the protein (N–H) bands explain (the bone's own fat, wax or consolidant, for example).",
   ch_above_nh_strong: () =>
-    "Likely extra organic material: C–H reads far higher than N–H (the bone's own fat, wax or consolidant, for example).",
+    "Likely extra organic material: the C–H band reads far higher than the protein (N–H) bands explain (the bone's own fat, wax or consolidant, for example).",
   readers_disagree_strongly: () =>
-    'The collagen readers disagree strongly, more than they do on clean bone: treat the percentage with caution. The spectrum does not say why.',
+    'Collagen estimates disagree strongly. Treat the percentage with caution; the cause is unknown.',
   contaminants_not_checked: (p) => {
     const skipped = signList(p.skipped);
     const checked = signList(p.checked);
@@ -127,8 +127,44 @@ export const NOTE_TEXT: Record<NoteKey, (p: P) => string> = {
     `This file's detector settings look like a ${p.known === 'hires' ? 'high-res' : 'standard'} instrument, but the switch says ${p.set === 'hires' ? 'High-res' : 'Standard'}. This is only a hint; the switch is yours.`,
 };
 
-export function noteText(n: Note): string {
-  return NOTE_TEXT[n.key](n.params);
+/** A note's text. With the scan, "Collagen estimates disagree strongly" names what actually disagreed (disagreeParts). */
+export function noteText(n: Note, scan?: ScanResult): string {
+  const d = scan && n.key === 'readers_disagree_strongly' ? disagreeParts(scan) : null;
+  return d ? d.lead + d.rest : NOTE_TEXT[n.key](n.params);
+}
+
+/** The readers-disagree-strongly note in words that name the comparison that fired, with both readings (Matt, 2026-10-18:
+ *  "it says there are large model differences but none can be seen; if this is actually a different flag it should say that").
+ *  The rule is unchanged; this picks the comparison furthest past its line in the scan's panel record. Null without one. */
+export function disagreeParts(scan: ScanResult): { lead: string; rest: string } | null {
+  const p = scan.panel;
+  const m = scan.models.cons3?.value;
+  if (!p || m == null || !Number.isFinite(m)) return null;
+  const fired = p.contrasts.filter((c) => c.fraction > 1 && Number.isFinite(c.value));
+  if (!fired.length) return null;
+  const c = fired.reduce((a, b) => (b.fraction > a.fraction ? b : a));
+  const f = formatModel;
+  const mm = scan.models;
+  const tail = ', more than on clean bone. Treat the percentage with caution; the cause is unknown.';
+  const w1500 = mm.wc1500?.value;
+  // the heading stays "Collagen estimates disagree strongly" (Matt: strong disagreement must read as such); the body names the
+  // pair and its readings
+  const lead = 'Collagen estimates disagree strongly';
+  switch (c.name) {
+    case 'SP3':
+      return { lead, rest: `: the three consensus models read 2045 nm ${f(mm.wc2045?.value)}, 1545 nm ${f(w1500)} and N–H set ${f(mm.f05?.value)}${tail}` };
+    case 'RAW':
+      return { lead, rest: `: Ryder 2045 reads ${f(mm.ryder2045?.value)} against the consensus ${f(m)}${tail}` };
+    case 'GL':
+      return { lead, rest: `: the narrow 1545 nm band reads ${f(m - c.value)} against the consensus ${f(m)}${tail}` };
+    case 'SHP':
+      return { lead, rest: `: the 1545 nm model reads ${f(w1500)} against ${f(w1500 == null ? null : w1500 - c.value)} for the narrow 1545 nm band${tail}` };
+    case 'CHN':
+      return { lead, rest: `: C–H 1728 nm reads ${f(mm.ch1728?.value)}, below the consensus ${f(m)}${tail}` };
+    case 'CH':
+      return { lead, rest: `: C–H 1728 nm reads ${f(mm.ch1728?.value)}, above the consensus ${f(m)}${tail}` };
+  }
+  return null;
 }
 
 /** Flag texts for fired signs (DECISIONS 53). Calm and informative; they never change the verdict. */
@@ -158,7 +194,64 @@ export const UNUSABLE_TEXT: Record<string, string> = {
 };
 
 /** The low-range estimate's standing explanation (the verdict card's tooltip and the details row). */
-export const LOWRANGE_EXPLAIN = 'Optimised for low collagen levels; commonly reads lower around 3–6%.';
+export const LOWRANGE_EXPLAIN = 'Tuned for low collagen; often reads lower at 3–6%.';
+
+/** The caution notes whose opening words the verdict card sets in bold (DECISIONS 123). Each note's text starts with its lead. */
+export const NOTE_LEAD: Partial<Record<NoteKey, string>> = {
+  ch_above_nh_possible: 'Possible extra organic material',
+  ch_above_nh_strong: 'Likely extra organic material',
+  readers_disagree_strongly: 'Collagen estimates disagree strongly',
+};
+
+/** Short chip labels for the compact verdict card (design proposal, 2026-10-18; Matt rules on wording). The full text is
+ *  one interaction away (tooltip on hover and keyboard focus, click or tap to expand); a lead that is already short is kept. */
+export const NOTE_SHORT: Record<NoteKey, string> = {
+  plus_d: 'Lowered to Borderline',
+  flat_bands: 'Protein bands flat',
+  lift_good: 'Raised to Good',
+  lift_borderline: 'Raised to Borderline',
+  lift_blocked: 'Bands cannot raise the verdict',
+  zooms_better_good: 'Better chance with ZooMS',
+  zooms_better_protein: 'Some chance with ZooMS',
+  zooms_better_1545: 'Some chance with ZooMS',
+  zooms_better_1545_flat: 'Some chance with ZooMS',
+  zooms_better_ryder: 'Some chance with ZooMS',
+  zooms_faint_protein: 'Faint sign for ZooMS',
+  above_bone_range: 'Above bone range',
+  possible_thin_coating: 'Possible thin coating',
+  ch_above_nh_possible: 'Possible extra organic material',
+  ch_above_nh_strong: 'Likely extra organic material',
+  readers_disagree_strongly: 'Collagen estimates disagree strongly',
+  contaminants_not_checked: 'Contaminants not checked',
+  c1_reduced: 'Organic check reduced',
+  signs_reduced: 'Checks reduced',
+  models_disagree: 'Models disagree',
+  positive_signs_all_six: 'Positive signs',
+  positive_signs_clear: 'Positive signs',
+  bands_too_noisy: 'Bands too noisy',
+  second_opinion_differs: 'Second opinion differs',
+  no_transfer_available: 'No high-res transfer',
+  no_model_reading: 'No model reading',
+  serial_class_mismatch: 'Serial and switch differ',
+  header_class_mismatch: 'Detector and switch differ',
+};
+
+/** A note split into its bold lead and the rest (lead '' when the note has none). */
+export function noteParts(n: Note, scan?: ScanResult): { lead: string; rest: string } {
+  const d = scan && n.key === 'readers_disagree_strongly' ? disagreeParts(scan) : null;
+  if (d) return d;
+  const text = noteText(n);
+  const lead = NOTE_LEAD[n.key];
+  return lead && text.startsWith(lead) ? { lead, rest: text.slice(lead.length) } : { lead: '', rest: text };
+}
+
+/** The verdict card's flat-bands note: the headline above it already says "No protein signal at this spot" and the line
+ *  under it gives the models' reading, so the note gives only the reason (DECISIONS 123). */
+export function flatBandsCard(p: P): string {
+  return typeof p.m === 'number' && p.m >= 0.5
+    ? 'The protein bands are flat, so the verdict follows the bands, not the models.'
+    : 'The protein bands are flat.';
+}
 
 export const NOT_BONE_TEXT = 'Check the target: the probe may be on plaster, a label, a coating or the holder.';
 
@@ -179,5 +272,7 @@ export function allStrings(): string[] {
     ...Object.values(UNUSABLE_TEXT),
     NOT_BONE_TEXT,
     LOWRANGE_EXPLAIN,
+    flatBandsCard({ m: 1.4 }),
+    ...Object.values(NOTE_SHORT),
   ];
 }

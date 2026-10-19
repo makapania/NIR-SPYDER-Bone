@@ -61,7 +61,7 @@ function why(s: ScanResult, headline: { key: string }[]): string {
       ? NOTE_TEXT.no_model_reading({})
       : verdictSentence(s.verdict);
   const notes = pickNotes(s.notes, s.notesShown).headline.filter((n) => !isZoomsLine(n.key));
-  return join([sentence, ...notes.map(noteText)]);
+  return join([sentence, ...notes.map((n) => noteText(n, s))]);
 }
 
 function model(s: ScanResult, k: ModelKey): string {
@@ -114,7 +114,7 @@ export function readableCsv(scans: ScanResult[], meta: ReadableMeta): string {
       fresh.forEach((x) => said.add(x));
       if (fresh.length) also.push(`${title ? `${title}: ` : ''}${fresh.join(' ')}`);
     };
-    picked.details.filter((n) => !isZoomsLine(n.key)).forEach((n) => add(null, noteText(n)));
+    picked.details.filter((n) => !isZoomsLine(n.key)).forEach((n) => add(null, noteText(n, s)));
     // the contaminants-not-checked note already says what the matching check row says, in other words
     const hasNotChecked = s.notes.some((n) => n.key === 'contaminants_not_checked');
     checkRows(s)

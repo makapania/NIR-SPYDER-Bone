@@ -11,6 +11,8 @@
   const r = $derived(size / 2 - 1);
   const sw = $derived(size > 30 ? 2.5 : 1.5);
   const col = $derived(`var(--v-${meta.tone})`);
+  // the ring: an optional darker edge per tone (the light theme's pale Unlikely needs one against white; DECISIONS 123)
+  const edge = $derived(`var(--v-${meta.tone}-edge, var(--v-${meta.tone}))`);
   const fillPath = $derived.by(() => {
     const f = meta.fill;
     if (f <= 0 || f >= 1) return '';
@@ -24,7 +26,7 @@
   {#if meta.shape === 'full'}
     <circle cx={c} cy={c} r={r} fill={col} />
   {:else if meta.shape === 'half' || meta.shape === 'third'}
-    <circle cx={c} cy={c} r={r - sw / 2 + 0.5} fill="var(--v-{meta.tone}-tint)" stroke={col} stroke-width={sw} />
+    <circle cx={c} cy={c} r={r - sw / 2 + 0.5} fill="var(--v-{meta.tone}-tint)" stroke={edge} stroke-width={sw} />
     <path d={fillPath} fill={col} />
   {:else if meta.shape === 'question'}
     <circle cx={c} cy={c} r={r - 0.3} fill="var(--v-none-tint)" stroke="var(--v-none)" stroke-width={sw} />

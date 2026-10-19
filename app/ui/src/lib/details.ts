@@ -2,7 +2,7 @@
 // result (no numbers computed here; nothing here changes a verdict), so vitest can hold them.
 
 import { UNUSABLE_TEXT, flagLabel } from './strings';
-import type { Assessment, ModelReading, PanelContrast, ScanResult } from './types';
+import type { Assessment, ModelReading, PanelContrast, ScanResult, VerdictRule } from './types';
 
 export type AnnotationKind = 'assessment' | 'domain' | 'noise';
 export interface ModelAnnotation {
@@ -51,6 +51,8 @@ export interface CheckRow {
   d: string;
   /** True: shown in the strong style (something to notice); false: a quiet "all fine" line. */
   notice: boolean;
+  /** A standing caveat, the same on every scan (shown behind an expander; DECISIONS 125). */
+  standing?: boolean;
 }
 
 const CHECK_NAME: Record<string, string> = { wax: 'lipid (such as wax)', ester: 'consolidant (ester)', plaster: 'plaster', c1: 'other foreign organic' };
@@ -167,6 +169,7 @@ export function checkRows(scan: ScanResult): CheckRow[] {
       title: 'Contaminant checks on high-res',
       d: "The checks were developed on standard-resolution scans. On high-resolution instruments they have been tested only by adding known contaminant spectra to real high-resolution scans. Thick coatings and plaster were caught on most scans; thin coats of glue or lacquer are often missed on both kinds of instrument. Treat 'no sign found' as reassuring, not as proof.",
       notice: false,
+      standing: true,
     });
   if (!rescan)
     out.push({
@@ -174,6 +177,7 @@ export function checkRows(scan: ScanResult): CheckRow[] {
       title: 'Glues and thin coats',
       d: "Thin coats of glue or lacquer can raise every collagen reading by 1–4 points, and the foreign-organic sign catches only about half of them. Animal (hide) glue reads as the bone's own collagen: about half of glued scans trip the foreign-organic sign, but it is never named as glue. On a bone that may have been glued or coated, check its history and treat a Borderline reading with extra caution.",
       notice: false,
+      standing: true,
     });
   if (scan.alteredOhBand)
     out.push({
@@ -197,45 +201,85 @@ export const CONTRAST_NAME: Record<string, string> = {
 
 export interface NumberRow {
   title: string;
+  /** The row in one sentence (the readable form). */
   d: string;
+  /** The same as labelled values, one per line, for the details panel to lay out (DECISIONS 125). */
+  items?: { label: string; value: string }[];
+  /** What the values are measured in, or a qualifier, under them. */
+  note?: string;
 }
 
 const sgn = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
 
-/** "How this verdict was made": the scan's own numbers (DECISIONS 121). Pure: reads the core's readings and panel record;
- *  rows whose readings are missing are left out. */
+/** The rule that set this scan's verdict, in plain words (the first row of "How this verdict was made"; DECISIONS 123). */
+export const RULE_PLAIN: Partial<Record<VerdictRule, string>> = {
+  model: 'The consensus reading against the screening lines (Unlikely below 0.5%, Good from 3%); the bands did not change it.',
+  flat_bands: 'The protein bands are flat: Unlikely, whatever the models read.',
+  plus_d: 'Lowered to Borderline: the models read 3% or more, but the protein bands at 2044 and 2175 nm are flat.',
+  lift_good: 'Raised to Good: all six collagen bands clearly resolved and no contaminant sign fired.',
+  lift_borderline: 'Raised to Borderline: the collagen bands resolved and no contaminant sign fired.',
+  lift_blocked: 'The bands could have raised the verdict, but a contaminant sign or noise blocked it; the consensus reading stands.',
+  no_model_reading: "No collagen model could read this scan: Can't tell.",
+  unusable: 'The scan is unusable: Rescan.',
+  not_bone: 'The target does not look like bone.',
+};
+
+/** "How this verdict was made": the rule applied, then the scan's own numbers as labelled values (DECISIONS 121, 123).
+ *  Pure: reads the core's readings and panel record; rows whose readings are missing are left out. */
 export function verdictNumbers(scan: ScanResult): NumberRow[] {
   const out: NumberRow[] = [];
+  const rule = RULE_PLAIN[scan.verdictRule];
+  if (rule) out.push({ title: 'Rule applied', d: rule });
   const m = scan.models;
   const parts = [m.wc2045?.value, m.wc1500?.value, m.f05?.value];
   if (parts.every((v) => v != null && Number.isFinite(v))) {
     const v = parts as number[];
+    const mid = [...v].sort((a, b) => a - b)[1];
+    const spread = (Math.max(...v) - Math.min(...v)).toFixed(1);
     out.push({
       title: 'Consensus models',
-      d: `2045 nm ${v[0].toFixed(1)}, 1545 nm ${v[1].toFixed(1)}, N–H set ${v[2].toFixed(1)}; the verdict reads their middle value. Spread ${(Math.max(...v) - Math.min(...v)).toFixed(1)} points.`,
+      d: `2045 nm ${v[0].toFixed(1)}% · 1545 nm ${v[1].toFixed(1)}% · N–H set ${v[2].toFixed(1)}%. Middle value ${mid.toFixed(1)}% (the starting estimate) · spread ${spread} percentage points.`,
+      items: [
+        { label: '2045 nm', value: `${v[0].toFixed(1)}%` },
+        { label: '1545 nm', value: `${v[1].toFixed(1)}%` },
+        { label: 'N–H set', value: `${v[2].toFixed(1)}%` },
+        { label: 'Middle value (starting estimate)', value: `${mid.toFixed(1)}%` },
+        { label: 'Spread', value: `${spread} points` },
+      ],
     });
   }
   const p = scan.panel;
   if (p?.chGap != null && Number.isFinite(p.chGap) && p.chPossibleAbove != null && p.chStrongAbove != null)
     out.push({
       title: 'C–H against N–H',
-      d: `The C–H reader sits ${sgn(p.chGap)} points from the consensus. The C–H note starts above ${sgn(p.chPossibleAbove)} and says "likely" above ${sgn(p.chStrongAbove)} (levels for this reading).`,
+      d: `Observed gap ${sgn(p.chGap)} · "possible" note above ${sgn(p.chPossibleAbove)} · "likely" note above ${sgn(p.chStrongAbove)} (C–H reader minus the consensus, percentage points; lines for this reading).`,
+      items: [
+        { label: 'Observed gap', value: sgn(p.chGap) },
+        { label: '"Possible" note above', value: sgn(p.chPossibleAbove) },
+        { label: '"Likely" note above', value: sgn(p.chStrongAbove) },
+      ],
+      note: 'C–H reader minus the consensus, in percentage points; the lines are for this reading.',
     });
   const others = (p?.contrasts ?? []).filter((c) => c.name !== 'CH' && Number.isFinite(c.fraction));
   if (others.length) {
     // the pair closest to its own firing line (largest fraction), not the largest raw difference (Astra review)
     const c = others.reduce((a: PanelContrast, b: PanelContrast) => (b.fraction > a.fraction ? b : a));
-    const where =
-      c.fraction <= 0
-        ? 'no further apart than clean bone usually is'
-        : `${Math.round(c.fraction * 100)}% of the way to its line`;
     out.push({
       title: 'Most unusual reader difference',
-      d: `${CONTRAST_NAME[c.name] ?? c.name}: ${c.value.toFixed(1)} points, ${where} (the "readers disagree strongly" note fires above ${c.firesAbove.toFixed(1)} for this pair).`,
+      d: `${CONTRAST_NAME[c.name] ?? c.name}: observed ${c.value.toFixed(1)} · note fires above ${c.firesAbove.toFixed(1)} (percentage points)${c.fraction <= 0 ? '; no further apart than clean bone usually is' : ''}.`,
+      items: [
+        { label: 'Observed', value: c.value.toFixed(1) },
+        { label: 'Note fires above', value: c.firesAbove.toFixed(1) },
+      ],
+      note: `${CONTRAST_NAME[c.name] ?? c.name}, in percentage points${c.fraction <= 0 ? '; no further apart than clean bone usually is' : ''}.`,
     });
   }
   const b6 = scan.checks.find((c) => c.id === 'b6');
   if (b6?.value != null && Number.isFinite(b6.value))
-    out.push({ title: 'Noise', d: `Noise in the consensus reading: SD ≈ ${b6.value.toFixed(1)} points.` });
+    out.push({
+      title: 'Noise',
+      d: `SD ≈ ${b6.value.toFixed(1)} percentage points in the consensus reading.`,
+      items: [{ label: 'SD of the consensus reading', value: `≈ ${b6.value.toFixed(1)} points` }],
+    });
   return out;
 }

@@ -69,6 +69,14 @@
   --flag-tint: #36142f;
   --flag-on: #1d0819;
   --flag-edge: rgba(240, 103, 216, 0.5);
+  /* the warning colour: the two strong panel notes (C–H "likely", readers disagree strongly). Safety orange (Matt,
+     2026-10-18: "something like orange ... very strong"), clear of Borderline's dull amber, Unlikely's rose and the magenta
+     flag; near the scan curve's orange, which only appears in the charts. One token family: change the hue here. */
+  --warn: #ff7a1a;
+  --warn-ink: #ffb27a;
+  --warn-tint: #33190a;
+  --warn-on: #1f0d00;
+  --warn-edge: rgba(255, 122, 26, 0.55);
 
   /* ---- fixed: per-scan identity ---- */
   --s1: #ff8a3d;
@@ -104,7 +112,7 @@
   --accent: #4d57b7;
   --accent-soft: #ebefff;
   --shadow: 0 1px 2px rgba(20, 24, 40, 0.05), 0 4px 16px rgba(20, 24, 40, 0.05);
-  --r0: #a3adc0;
+  --r0: #8a93a6; /* 3:1 on white (was #a3adc0, too faint; DECISIONS 123) */
   --r1: #3d97cc;
   --r3: #0f9a7a;
   --r6: #437510;
@@ -128,6 +136,8 @@
   --v-mid-ink: #785307;
   --v-mid-tint: #fff4db;
   --v-low: #ed8b88;
+  /* the glyph's ring only: the fill stays pale, so the three verdicts keep their light-to-dark order (DECISIONS 123) */
+  --v-low-edge: #c9605d;
   --v-low-ink: #a03f40;
   --v-low-tint: #ffedec;
   --v-none: #a3a8b2;
@@ -139,6 +149,11 @@
   --flag-tint: #fdebfa;
   --flag-on: #ffffff;
   --flag-edge: rgba(180, 35, 159, 0.45);
+  --warn: #f26a00;
+  --warn-ink: #9c4300;
+  --warn-tint: #fff0e3;
+  --warn-on: #1f0d00;
+  --warn-edge: rgba(242, 106, 0, 0.5);
 
   --s1: #e2560e;
 }
@@ -159,6 +174,12 @@
   --band-ink: #b3c3ff;
   --band-soft: rgba(127, 156, 255, 0.34);
   --accent: #9fb0ff;
+  /* the warning colour under the colour-blind toggle: Okabe–Ito yellow, far lighter than the CVD scan amber */
+  --warn: #f0e442;
+  --warn-ink: #f6ee8a;
+  --warn-tint: #2a2810;
+  --warn-on: #1a1800;
+  --warn-edge: rgba(240, 228, 66, 0.55);
 }
 :root[data-theme='light'][data-cvd='on'] {
   --s1: #c26a00;
@@ -171,6 +192,11 @@
   --band-ink: #2f3fa0;
   --band-soft: rgba(63, 85, 200, 0.28);
   --accent: #3949a8;
+  --warn: #f0e442;
+  --warn-ink: #5e5700;
+  --warn-tint: #fdfbe0;
+  --warn-on: #1a1800;
+  --warn-edge: rgba(150, 140, 0, 0.6);
 }
 
 * {
@@ -191,6 +217,33 @@ body {
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+  /* line breaks (Matt, 2026-10-18: no lonely word on a last line): paragraphs wrap "pretty" (inherited everywhere) */
+  text-wrap: pretty;
+}
+/* short labels, captions and notes (a few lines each) balance their lines; balancing gives up past about six lines, so long
+   paragraphs keep "pretty". Older WebKit ignores both and wraps as before. */
+h1,
+h2,
+h3,
+h4,
+small,
+li,
+.name,
+.vmodel,
+.vsub,
+.vnote,
+.note,
+.mnote,
+.dnote,
+.zrow,
+.cuflag,
+.check .d,
+.advrow,
+.ylabel,
+.line,
+.flagbox p,
+.lens p {
+  text-wrap: balance;
 }
 #app {
   height: 100%;

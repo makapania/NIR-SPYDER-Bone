@@ -13,11 +13,14 @@ Radiocarbon and isotopes (rule L2):
 Notes: at most `max_shown` under the verdict: first the note of the rule that set the verdict (profile order:
 +D > flat bands lead > lift > blocked lift), then ONE supporting note (profile order: above bone range > possible
 thin coating > C-H note > readers disagree strongly > contaminants not checked > models disagree > positive signs >
-bands too noisy). Every note that
+bands too noisy). The strong warnings (notes.warnings: ch_above_nh_strong, readers_disagree_strongly) never take the
+supporting slot: when one fires it is shown after the other notes, outside max_shown (DECISIONS 134). Every note that
 applies is listed in notes_all (the details); c1_reduced (the truncated C1 ran) and signs_reduced (plaster or C1 ran a
 reduced fallback below 1800 nm on a noisy scan; params: signs) are details-only.
 Phase 0c notes (DECISIONS 72, 76): above_bone_range when m > above_bone_range_m_above (every analysis);
 possible_thin_coating when the soft tier fired (signs['soft']; it also suppresses the positive-signs line);
+a panel note listed in positive_signs.suppressed_by_notes (the C-H note, readers disagree strongly) suppresses the
+positive-signs line too: no encouraging line against conflicting evidence (DECISIONS 128);
 contaminants_not_checked carries skipped (gated signs) and checked (assessed signs).
 Models disagree (DECISIONS 65): the three CONS3 components fall in different verdict bands (straddle a cut)
 and span at least models_disagree_min_span points.
@@ -185,7 +188,8 @@ def panel_notes(nt, m, comps, models):
     fired). ch_above_nh: the C-H reader (readers.ch) minus m above possible_above / strong_above of m's bin ->
     ch_above_nh_possible / ch_above_nh_strong (params ch, m). readers_disagree_strongly: the six contrasts CH = ch - m,
     CHN = m - ch, GL = m - narrow1545, SHP = wc1500 - narrow1545, SP3 = max - min of the CONS3 parts, RAW = |m - raw2045|,
-    each (x - median) / (q98 - median) of m's bin; fires when any present one exceeds level (CH skipped when the C-H note
+    each (x - median) / (q98 - median) of m's bin; fires when any present one exceeds level and the contrast itself exceeds
+    min_gap points (0 when absent; a gap under a point is noise near zero, DECISIONS 133) (CH skipped when the C-H note
     fired; a contrast with a missing reading is skipped); params contrasts (in that order), m.
     Also returns the verdict block's `panel` record (DECISIONS 121): ch, ch_gap, ch_possible_above / ch_strong_above for m's
     bin, and contrasts [{name, value, fires_above, fraction}] (1 = at the line), CH included."""
@@ -225,8 +229,9 @@ def panel_notes(nt, m, comps, models):
         if sc is None or gaps[name] is None:
             continue
         med, q = sc["median"][b], sc["q98"][b]
-        listed.append({"name": name, "value": gaps[name], "fires_above": med + r["level"] * (q - med),
-                       "fraction": (gaps[name] - med) / (q - med) / r["level"]})
+        line = max(med + r["level"] * (q - med), r.get("min_gap", 0.0))
+        listed.append({"name": name, "value": gaps[name], "fires_above": line,
+                       "fraction": (gaps[name] - med) / (line - med)})
     rec["contrasts"] = listed
     fired = []
     for name in PANEL_CONTRASTS:
@@ -234,7 +239,8 @@ def panel_notes(nt, m, comps, models):
         if sc is None or gaps[name] is None or (name == "CH" and ch_fired):
             continue
         med, q = sc["median"][b], sc["q98"][b]
-        if (gaps[name] - med) / (q - med) > r["level"]:
+        # the clean-bone line of m's bin, and at least min_gap points: a gap under a point is noise near zero (DECISIONS 133)
+        if (gaps[name] - med) / (q - med) > r["level"] and gaps[name] > r.get("min_gap", 0.0):
             fired.append(name)
     if fired:
         out.append({"key": "readers_disagree_strongly", "contrasts": fired, "m": m})
@@ -303,8 +309,10 @@ def collagen_verdict(prof, m, comps, ev, zo, sg, c1r, gated, models=None):
         notes.append({"key": "contaminants_not_checked", "skipped": skipped, "checked": checked})
     if not strong_disagree and models_disagree(comps, cuts, nt):
         notes.append({"key": "models_disagree", "components": dict(comps)})
-    if promising and not contam and not unchecked and not soft_fired:
-        ps = nt["positive_signs"]
+    ps = nt["positive_signs"]
+    # no encouraging line when a panel note says the evidence conflicts (DECISIONS 128)
+    panel_suppresses = any(_base_key(n["key"]) in ps.get("suppressed_by_notes", []) for n in pnotes)
+    if promising and not contam and not unchecked and not soft_fired and not panel_suppresses:
         if zv == ps["all_six_zooms_verdict"]:
             notes.append({"key": "positive_signs_all_six"})
         elif level in ps["clear_levels"] and m >= ps["clear_min_m"]:
@@ -343,10 +351,11 @@ def shown_notes(notes, nt, lifted=False):
         if hit:
             shown.append(hit[0])
             break
+    warnings = nt.get("warnings", [])
     for p in nt["precedence_supporting"]:
         if lifted and p == "positive_signs" and nt.get("positive_signs_hidden_after_lift", True):
             continue
-        hit = [k for k in keys if _base_key(k) == p]
+        hit = [k for k in keys if _base_key(k) == p and k not in warnings]
         if hit:
             shown.append(hit[0])
             break
@@ -357,7 +366,8 @@ def shown_notes(notes, nt, lifted=False):
         if hit and len(shown) < nt["max_shown"] and not zooms_shown:
             shown.append(hit[0])
             break
-    return shown[: nt["max_shown"]]
+    # the strong warnings: always shown when they fire, outside the slots and max_shown (DECISIONS 134)
+    return shown[: nt["max_shown"]] + [w for w in warnings if w in keys]
 
 
 def zooms_verdict(prof, zo, sg, c1r, m=None):

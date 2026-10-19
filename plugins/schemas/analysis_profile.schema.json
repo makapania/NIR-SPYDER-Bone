@@ -273,6 +273,15 @@
           "type": "string"
          }
         },
+        "warnings": {
+         "type": "array",
+         "items": {
+          "enum": [
+           "ch_above_nh_strong",
+           "readers_disagree_strongly"
+          ]
+         }
+        },
         "details_only": {
          "type": "array",
          "items": {

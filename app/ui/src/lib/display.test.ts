@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MODEL_NAME, formatModel, formatReading, trackPos, zoomsHeadline } from './display';
+import { keepRanges, MODEL_NAME, formatModel, formatReading, trackPos, zoomsHeadline } from './display';
 
 describe('display policy (PLAN Step 10, A20)', () => {
   it('never shows a number below 0.5, and never a negative', () => {
@@ -70,5 +70,16 @@ describe('model names (DECISIONS 77): the panel readers (2026-10-18)', () => {
   it('the low-range estimate in the verdict card uses the display policy (short form)', () => {
     expect(formatReading(1.23, true)).toBe('≈ 1.2%');
     expect(formatReading(0.1, true)).toBe('< 0.5%');
+  });
+});
+
+describe('numeric ranges', () => {
+  it('are glued with word joiners so they never break across lines, and read the same', () => {
+    const WJ = '\u2060';
+    expect(keepRanges('reads 2150–2200 nm')).toBe(`reads 2150${WJ}–${WJ}2200 nm`);
+    expect(keepRanges('around 3–6%; 100–200 averages')).toBe(`around 3${WJ}–${WJ}6%; 100${WJ}–${WJ}200 averages`);
+    expect(keepRanges('C–H and N–H')).toBe('C–H and N–H');
+    expect(keepRanges('a – b')).toBe('a – b');
+    expect(keepRanges('reads 2150–2200').split(WJ).join('')).toBe('reads 2150–2200');
   });
 });

@@ -24,9 +24,12 @@
     state?: BandState;
     /** Band lit while a contaminant flag is up: dashed flag-colour outline. */
     flagged?: boolean;
-    /** Draw the band's evidence glyph above it (close-ups). */
-    glyph?: boolean;
     highlight?: boolean;
+    /** The end of the plot a collagen band points to as drawn (default 'up'): the column's cap and fade start there.
+     *  The OH-corrected 1545 nm band is a dip, so it points down when the other bands point up. */
+    toward?: 'up' | 'down';
+    /** Mark the direction with a small arrowhead at that end (the 1545 dip). */
+    arrow?: boolean;
   }
 </script>
 
@@ -44,6 +47,9 @@
     /** Series used for the y range (default: all). The evidence close-ups pass the 10% reference
      *  and the scan, so a flat band can never be blown up to look lit. */
     yFrom?: Float32Array[];
+    /** The side of the y range away from the bands (the floor with bands up, the ceiling with bands down) from these series
+     *  instead (the drawn curves); the band side stays set by `yFrom` (DECISIONS 125: the six plain close-ups). */
+    yAwayFrom?: Float32Array[];
     /** Include zero in the y range and draw the zero line (derivative views). */
     zero?: boolean;
     /** Draw every series negated: the derivative views arrive as −d²A/dλ² (bands up); flip shows the
@@ -57,6 +63,9 @@
     yDecimals?: number;
     refLabelsIn?: [number, number];
     bandLabels?: boolean;
+    /** Small plots: leave room at the top for labels drawn on the canvas (the model-window pills; default). The band
+     *  close-ups label their bands in HTML above the plot, so they use the whole height. */
+    labelRoom?: boolean;
     /** Text drawn at the top right of the plot area (e.g. "coating sign"). */
     cornerLabel?: string;
     themeKey: string;
@@ -73,6 +82,7 @@
     series,
     xRange,
     yFrom,
+    yAwayFrom,
     zero = false,
     flip = false,
     shades = [],
@@ -83,6 +93,7 @@
     yDecimals,
     refLabelsIn,
     bandLabels = false,
+    labelRoom = true,
     cornerLabel,
     themeKey,
     ariaLabel,
@@ -147,12 +158,30 @@
       }
     }
     if (!Number.isFinite(lo)) return [-1, 1];
+    if (yAwayFrom) {
+      // the side away from the bands follows the drawn curves; the band side stays fixed by yFrom
+      let alo = Infinity;
+      let ahi = -Infinity;
+      for (const d of yAwayFrom) {
+        for (let i = i0; i < i1; i++) {
+          const v = flip ? -d[i] : d[i];
+          if (Number.isFinite(v)) {
+            if (v < alo) alo = v;
+            if (v > ahi) ahi = v;
+          }
+        }
+      }
+      if (Number.isFinite(alo)) {
+        if (flip) hi = ahi;
+        else lo = alo;
+      }
+    }
     if (zero) {
       lo = Math.min(lo, -1);
       hi = Math.max(hi, 1);
     }
     const span = hi - lo || 1;
-    return [lo - span * 0.08, hi + span * (small ? 0.2 : 0.12)];
+    return [lo - span * 0.08, hi + span * (small && labelRoom ? 0.2 : small ? 0.08 : 0.12)];
   }
 
   function build() {
@@ -209,7 +238,7 @@
     const opts: uPlot.Options = {
       width: W,
       height: H,
-      padding: small ? [16, axes ? 14 : 4, axes ? 0 : 4, axes ? 10 : 4] : [18, 16, 0, 4],
+      padding: small ? [labelRoom ? 16 : 4, axes ? 14 : 4, axes ? 0 : 4, axes ? 10 : 4] : [18, 16, 0, 4],
       legend: { show: false },
       cursor: readout ? { drag: { x: true, y: false }, points: { show: false }, y: false } : { show: false },
       select: { show: readout, left: 0, top: 0, width: 0, height: 0 },
@@ -316,13 +345,28 @@
           ctx.fillRect(xc, top, w, height);
         } else {
           const a = { strong: 0.44, clear: 0.3, trace: 0.16 }[st] + hl;
-          const g = ctx.createLinearGradient(0, top, 0, top + height);
+          const down = s.toward === 'down';
+          const g = ctx.createLinearGradient(0, down ? top + height : top, 0, down ? top : top + height);
           g.addColorStop(0, alpha(band, Math.min(1, a)));
           g.addColorStop(1, alpha(band, Math.min(1, a * 0.4)));
           ctx.fillStyle = g;
           ctx.fillRect(xc, top, w, height);
           ctx.fillStyle = alpha(band, { strong: 1, clear: 0.78, trace: 0.5 }[st]);
-          ctx.fillRect(xc, top, w, 3 * dpr);
+          ctx.fillRect(xc, down ? top + height - 3 * dpr : top, w, 3 * dpr);
+        }
+        if (s.arrow && st !== 'flat' && st !== 'cant_tell') {
+          // an arrowhead at the end a lit band points to (the 1545 dip), as strong as the band: none when flat or too noisy
+          const down = s.toward === 'down';
+          const ax = xc + w / 2;
+          const tip = down ? top + height - 5 * dpr : top + 5 * dpr;
+          const base = down ? tip - 6 * dpr : tip + 6 * dpr;
+          ctx.fillStyle = alpha(band, { strong: 1, clear: 0.78, trace: 0.5 }[st]);
+          ctx.beginPath();
+          ctx.moveTo(ax, tip);
+          ctx.lineTo(ax - 4.5 * dpr, base);
+          ctx.lineTo(ax + 4.5 * dpr, base);
+          ctx.closePath();
+          ctx.fill();
         }
         if (s.flagged && st !== 'flat' && st !== 'cant_tell') {
           ctx.strokeStyle = flag;
@@ -419,7 +463,6 @@
     const dpr = window.devicePixelRatio || 1;
     const { left, top, width, height } = u.bbox;
     const ink3 = cssVar('--ink-3');
-    const band = cssVar('--band');
     ctx.save();
     // labels for context bands and windows
     for (const s of shades) {
@@ -431,17 +474,14 @@
       if (s.kind === 'window') pill(ctx, s.label, (xa + xb) / 2, top + (small ? 8 : 24) * dpr);
       if (s.kind === 'flag') text(ctx, s.label, Math.max(xa, left) + 5 * dpr, top + 40 * dpr, cssVar('--flag-ink'), 'left', 650);
     }
-    // band wavelength labels (main plot) or glyphs (close-ups)
+    // band wavelength labels (main plot)
     let k = 0;
     for (const s of shades) {
-      if (s.kind !== 'band') continue;
+      if (s.kind !== 'band' || !bandLabels) continue;
       const x = u.valToPos((s.lo + s.hi) / 2, 'x', true);
       if (x < left || x > left + width) continue;
-      if (bandLabels) {
-        text(ctx, String(Math.round((s.lo + s.hi) / 2)), x, top + height - (6 + (k % 2) * 12) * dpr, ink3, 'center');
-        k++;
-      }
-      if (s.glyph) drawEvGlyph(ctx, x, top - 8 * dpr, 6 * dpr, s.state ?? 'flat', band, ink3, dpr);
+      text(ctx, String(Math.round((s.lo + s.hi) / 2)), x, top + height - (6 + (k % 2) * 12) * dpr, ink3, 'center');
+      k++;
     }
     // detector joins: small triangles on the x axis
     for (const j of joins) {
@@ -504,39 +544,6 @@
     ctx.restore();
   }
 
-  function drawEvGlyph(ctx: CanvasRenderingContext2D, x: number, y: number, R: number, st: BandState, accent: string, ink: string, dpr: number) {
-    ctx.save();
-    ctx.lineWidth = 1.2 * dpr;
-    ctx.strokeStyle = st === 'flat' || st === 'cant_tell' ? ink : accent;
-    if (st === 'cant_tell') {
-      ctx.setLineDash([2 * dpr, 1.8 * dpr]);
-      ctx.beginPath();
-      ctx.arc(x, y, R - 0.5 * dpr, 0, Math.PI * 2);
-      ctx.stroke();
-    } else if (st === 'strong') {
-      ctx.fillStyle = accent;
-      ctx.beginPath();
-      ctx.arc(x, y, R, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.beginPath();
-      ctx.arc(x, y, R - 0.5 * dpr, 0, Math.PI * 2);
-      ctx.stroke();
-      if (st === 'flat') {
-        ctx.beginPath();
-        ctx.moveTo(x - R * 0.5, y);
-        ctx.lineTo(x + R * 0.5, y);
-        ctx.stroke();
-      } else {
-        ctx.fillStyle = accent;
-        ctx.beginPath();
-        ctx.arc(x, y, R * Math.sqrt(st === 'clear' ? 0.62 : 0.3), 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-    ctx.restore();
-  }
-
   function showTip(u: uPlot) {
     if (!tip) return;
     const idx = u.cursor.idx;
@@ -569,7 +576,7 @@
 
   $effect(() => {
     // rebuild whenever the inputs or the theme change
-    void [series, xRange, yFrom, shades, themeKey, cornerLabel, zero, flip];
+    void [series, xRange, yFrom, yAwayFrom, shades, themeKey, cornerLabel, zero, flip, labelRoom];
     build();
   });
 

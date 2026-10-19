@@ -65,6 +65,9 @@ pub struct Notes {
     pub positive_signs_clear_levels: Vec<String>,
     pub positive_signs_clear_min_m: f64,
     pub positive_signs_hidden_after_lift: bool,
+    /// Panel notes whose firing suppresses the positive-signs line (base keys "ch_above_nh", "readers_disagree_strongly":
+    /// no encouraging line against conflicting evidence; DECISIONS 128).
+    pub positive_signs_suppressed_by_notes: Vec<String>,
     pub bands_too_noisy_level: Option<String>,
     /// The above_bone_range note when m exceeds this (phase 0c, DECISIONS 72); None = no such note.
     pub above_bone_range_m_above: Option<f64>,
@@ -78,6 +81,10 @@ pub struct Notes {
     pub zooms_protein: Option<ProteinTest>,
     /// The quietest notes: shown only when a slot is left after the rule, ZooMS and supporting notes.
     pub precedence_last: Vec<String>,
+    /// The strong warnings ("ch_above_nh_strong", "readers_disagree_strongly"): when one fires it is always shown, after the
+    /// other notes and outside `max_shown`, and never takes the supporting slot (DECISIONS 134; like a flag, it never
+    /// competes for a note's place).
+    pub warnings: Vec<String>,
     /// The Ryder 2045 ZooMS line: the published model's key in the profile and its cut (None = no such line).
     pub zooms_ryder: Option<(String, f64)>,
     /// The panel notes (DECISIONS 111, 115, 119; None = no such notes).
@@ -110,11 +117,13 @@ pub struct ChAboveNh {
     pub strong_above: Vec<f64>,
 }
 
-/// readers_disagree_strongly: any contrast's (x - median) / (q98 - median) of m's bin above `level`.
+/// readers_disagree_strongly: any contrast's (x - median) / (q98 - median) of m's bin above `level`, and the contrast
+/// itself above `min_gap` points (a gap under a point is noise near zero; DECISIONS 133).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReadersDisagree {
     pub bin_edges: Vec<f64>,
     pub level: f64,
+    pub min_gap: f64,
     /// (name, median per bin, q98 per bin), in [`PANEL_CONTRASTS`] order; contrasts the profile omits are absent.
     pub contrasts: Vec<(String, Vec<f64>, Vec<f64>)>,
 }
@@ -171,6 +180,14 @@ fn parse_panel(n: &Node, models: &[ProfileModel]) -> PResult<PanelNotes> {
             if !(level > 0.0) {
                 return Err(r.error("level must be positive"));
             }
+            let min_gap = r
+                .opt("min_gap")
+                .map(|x| x.f64())
+                .transpose()?
+                .unwrap_or(0.0);
+            if !(min_gap >= 0.0) {
+                return Err(r.error("min_gap must be zero or positive"));
+            }
             let cs = r.req("contrasts")?;
             let mut got = Vec::new();
             for (name, c) in cs.entries()? {
@@ -188,6 +205,7 @@ fn parse_panel(n: &Node, models: &[ProfileModel]) -> PResult<PanelNotes> {
             Some(ReadersDisagree {
                 bin_edges,
                 level,
+                min_gap,
                 contrasts: got,
             })
         }
@@ -442,6 +460,21 @@ pub fn parse_profile(doc: &Node) -> PResult<AnalysisProfile> {
                     .to_string(),
                 positive_signs_clear_levels: strs(&ps, "clear_levels")?,
                 positive_signs_clear_min_m: ps.req("clear_min_m")?.f64()?,
+                positive_signs_suppressed_by_notes: {
+                    let s = ps
+                        .opt("suppressed_by_notes")
+                        .map(|n| n.vec_str())
+                        .transpose()?
+                        .unwrap_or_default();
+                    if let Some(x) = s.iter().find(|x| {
+                        !matches!(x.as_str(), "ch_above_nh" | "readers_disagree_strongly")
+                    }) {
+                        return Err(ps.error(format!(
+                            "suppressed_by_notes: {x:?} is not ch_above_nh or readers_disagree_strongly"
+                        )));
+                    }
+                    s
+                },
                 positive_signs_hidden_after_lift: notes
                     .opt("positive_signs_hidden_after_lift")
                     .map(|b| b.bool())
@@ -523,6 +556,24 @@ pub fn parse_profile(doc: &Node) -> PResult<AnalysisProfile> {
                     .map(|n| n.vec_str())
                     .transpose()?
                     .unwrap_or_default(),
+                warnings: {
+                    let w = notes
+                        .opt("warnings")
+                        .map(|n| n.vec_str())
+                        .transpose()?
+                        .unwrap_or_default();
+                    if let Some(x) = w.iter().find(|x| {
+                        !matches!(
+                            x.as_str(),
+                            "ch_above_nh_strong" | "readers_disagree_strongly"
+                        )
+                    }) {
+                        return Err(notes.error(format!(
+                            "warnings: {x:?} is not ch_above_nh_strong or readers_disagree_strongly"
+                        )));
+                    }
+                    w
+                },
                 panel: notes
                     .opt("panel")
                     .map(|n| parse_panel(&n, &models))

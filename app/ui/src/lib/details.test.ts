@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { DOMAIN_NOTE, checkRows, modelAnnotations, verdictNumbers } from './details';
+import { DOMAIN_NOTE, RULE_PLAIN, checkRows, modelAnnotations, verdictNumbers } from './details';
 import { MOCK_SPECS, buildResult } from './mock/scans';
+import { disagreeParts, noteText } from './strings';
 import type { CheckResult, ModelReading, ScanResult } from './types';
 
 const reading = (over: Partial<ModelReading> = {}): ModelReading => ({
@@ -171,23 +172,55 @@ describe('"How this verdict was made": the scan’s own numbers (DECISIONS 121)'
       },
     };
     const rows = verdictNumbers(s);
-    expect(rows.map((r) => r.title)).toEqual(['Consensus models', 'C–H against N–H', 'Most unusual reader difference', 'Noise']);
-    expect(rows[1].d).toContain('+0.4 points');
-    expect(rows[1].d).toContain('above +1.3');
-    expect(rows[1].d).toContain('"likely" above +2.4');
+    expect(rows.map((r) => r.title)).toEqual(['Rule applied', 'Consensus models', 'C–H against N–H', 'Most unusual reader difference', 'Noise']);
+    expect(rows[0].d).toBe(RULE_PLAIN[s.verdictRule]);
+    expect(rows[1].d).toContain('(the starting estimate)');
+    expect(rows[1].d).toContain('percentage points');
+    expect(rows[2].d).toBe('Observed gap +0.4 · "possible" note above +1.3 · "likely" note above +2.4 (C–H reader minus the consensus, percentage points; lines for this reading).');
     // the most unusual difference excludes C–H (it has its own row) and picks the pair nearest its own line, not the largest
-    expect(rows[2].d).toContain('N–H consensus above the narrow 1545 nm band: 0.3 points, 60% of the way to its line');
-    expect(rows[2].d).toContain('fires above 0.7');
-    expect(rows[3].d).toContain('SD ≈ 0.3');
+    expect(rows[3].d).toBe('N–H consensus above the narrow 1545 nm band: observed 0.3 · note fires above 0.7 (percentage points).');
+    expect(rows[4].d).toBe('SD ≈ 0.3 percentage points in the consensus reading.');
   });
   it('a negative C–H gap reads as minus', () => {
     const s = { ...base(), panel: { ch: 0, chGap: -0.6, chPossibleAbove: 1.3, chStrongAbove: 2.4, contrasts: [] } };
-    expect(verdictNumbers(s).find((r) => r.title === 'C–H against N–H')?.d).toContain('−0.6 points');
+    expect(verdictNumbers(s).find((r) => r.title === 'C–H against N–H')?.d).toContain('Observed gap −0.6');
+  });
+  it('a pair no further apart than on clean bone says so', () => {
+    const s = { ...base(), panel: { ch: 0, chGap: 0, chPossibleAbove: 1.3, chStrongAbove: 2.4, contrasts: [{ name: 'SP3', value: 0.1, firesAbove: 2.0, fraction: -0.2 }] } };
+    expect(verdictNumbers(s).find((r) => r.title === 'Most unusual reader difference')?.d).toContain('no further apart than clean bone usually is');
+  });
+  it('every rule the app shows has plain words', () => {
+    for (const k of ['model', 'flat_bands', 'plus_d', 'lift_good', 'lift_borderline', 'lift_blocked', 'no_model_reading', 'unusable', 'not_bone'] as const)
+      expect(RULE_PLAIN[k]).toMatch(/\.$/);
   });
   it('leaves out what it cannot show (no panel record: ZooMS, or the mock)', () => {
     const s = { ...base(), panel: null };
     const t = verdictNumbers(s).map((r) => r.title);
     expect(t).not.toContain('C–H against N–H');
     expect(t).not.toContain('Most unusual reader difference');
+  });
+});
+
+describe('the readers-disagree note names what disagreed (Matt, 2026-10-18: the words must match what can be seen)', () => {
+  const base = () => buildResult(MOCK_SPECS[0], 'radiocarbon', 'standard');
+  const contrasts = (gl: number) => [
+    { name: 'CH', value: -0.9, firesAbove: 2.5, fraction: -0.5 },
+    { name: 'GL', value: gl, firesAbove: 0.71, fraction: gl / 0.71 },
+    { name: 'RAW', value: 0.0, firesAbove: 6.3, fraction: -0.2 },
+  ];
+  it('a narrow-1545 split (the Frido saiga scan) says so, with both readings', () => {
+    const b = base();
+    const s = { ...b, models: { ...b.models, cons3: { ...b.models.cons3!, value: 0.45 } },
+      panel: { ch: -0.4, chGap: -0.9, chPossibleAbove: 1.3, chStrongAbove: 2.4, contrasts: contrasts(0.77) } };
+    const d = disagreeParts(s)!;
+    expect(d.lead).toBe('Collagen estimates disagree strongly');
+    expect(d.rest).toBe(': the narrow 1545 nm band reads < 0% against the consensus 0.5%, more than on clean bone. Treat the percentage with caution; the cause is unknown.');
+    expect(noteText({ key: 'readers_disagree_strongly', params: {} }, s)).toBe(d.lead + d.rest);
+  });
+  it('without a panel record, or when nothing is past its line, the general sentence stays', () => {
+    const generic = noteText({ key: 'readers_disagree_strongly', params: {} });
+    expect(noteText({ key: 'readers_disagree_strongly', params: {} }, { ...base(), panel: null })).toBe(generic);
+    const quiet = { ...base(), panel: { ch: 0, chGap: 0, chPossibleAbove: 1.3, chStrongAbove: 2.4, contrasts: contrasts(0.3) } };
+    expect(disagreeParts(quiet)).toBeNull();
   });
 });

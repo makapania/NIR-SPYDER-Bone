@@ -105,6 +105,8 @@ export interface SynthSpec {
   /** Altered OH/water component, 0 = like the reference bones. */
   oh?: number;
   coat?: Coat;
+  /** Depth of a mock collagen dip at 1545 nm (absorbance; the OH-corrected 1545 nm band is a trough in −d²A). */
+  dip1545?: number;
   /** White noise level as an N2 target (×1e-5 absorbance). */
   n2?: number;
   /** Band-scale noise: target SD of E = −1e5·SG31 d²A (×1e-5). */
@@ -179,6 +181,7 @@ export function synthesise(sp: SynthSpec): Synth {
       ohPart[i] = p;
       let a = A[i] + (sp.off ?? 0) + (sp.tilt ?? 0) * ((l - 1700) / 1000) + p;
       for (const [mu, s, h] of coat) a += h * G(l, mu, s);
+      if (sp.dip1545) a -= sp.dip1545 * G(l, 1545, 9);
       A[i] = a;
     }
   }
