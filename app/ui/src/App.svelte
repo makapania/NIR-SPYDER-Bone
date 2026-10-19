@@ -693,12 +693,15 @@
   .hero > :global(.bandfoot) {
     align-self: end;
   }
-  /* beside the verdict from a 560 px main column (the 1100 px window): from 720 px (1280 px) with a label line, below that
-     as narrow as v0.3's close-ups with two label lines; under the verdict only when the viewer has widened the scans list
-     on a small window */
+  /* beside the verdict from a 560 px main column (the 1100 px window): from 720 px (1280 px) at full size, below that as
+     narrow as v0.3's close-ups with short titles; under the verdict only when the viewer has widened the scans list on a
+     small window. The close-ups' column never goes under their minimum, which follows the text measured in the rendered
+     font: a wide font takes a few px from the verdict, down to its own minimum (--verdict-min); where even that is not
+     enough (BandCloseUps marks the row .cramped), the close-ups go under the verdict, as on a narrower window */
   @container maincol (min-width: 560px) {
     .hero {
-      grid-template-columns: minmax(290px, 1fr) minmax(0, 1fr);
+      --verdict-min: 290px;
+      grid-template-columns: minmax(var(--verdict-min), 1fr) minmax(min-content, 1fr);
       grid-template-areas:
         'verdict sum'
         'verdict plots'
@@ -716,6 +719,7 @@
   }
   @container maincol (min-width: 560px) and (max-width: 719.98px) {
     .hero :global(.bandrow) {
+      --narrow: 1;
       gap: 4px;
       padding: 4px 4px 2px;
     }
@@ -735,8 +739,26 @@
   }
   @container maincol (min-width: 720px) {
     .hero {
-      grid-template-columns: minmax(300px, 1fr) minmax(min-content, 470px);
+      --verdict-min: 300px;
+      grid-template-columns: minmax(var(--verdict-min), 1fr) minmax(min-content, 470px);
     }
+  }
+  /* the close-ups cannot sit beside the verdict at their minimum widths (a wide font on a small window): under it */
+  .hero:has(> :global(.bandrow.cramped)) {
+    grid-template-columns: minmax(290px, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'verdict sum'
+      'verdict foot'
+      'plots plots';
+  }
+  .hero:has(> :global(.bandrow.cramped)) > :global(.verdict) {
+    border-radius: var(--r-lg) 0 0 0;
+  }
+  .hero:has(> :global(.bandrow.cramped)) > :global(.bandrow) {
+    justify-content: center;
+  }
+  .hero:has(> :global(.bandrow.cramped)) > :global(.bandfoot) {
+    align-self: end;
   }
   .empty {
     padding: 40px;

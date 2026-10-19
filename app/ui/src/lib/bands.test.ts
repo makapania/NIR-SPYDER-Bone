@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { CLOSEUPS, bandAt, bandCount, bandSummaryTitle, bandTitle, bandsByCloseUp, closeUpBands, closeUpSpan, placeNumbers, stateWord } from './bands';
+import {
+  CLOSEUPS,
+  EDGE_CLEAR,
+  LABEL_FITS,
+  bandAt,
+  bandCount,
+  bandSummaryTitle,
+  bandTitle,
+  bandX,
+  bandsByCloseUp,
+  closeUpBands,
+  closeUpLabelWidth,
+  closeUpSpan,
+  placeNumbers,
+  placeRow,
+  stateWord,
+  textW,
+} from './bands';
 import { splitName } from './display';
 import type { BandId, BandReading, BandState } from './types';
 
@@ -56,25 +73,68 @@ describe('the band close-ups', () => {
     expect(bandAt(ch.windows[0], 1665)).toBe(0);
     expect(bandAt(ch.windows[0], 1755)).toBe(1);
     expect(bandAt(ch.windows[0], 1710)).toBeCloseTo(0.5);
+    // widths as measured in the rendered font (here: 4 digits 22 px wide, a 9 px separator, a 5 px asterisk)
+    const n4 = { w: 22, n: 4 };
+    const sep = { w: 9, n: 3 };
+    const at = (...xs: number[]) => xs.map((x) => ({ x, num: n4 }));
+    const room: [number, number] = [-100, 200];
     // one band (1545*, 2044, 2175 each in its own window): centred, no pair label
-    expect(placeNumbers([30], [22])).toEqual({ shift: [0], sepAt: null });
+    expect(placeNumbers(at(30), sep, room)).toEqual({ shift: [0], sepAt: null });
     // two bands with room (C-H in a wide close-up): each number centred on its band
-    expect(placeNumbers([20, 54], [22, 22], 8)).toEqual({ shift: [0, 0], sepAt: null });
+    expect(placeNumbers(at(20, 54), sep, room)).toEqual({ shift: [0, 0], sepAt: null });
     // too close (2262/2284 always): one label "a · b" centred on the pair's midpoint, the separator at the midpoint
-    const p = placeNumbers([30, 42], [22, 22], 8, 9);
+    const p = placeNumbers(at(30, 42), sep, room)!;
     expect(p.sepAt).toBeCloseTo(36);
     const ca = 30 + p.shift[0];
     const cb = 42 + p.shift[1];
     expect((ca + cb) / 2).toBeCloseTo(36);
     expect(cb - ca).toBeCloseTo(22 + 9);
     // the boundary: exactly the gap apart stays separate; a hair less is a pair
-    expect(placeNumbers([0, 30], [22, 22], 8).sepAt).toBeNull();
-    expect(placeNumbers([0, 29.9], [22, 22], 8).sepAt).not.toBeNull();
+    expect(placeNumbers(at(0, 30), sep, room)!.sepAt).toBeNull();
+    expect(placeNumbers(at(0, 29.9), sep, room)!.sepAt).not.toBeNull();
+    // a wider font (the same numbers measured 26 px wide) needs the pair where the narrower one sat apart
+    expect(placeNumbers([0, 30].map((x) => ({ x, num: { w: 26, n: 4 } })), sep, room)!.sepAt).not.toBeNull();
     // unequal widths: the pair label as a whole is centred on the midpoint
-    const q = placeNumbers([0, 10], [20, 30], 8, 10);
+    const q = placeNumbers([{ x: 0, num: { w: 20, n: 4 } }, { x: 10, num: { w: 30, n: 4 } }], { w: 10, n: 3 }, room)!;
     const left = 0 + q.shift[0] - 10;
     const right = 10 + q.shift[1] + 15;
     expect((left + right) / 2).toBeCloseTo(5);
+  });
+
+  it('keep every number inside its close-up, whatever the font: a pair label, then tighter or smaller type, never over the edge', () => {
+    const sep = { w: 9, n: 3 };
+    // a number centred near the box edge does not fit: no placement at that type
+    expect(placeNumbers([{ x: 40, num: { w: 26, n: 4 }, tail: { w: 6, n: 1 } }], sep, [0, 54])).toBeNull();
+    // the asterisk counts on the right but not for centring
+    expect(placeNumbers([{ x: 40, num: { w: 26, n: 4 }, tail: { w: 6, n: 1 } }], sep, [0, 60])).toEqual({ shift: [0], sepAt: null });
+    // side by side over the edge: the pair label, centred on the pair, inside the room
+    const pr = placeNumbers([{ x: 6, num: { w: 22, n: 4 } }, { x: 46, num: { w: 22, n: 4 } }], sep, [-4, 56])!;
+    expect(pr.sepAt).toBeCloseTo(26);
+    // the row tightens or shrinks the type only when a window does not fit at the design size
+    const wide = { w: 28, n: 4 };
+    const roomy = placeRow([{ nums: [{ x: 30, num: wide }], room: [0, 60] }], sep);
+    expect(roomy).toMatchObject({ fit: 0, squeezed: false });
+    const tight = placeRow([{ nums: [{ x: 30, num: wide }], room: [16, 44] }], sep);
+    expect(tight.fit).toBeGreaterThan(0);
+    expect(tight.squeezed).toBe(false);
+    expect(LABEL_FITS[tight.fit].fs).toBeGreaterThanOrEqual(10);
+    const w = textW(wide, LABEL_FITS[tight.fit]);
+    expect(30 - w / 2).toBeGreaterThanOrEqual(16 + EDGE_CLEAR - 1e-6);
+    expect(30 + w / 2).toBeLessThanOrEqual(44 - EDGE_CLEAR + 1e-6);
+    // nothing fits even at the smallest type: moved inside the room as a whole (off-centre, never over the edge)
+    const sq = placeRow([{ nums: [{ x: 4, num: wide }], room: [0, 60] }], sep);
+    expect(sq.squeezed).toBe(true);
+    const l = 4 + sq.placed[0].shift[0] - textW(wide, LABEL_FITS[sq.fit]) / 2;
+    expect(l).toBeCloseTo(EDGE_CLEAR);
+    // a close-up's minimum width grows with the measured text: the 1545 close-up for "1545*" in a wide font
+    const t = (w4: number) => ({ nums: { nh1545: { w: w4, n: 4 } }, tail: { w: w4 / 4, n: 1 }, sep });
+    const frame = { pad: 4, border: 1, brk: 12 };
+    const narrowFont = closeUpLabelWidth(CLOSEUPS[0], t(22), frame);
+    const wideFont = closeUpLabelWidth(CLOSEUPS[0], t(28), frame);
+    expect(wideFont).toBeGreaterThan(narrowFont);
+    // and the 1545 number fits in a close-up that wide: x at 3/4 of the window, the asterisk inside the right edge
+    const ww = wideFont - 2 * (frame.pad + frame.border);
+    expect(placeNumbers([{ x: bandX(CLOSEUPS[0].windows[0], 1545, ww), num: { w: 28, n: 4 }, tail: { w: 7, n: 1 } }], sep, [-4, ww + 4])).not.toBeNull();
   });
 
   it('name each band honestly in its tooltip', () => {

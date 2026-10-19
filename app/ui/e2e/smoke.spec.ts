@@ -166,6 +166,10 @@ test('a charred heat sign is marked in Reflectance; the 2nd-derivative toolbar h
 // band; numbers inside their box; titles, numbers and glyphs on shared lines across the row. Checked the way Matt runs the
 // app: Windows display scaling 1.25 and 1.5, 1100 to 1920 px wide in 20 px steps, the default and a widened scans list
 // (the row then goes under the verdict on the smaller windows).
+// Font-independent: the checks assert the rules, not which pairs merge at which width (that follows the measured text
+// widths), and the sweep runs again in a wide font set after the page has drawn (DejaVu Sans, Linux's fallback, or
+// Verdana with the same metrics: wider than Segoe UI and SF Pro), so the labels must re-measure and still fit.
+const WIDE_FONT = ':root { --font-ui: "DejaVu Sans", Verdana, sans-serif !important; }';
 type LabelMetrics = {
   heroRight: number;
   cus: {
@@ -257,9 +261,9 @@ function labelFaults(m: LabelMetrics): string[] {
   return f;
 }
 
-for (const scale of [1.25, 1.5])
+for (const [scale, font] of [[1.25, null], [1.5, null], [1.5, WIDE_FONT]] as const)
   for (const list of [null, '560'] as const)
-    test(`the close-up labels: one tidy line on their bands, 1100–1920 px at scale ${scale}${list ? ', widened scans list' : ''}`, async ({ browser }) => {
+    test(`the close-up labels: one tidy line on their bands, 1100–1920 px at scale ${scale}${list ? ', widened scans list' : ''}${font ? ', a wide font' : ''}`, async ({ browser }) => {
       test.setTimeout(180_000);
       const ctx = await browser.newContext({ viewport: { width: 1100, height: 700 }, deviceScaleFactor: scale });
       const page = await ctx.newPage();
@@ -268,6 +272,7 @@ for (const scale of [1.25, 1.5])
       await page.goto('/#scan=Spectrum00021');
       await page.reload();
       await page.waitForSelector('.bandrow .cuplot .uplot');
+      if (font) await page.addStyleTag({ content: font });
       const faults: string[] = [];
       let under = 0;
       for (let w = 1100; w <= 1920; w += 20) {
@@ -293,14 +298,35 @@ for (const scale of [1.25, 1.5])
       await ctx.close();
     });
 
-test('a close pair reads as one label: 2262 · 2284 always, 1689 and 1728 apart in a wide close-up', async ({ page }) => {
+test('a close pair reads as one label where its numbers cannot sit apart; each number lights its own band', async ({ page }) => {
   await page.setViewportSize({ width: 1640, height: 880 });
   await page.goto('/#scan=Spectrum00021');
   await page.waitForSelector('.bandrow .cuplot .uplot');
-  const sepIn = (band: string) => page.locator(`.bandrow .win:has([data-band="${band}"]) .sep`);
-  await expect(sepIn('ch2262')).toHaveCount(1);
-  await expect(sepIn('ch1689')).toHaveCount(0);
-  await expect(sepIn('nh2044')).toHaveCount(0);
+  // each two-band window: the bands' distance against the numbers' widths, as drawn
+  const pairs = await page.evaluate(() =>
+    [...document.querySelectorAll('.bandrow .win')]
+      .filter((w) => w.querySelectorAll('.tag').length === 2)
+      .map((w) => {
+        const [a, b] = [...w.querySelectorAll('.tag')];
+        const nw = (t: Element) => t.querySelector('.nm')!.getBoundingClientRect().width;
+        return {
+          id: a.getAttribute('data-band')!,
+          dist: b.getBoundingClientRect().left - a.getBoundingClientRect().left,
+          half: (nw(a) + nw(b)) / 2,
+          sep: !!w.querySelector('.sep'),
+        };
+      }),
+  );
+  expect(pairs.map((p) => p.id)).toEqual(['ch1689', 'ch2262']);
+  for (const p of pairs) {
+    // numbers centred on bands closer than their half-widths would overlap: there the pair label must be used. Where
+    // both forms are legitimate (1689 / 1728 in a wide close-up), either is accepted; the sweep above checks the rules.
+    if (p.dist < p.half + 2) expect(p.sep, `${p.id}: the pair label`).toBe(true);
+  }
+  // 2262 and 2284 are 22 nm apart in a 67 nm window: in any font the pair label
+  expect(pairs[1].dist).toBeLessThan(pairs[1].half + 2);
+  expect(labelFaults(await measureLabels(page))).toEqual([]);
+  await expect(page.locator('.bandrow .win:has([data-band="nh2044"]) .sep')).toHaveCount(0);
   // hovering either number of the pair lights its own band (and its marks on the main spectrum)
   await page.locator('[data-band="ch2284"] .nm').hover();
   await expect(page.locator('[data-band="ch2284"]')).toHaveClass(/hl/);
@@ -363,9 +389,10 @@ test('the strong panel notes are warnings: a box on the verdict card, a mark tha
   await expect(marks.nth(0)).toHaveClass(/flag/);
   await expect(marks.nth(1)).toHaveClass(/pmark/);
   await expect(marks.nth(2)).toHaveClass(/zmark/);
-  // the milder note stays a quiet note
+  // the milder "models disagree" note is details-only (DECISIONS 136): never on the card, listed in the details
   await page.locator('[data-scan="Spectrum00026.asd"]').click();
-  await expect(page.locator('.verdict .note[data-note="models_disagree"]')).toBeVisible();
+  await expect(page.locator('.verdict [data-note="models_disagree"]')).toHaveCount(0);
+  await expect(page.locator('aside.details [data-note="models_disagree"]')).toBeVisible();
 });
 
 test('a fired strong warning is always on the verdict card, beside a quieter note, and never repeated in the details', async ({ page }) => {

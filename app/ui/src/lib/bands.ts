@@ -96,25 +96,173 @@ export const closeUpSpan = (cu: CloseUp): number => cu.windows.reduce((t, w) => 
 /** A band's position across its window, from 0 (the window's short end) to 1. */
 export const bandAt = (w: CloseUpWindow, nm: number): number => (nm - w.range[0]) / (w.range[1] - w.range[0]);
 
+// The close-ups' label line (Matt, 2026-10-19: numbers staggered on two lines read as "a ragged staircase of numbers, not
+// as labels"): one line of band numbers per close-up, each centred on its band, or a pair too close for that set as one
+// label "2262 · 2284" centred on the pair. Every decision here is made from text widths measured in the font the app is
+// actually drawn in (BandCloseUps measures them at runtime): Segoe UI on Windows, SF Pro on a Mac and a Linux fallback
+// font are all different widths, and constants tuned on one font put the numbers over the box edge on the others.
+
 /** The clear space (px) two band numbers keep between them on the label line before they are set as one pair label. */
 export const NUMBER_GAP = 8;
-/** The pair label's separator (a middle dot between thin spaces) and its width in px at the labels' size. */
-export const PAIR_SEP = ' · ';
-export const PAIR_SEP_W = 9;
+/** The pair label's separator: a middle dot, with this much space (em) each side of it. */
+export const PAIR_SEP = '·';
+export const PAIR_SEP_PAD_EM = 0.3;
+/** The space (px) every number keeps from its close-up's inner edge (float noise; the widths are measured exactly). */
+export const EDGE_CLEAR = 0.1;
 
-/** Where the band numbers of one plot window go on the close-ups' single label line (Matt, 2026-10-19: numbers staggered
- *  on two lines read as "a ragged staircase of numbers, not as labels"). `xs` are the bands' x (px, ascending), `ws` their
- *  numbers' widths. Each number is centred on its band; when two numbers would come closer than `gap` (2262/2284 always,
- *  1689/1728 when the close-up is narrow), the pair is set as one label "2262 · 2284" centred on the pair's midpoint,
- *  each number still on its own button. Returns each number's shift from its band (px) and, for a pair label, the
- *  separator's centre (px, in the same frame as `xs`). One line in every case. */
-export function placeNumbers(xs: number[], ws: number[], gap = NUMBER_GAP, sep = PAIR_SEP_W): { shift: number[]; sepAt: number | null } {
-  if (xs.length !== 2) return { shift: xs.map(() => 0), sepAt: null };
-  const [xa, xb] = xs;
-  const [wa, wb] = ws;
-  if (xb - xa >= (wa + wb) / 2 + gap) return { shift: [0, 0], sepAt: null };
-  const left = (xa + xb) / 2 - (wa + sep + wb) / 2;
-  return { shift: [left + wa / 2 - xa, left + wa + sep + wb / 2 - xb], sepAt: left + wa + sep / 2 };
+/** The label line's type, in the order tried when the numbers do not fit: the design size first, then a little tighter
+ *  tracking, then a slightly smaller size (never under 10 px). The whole row uses one of these, so every close-up's
+ *  numbers look alike. */
+export interface LabelFit {
+  /** font size, px */
+  fs: number;
+  /** letter-spacing, px */
+  ls: number;
+}
+export const LABEL_FITS: LabelFit[] = [
+  { fs: 10.5, ls: 0 },
+  { fs: 10.5, ls: -0.25 },
+  { fs: 10, ls: -0.25 },
+  { fs: 10, ls: -0.45 },
+];
+
+/** A piece of label text as measured in the rendered font: its width (px) at the design size LABEL_FITS[0] with no
+ *  tracking, and its character count (letter-spacing is added per character). */
+export interface LabelText {
+  w: number;
+  n: number;
+}
+/** A measured text's width at another size and tracking (width scales with the font size; tracking adds per character). */
+export const textW = (t: LabelText, f: LabelFit): number => (t.w * f.fs) / LABEL_FITS[0].fs + t.n * f.ls;
+
+/** One band's number on the label line: the band's x (px), the number's text and what hangs to its right (the 1545
+ *  asterisk), which does not count for centring. */
+export interface NumberSpec {
+  x: number;
+  num: LabelText;
+  tail?: LabelText;
+}
+
+/** Where the numbers of one plot window go: each number's shift from its band (px) and, for a pair label, the
+ *  separator's centre (px, in the same frame as the bands' x). */
+export interface Placement {
+  shift: number[];
+  sepAt: number | null;
+}
+
+const tailW = (n: NumberSpec, f: LabelFit) => (n.tail ? textW(n.tail, f) : 0);
+
+/** The pair form: one label "a · b" centred on the pair's midpoint, with its left and right ends. */
+function pairForm(nums: NumberSpec[], sep: LabelText, f: LabelFit): Placement & { l: number; r: number } {
+  const [a, b] = nums;
+  const wa = textW(a.num, f);
+  const wb = textW(b.num, f);
+  const s = textW(sep, f);
+  const left = (a.x + b.x) / 2 - (wa + s + wb) / 2;
+  return { shift: [left + wa / 2 - a.x, left + wa + s + wb / 2 - b.x], sepAt: left + wa + s / 2, l: left, r: left + wa + s + wb + tailW(b, f) };
+}
+
+/** Each number centred on its band, with its left and right ends. */
+const apartExt = (nums: NumberSpec[], f: LabelFit) =>
+  nums.map((n) => {
+    const w = textW(n.num, f);
+    return { l: n.x - w / 2, r: n.x + w / 2 + tailW(n, f) };
+  });
+
+/** Where the band numbers of one plot window go on the label line at type `f`, or null if they do not fit there. `nums`
+ *  are in band order; `room` is the stretch (px, in the bands' frame) the numbers may use: to the close-up's inner edges,
+ *  or halfway into an axis break. Each number is centred on its band when the numbers keep `gap` between them and stay
+ *  inside `room`; else a pair is set as one label centred on the pair's midpoint (2262/2284 always, 1689/1728 when the
+ *  close-up is narrow or the font wide), each number still on its own button. One line in every case. */
+export function placeNumbers(nums: NumberSpec[], sep: LabelText, room: [number, number], f: LabelFit = LABEL_FITS[0], gap = NUMBER_GAP): Placement | null {
+  const eps = 1e-6;
+  const inside = (l: number, r: number) => l >= room[0] + EDGE_CLEAR - eps && r <= room[1] - EDGE_CLEAR + eps;
+  const ext = apartExt(nums, f);
+  if (ext.every((e, i) => inside(e.l, e.r) && (i === 0 || e.l - ext[i - 1].r >= gap - eps))) return { shift: nums.map(() => 0), sepAt: null };
+  if (nums.length !== 2) return null;
+  const p = pairForm(nums, sep, f);
+  return inside(p.l, p.r) ? { shift: p.shift, sepAt: p.sepAt } : null;
+}
+
+/** The last resort when even the smallest type does not fit (a very wide font in a very narrow window): the most compact
+ *  form at type `f`, moved as a whole inside `room`. Off-centre, but never over the box edge while it is narrower than
+ *  the room. */
+export function squeezeNumbers(nums: NumberSpec[], sep: LabelText, room: [number, number], f: LabelFit = LABEL_FITS[LABEL_FITS.length - 1]): Placement {
+  let p: Placement & { l: number; r: number };
+  if (nums.length === 2) p = pairForm(nums, sep, f);
+  else {
+    const ext = apartExt(nums, f);
+    p = { shift: nums.map(() => 0), sepAt: null, l: Math.min(...ext.map((e) => e.l)), r: Math.max(...ext.map((e) => e.r)) };
+  }
+  const lo = room[0] + EDGE_CLEAR;
+  const hi = room[1] - EDGE_CLEAR;
+  const d = p.l < lo ? lo - p.l : p.r > hi ? Math.max(hi - p.r, lo - p.l) : 0;
+  return { shift: p.shift.map((s) => s + d), sepAt: p.sepAt === null ? null : p.sepAt + d };
+}
+
+/** One window's numbers and room, for placing the whole row. */
+export interface LabelWindow {
+  nums: NumberSpec[];
+  room: [number, number];
+}
+
+/** The type for the whole row and every window's placement: the first type in LABEL_FITS at which every window's numbers
+ *  fit (each window apart where it can, else as a pair label); if none does, the smallest type, squeezed inside. */
+export function placeRow(wins: LabelWindow[], sep: LabelText, gap = NUMBER_GAP): { fit: number; placed: Placement[]; squeezed: boolean } {
+  for (let k = 0; k < LABEL_FITS.length; k++) {
+    const placed = wins.map((w) => placeNumbers(w.nums, sep, w.room, LABEL_FITS[k], gap));
+    if (placed.every((p) => p !== null)) return { fit: k, placed: placed as Placement[], squeezed: false };
+  }
+  const k = LABEL_FITS.length - 1;
+  return {
+    fit: k,
+    placed: wins.map((w) => placeNumbers(w.nums, sep, w.room, LABEL_FITS[k], gap) ?? squeezeNumbers(w.nums, sep, w.room, LABEL_FITS[k])),
+    squeezed: true,
+  };
+}
+
+/** The plot area is inset this much (px) each side of its window (small plot, no axes); a band's x is measured from it. */
+export const PLOT_INSET = 4;
+/** A band's x (px) across a window `ww` px wide. */
+export const bandX = (w: CloseUpWindow, nm: number, ww: number): number => PLOT_INSET + bandAt(w, nm) * (ww - 2 * PLOT_INSET);
+
+/** A close-up's frame: its padding and border each side (px) and the width of an axis break between windows. */
+export interface CloseUpFrame {
+  pad: number;
+  border: number;
+  brk: number;
+}
+
+/** The measured label texts: each band's number by id, the 1545 asterisk and the pair separator. */
+export interface LabelTexts {
+  nums: Partial<Record<BandId, LabelText>>;
+  tail: LabelText;
+  sep: LabelText;
+}
+
+/** The narrowest a close-up can be (px, border box) for its numbers to fit on the label line at type `f`, from the
+ *  measured widths. The windows share the close-up's inner width by the nm they show, as the layout does. Bands without
+ *  a measured text (the scan lacks them) are left out. */
+export function closeUpLabelWidth(cu: CloseUp, t: LabelTexts, frame: CloseUpFrame, f: LabelFit = LABEL_FITS[0]): number {
+  const wins = cu.windows.map((w) => ({ w, bands: w.bands.filter((id) => t.nums[id]) })).filter((x) => x.bands.length > 0);
+  if (!wins.length) return 0;
+  const span = wins.reduce((s, x) => s + x.w.range[1] - x.w.range[0], 0);
+  let inner = 0;
+  wins.forEach(({ w, bands }, i) => {
+    const lo = i === 0 ? -frame.pad : -frame.brk / 2;
+    const hiPad = i === wins.length - 1 ? frame.pad : frame.brk / 2;
+    const fits = (ww: number) =>
+      placeNumbers(
+        bands.map((id) => ({ x: bandX(w, bandDef(id).nm, ww), num: t.nums[id]!, tail: id === 'nh1545' ? t.tail : undefined })),
+        t.sep,
+        [lo, ww + hiPad],
+        f,
+      ) !== null;
+    let ww = 4;
+    while (ww < 600 && !fits(ww)) ww += 0.5;
+    inner = Math.max(inner, (ww * span) / (w.range[1] - w.range[0]));
+  });
+  return Math.ceil(inner + (wins.length - 1) * frame.brk + 2 * (frame.pad + frame.border));
 }
 
 /** Why the 1545 nm band is marked with an asterisk (Matt, 2026-10-18: one star and a tooltip, not "OH-corrected" in the

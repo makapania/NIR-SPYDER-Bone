@@ -12,11 +12,33 @@
   import FlagMark from './FlagMark.svelte';
   import SpectrumPlot, { type PlotSeries, type Shade } from './SpectrumPlot.svelte';
   import VerdictGlyph from './VerdictGlyph.svelte';
-  import { CLOSEUPS, OHC_NOTE, PAIR_SEP, bandAt, bandTitle, closeUpSpan, placeNumbers, type CloseUp, type CloseUpWindow } from '../bands';
+  import {
+    BANDS,
+    BAND_1545,
+    CLOSEUPS,
+    LABEL_FITS,
+    OHC_NOTE,
+    PAIR_SEP,
+    PAIR_SEP_PAD_EM,
+    PLOT_INSET,
+    bandAt,
+    bandTitle,
+    bandX,
+    closeUpLabelWidth,
+    closeUpSpan,
+    placeRow,
+    type CloseUp,
+    type CloseUpFrame,
+    type CloseUpWindow,
+    type LabelText,
+    type LabelTexts,
+    type LabelWindow,
+    type Placement,
+  } from '../bands';
   import { LEVEL_WORD, keepRanges, zoomsHeadline } from '../display';
   import { flagLabel } from '../strings';
   import { verdictMeta } from '../verdict';
-  import type { BandReading, ReferenceSpectrum, ScanResult, SpectrumViews } from '../types';
+  import type { BandId, BandReading, ReferenceSpectrum, ScanResult, SpectrumViews } from '../types';
 
   interface Props {
     scan: ScanResult;
@@ -58,16 +80,27 @@
   // sideways makes its sides shallower. Each close-up grows with the nm it shows, up to that cap; its minimum holds its
   // title and keeps its labels centred over their bands inside the box.
   const PX_PER_NM_MAX = 0.95;
-  const CHROME = 10; // a close-up's padding and border
-  const BREAK = 12; // an axis break
+  /** A close-up's frame (padding, border, axis break; the CSS below), and in a narrow hero card (App.svelte's container
+   *  query: 2 px side padding, 8 px breaks). */
+  const FRAME: CloseUpFrame = { pad: 4, border: 1, brk: 12 };
+  const FRAME_NARROW: CloseUpFrame = { pad: 2, border: 1, brk: 8 };
+  const chrome = (f: CloseUpFrame) => 2 * (f.pad + f.border);
+  /** Floors as tuned on Segoe UI (the approved look on Windows); the text a close-up holds is measured in the rendered font
+   *  (`needs`), and a wider font (SF Pro on a Mac, a Linux fallback) widens the box to fit it. */
   const minWidth = (cu: CloseUp) => (cu.dip ? 58 : cu.windows.length > 1 ? 120 : 86);
   /** In a narrow hero card (App.svelte) the titles shorten, so a close-up can be as narrow as v0.3's were, but every
    *  close-up keeps its one label line inside its box: a pair label ("1689 · 1728", "2262 · 2284") or "1545*" over its
-   *  band near the window's end. */
+   *  band near the window's end, at the smallest label type if need be. */
   const minNarrow = (cu: CloseUp) => (cu.dip ? 56 : cu.windows.length > 1 ? 70 : 62);
-  const maxWidth = (cu: CloseUp) => Math.round(closeUpSpan(cu) * PX_PER_NM_MAX + CHROME + (cu.windows.length - 1) * BREAK);
-  const cellStyle = (cu: CloseUp) =>
-    `--grow: ${closeUpSpan(cu)}; --minw: ${minWidth(cu)}px; --minw-narrow: ${minNarrow(cu)}px; --maxw: ${Math.max(minWidth(cu), maxWidth(cu))}px`;
+  const maxWidth = (cu: CloseUp) => Math.round(closeUpSpan(cu) * PX_PER_NM_MAX + chrome(FRAME) + (cu.windows.length - 1) * FRAME.brk);
+  const mins = (cu: CloseUp) => {
+    const n = needs[cu.family];
+    return { wide: Math.max(minWidth(cu), n?.wide ?? 0), narrow: Math.max(minNarrow(cu), n?.narrow ?? 0), full: n?.full ?? 0 };
+  };
+  function cellStyle(cu: CloseUp) {
+    const m = mins(cu);
+    return `--grow: ${closeUpSpan(cu)}; --minw: ${m.wide}px; --minw-narrow: ${m.narrow}px; --maxw: ${Math.max(m.wide, m.narrow, m.full, maxWidth(cu))}px`;
+  }
 
   function seriesFor(view: CloseUp['view']): PlotSeries[] {
     const d = views?.views[view];
@@ -115,24 +148,134 @@
   // The label lane over the plots (Matt, 2026-10-19: numbers staggered on two lines read as "a ragged staircase of
   // numbers, not as labels"): one line of numbers in every close-up, the evidence glyphs on the line under it, the same
   // two lines in every close-up at every width. Each number is centred on its band; a pair too close for two numbers side
-  // by side (2262/2284 always, 1689/1728 in a narrow close-up) is set as one label "2262 · 2284" centred on the pair, each
-  // number still its own button, each glyph still on its own band (placeNumbers). The 1545 asterisk hangs to the right of
-  // its number, so the number stays centred.
-  /** A band's x over its window: the plot area is inset 4 px each side (small plot, no axes). */
-  const INSET = 4;
-  const tagLeft = (w: CloseUpWindow, nm: number) => `calc(${INSET}px + (100% - ${2 * INSET}px) * ${bandAt(w, nm).toFixed(4)})`;
+  // by side (2262/2284 always, 1689/1728 in a narrow close-up or a wide font) is set as one label "2262 · 2284" centred
+  // on the pair, each number still its own button, each glyph still on its own band. The 1545 asterisk hangs to the right
+  // of its number, so the number stays centred.
+  // Everything is decided from widths measured in the font the app is drawn in (the hidden measurer below): Segoe UI,
+  // SF Pro and a Linux fallback differ by a fifth, so nothing is tuned to one font. They are measured again whenever a
+  // measured text or a close-up changes size (a font arriving late, a resize). If the numbers still do not fit, the row's
+  // label type tightens a little, then shrinks a little (LABEL_FITS); never over the box edge (placeRow).
+  const tagLeft = (w: CloseUpWindow, nm: number) => `calc(${PLOT_INSET}px + (100% - ${2 * PLOT_INSET}px) * ${bandAt(w, nm).toFixed(4)})`;
   const wkey = (w: CloseUpWindow) => w.bands.join('-');
-  /** Measured widths: each window (px) and each band's number (px), for placing the numbers. */
-  let winW = $state<Record<string, number>>({});
-  let nmW = $state<Record<string, number>>({});
-  function place(w: CloseUpWindow, items: Item[]) {
-    const ww = winW[wkey(w)] ?? 0;
-    const xs = items.map((it) => INSET + bandAt(w, it.b.nm) * (ww - 2 * INSET));
-    return placeNumbers(
-      xs,
-      items.map((it) => nmW[it.b.id] || 22),
-    );
+  const MEASURED_BANDS = [BAND_1545, ...BANDS];
+  let rowEl = $state<HTMLDivElement>();
+  let measurer = $state<HTMLDivElement>();
+  /** The label texts' widths in the rendered font, at the design size (LABEL_FITS[0]), and the titles' widths. */
+  let texts = $state<LabelTexts | null>(null);
+  let titleW = $state<Record<string, number>>({});
+  /** Each window's width and the stretch its numbers may use (px, from the window's left edge): to the close-up's inner
+   *  edges, or halfway into an axis break. */
+  let rooms = $state<Record<string, { ww: number; room: [number, number] }>>({});
+  /** The hero card around the row (App.svelte): its inner width, the verdict's minimum beside the close-ups (0: the row is
+   *  under the verdict anyway), the row's gaps and side padding, and whether the close-ups are in their narrow form. */
+  let host = $state({ inner: 0, verdictMin: 0, gap: 0, pad: 0, narrow: false });
+
+  function measure() {
+    if (measurer) {
+      const w = (e: Element | null) => (e ? e.getBoundingClientRect().width : 0);
+      const nums: Partial<Record<BandId, LabelText>> = {};
+      for (const e of measurer.querySelectorAll<HTMLElement>('[data-m-band]')) nums[e.dataset.mBand as BandId] = { w: w(e), n: e.textContent!.length };
+      const t: LabelTexts = { nums, tail: { w: w(measurer.querySelector('[data-m-tail]')), n: 1 }, sep: { w: w(measurer.querySelector('[data-m-sep]')) + 2 * PAIR_SEP_PAD_EM * LABEL_FITS[0].fs, n: 1 } };
+      if (JSON.stringify(t) !== JSON.stringify(texts)) texts = t;
+      const tw: Record<string, number> = {};
+      for (const e of measurer.querySelectorAll<HTMLElement>('[data-m-title]')) tw[e.dataset.mTitle!] = w(e);
+      if (JSON.stringify(tw) !== JSON.stringify(titleW)) titleW = tw;
+    }
+    if (rowEl) {
+      const out: typeof rooms = {};
+      for (const cu of rowEl.querySelectorAll<HTMLElement>('.cu')) {
+        const cs = getComputedStyle(cu);
+        const b = cu.getBoundingClientRect();
+        const inL = b.left + parseFloat(cs.borderLeftWidth);
+        const inR = b.right - parseFloat(cs.borderRightWidth);
+        const wins = [...cu.querySelectorAll<HTMLElement>('.win')];
+        const rs = wins.map((e) => e.getBoundingClientRect());
+        wins.forEach((e, i) => {
+          const r = rs[i];
+          const lo = i === 0 ? inL : (rs[i - 1].right + r.left) / 2;
+          const hi = i === wins.length - 1 ? inR : (r.right + rs[i + 1].left) / 2;
+          out[e.dataset.key!] = { ww: r.width, room: [lo - r.left, hi - r.left] };
+        });
+      }
+      if (JSON.stringify(out) !== JSON.stringify(rooms)) rooms = out;
+      const hero = rowEl.parentElement;
+      if (hero) {
+        const hs = getComputedStyle(hero);
+        const rs = getComputedStyle(rowEl);
+        const h = {
+          inner: hero.getBoundingClientRect().width - parseFloat(hs.borderLeftWidth) - parseFloat(hs.borderRightWidth),
+          verdictMin: parseFloat(hs.getPropertyValue('--verdict-min')) || 0,
+          gap: parseFloat(rs.columnGap) || 0,
+          pad: parseFloat(rs.paddingLeft) + parseFloat(rs.paddingRight),
+          narrow: rs.getPropertyValue('--narrow').trim() === '1',
+        };
+        if (JSON.stringify(h) !== JSON.stringify(host)) host = h;
+      }
+    }
   }
+  $effect(() => {
+    void groups; // the close-ups shown (a scan without the 1545 band shows three): observe the ones on screen
+    if (!rowEl || !measurer) return;
+    const ro = new ResizeObserver(() => measure());
+    for (const e of measurer.querySelectorAll('[data-m-band], [data-m-tail], [data-m-sep], [data-m-title]')) ro.observe(e);
+    for (const e of rowEl.querySelectorAll('.cu, .win')) ro.observe(e);
+    if (rowEl.parentElement) ro.observe(rowEl.parentElement);
+    const fonts = document.fonts;
+    fonts?.addEventListener?.('loadingdone', measure);
+    fonts?.ready?.then(measure);
+    measure();
+    return () => {
+      ro.disconnect();
+      fonts?.removeEventListener?.('loadingdone', measure);
+    };
+  });
+
+  /** The bands this scan has. */
+  const present = $derived(new Set(scan.evidence.bands.map((b) => b.id)));
+  /** The widths each close-up needs for its title and its label line, from the measured texts: at the design size where
+   *  the card is roomy, at the smallest label type in a narrow hero card, and (`full`, for the maximum width) at the design
+   *  size in the narrow form, so a close-up with room to grow never needs the smaller type. */
+  const needs = $derived.by(() => {
+    const out: Record<string, { wide: number; narrow: number; full: number }> = {};
+    if (!texts) return out;
+    const t: LabelTexts = { ...texts, nums: Object.fromEntries(Object.entries(texts.nums).filter(([id]) => present.has(id as BandId))) };
+    for (const cu of CLOSEUPS) {
+      const title = (s: string | undefined, f: CloseUpFrame) => Math.ceil((titleW[s ?? ''] ?? 0) + chrome(f) + 2);
+      out[cu.family] = {
+        wide: Math.max(closeUpLabelWidth(cu, t, FRAME, LABEL_FITS[0]), title(cu.family, FRAME)),
+        narrow: Math.max(closeUpLabelWidth(cu, t, FRAME_NARROW, LABEL_FITS[LABEL_FITS.length - 1]), title(cu.short ?? cu.family, FRAME_NARROW)),
+        full: closeUpLabelWidth(cu, t, FRAME_NARROW, LABEL_FITS[0]),
+      };
+    }
+    return out;
+  });
+
+  /** The row's label type and each window's placement (placeRow). Before the first measurement: centred, design size. */
+  const labels = $derived.by(() => {
+    if (!texts) return null;
+    const keys: string[] = [];
+    const wins: LabelWindow[] = [];
+    for (const g of groups)
+      for (const { w, items } of g.wins) {
+        const r = rooms[wkey(w)];
+        if (!r) return null;
+        keys.push(wkey(w));
+        wins.push({
+          nums: items.map((it) => ({ x: bandX(w, it.b.nm, r.ww), num: texts!.nums[it.b.id] ?? { w: 22, n: 4 }, tail: it.b.id === 'nh1545' ? texts!.tail : undefined })),
+          room: r.room,
+        });
+      }
+    const res = placeRow(wins, texts.sep);
+    return { fit: LABEL_FITS[res.fit], at: Object.fromEntries(keys.map((k, i) => [k, res.placed[i]])) as Record<string, Placement> };
+  });
+  /** The close-ups at their minimum widths do not fit beside the verdict at its minimum (a wide font on a small window):
+   *  App.svelte then puts them under the verdict, where they have the card's width. */
+  const cramped = $derived.by(() => {
+    if (!host.verdictMin || !host.inner) return false;
+    const row = groups.reduce((t, g) => t + (host.narrow ? mins(g.cu).narrow : mins(g.cu).wide), 0) + (groups.length - 1) * host.gap + host.pad;
+    return row > host.inner - host.verdictMin + 0.5;
+  });
+  const placeOf = (w: CloseUpWindow, items: Item[]): Placement => labels?.at[wkey(w)] ?? { shift: items.map(() => 0), sepAt: null };
 
   const zcall = $derived(scan.zooms.verdict ?? 'cant_tell');
   const headline = $derived(zoomsHeadline(scan.zooms, scan.evidence.bands));
@@ -171,34 +314,44 @@
 </div>
 
 {#if readable}
-  <div class="bandrow">
+  <div class="bandrow" class:cramped bind:this={rowEl} style={labels ? `--lab-fs: ${labels.fit.fs}px; --lab-ls: ${labels.fit.ls}px` : undefined}>
+    <!-- the label texts in the rendered font, measured for placing the numbers (never shown) -->
+    <div class="measure" aria-hidden="true" bind:this={measurer}>
+      <span class="mtags">
+        {#each MEASURED_BANDS as b (b.id)}<span class:quiet={b.id === 'ch2284'} data-m-band={b.id}>{b.nm}</span>{/each}
+        <span data-m-tail>*</span><span data-m-sep>{PAIR_SEP}</span>
+      </span>
+      <span class="mcut">
+        {#each CLOSEUPS as cu (cu.family)}<span data-m-title={cu.family}>{cu.family}</span>{#if cu.short}<span data-m-title={cu.short}>{cu.short}</span>{/if}{/each}
+      </span>
+    </div>
     {#each groups as g, gi (g.cu.family)}
       {@const cu = g.cu}
       <div class="cu" class:dip={cu.dip} style={cellStyle(cu)}>
         <div class="cut">{#if cu.short}<span class="long">{cu.family}</span><span class="short" title="{cu.family} bands">{cu.short}</span>{:else}{cu.family}{/if}</div>
         <div class="wins">
           {#each g.wins as { w, items }, wi (wkey(w))}
-            {@const pl = place(w, items)}
+            {@const pl = placeOf(w, items)}
             {#if wi > 0}
               {@const prev = g.wins[wi - 1].w}
               <div class="brk" title="Axis break: {prev.range[1]}–{w.range[0]} nm is left out (it carries neither band)" aria-hidden="true">
                 <svg width="10" height="14" viewBox="0 0 10 14"><path d="M1 10 L5 2 M5 12 L9 4" /></svg>
               </div>
             {/if}
-            <div class="win" style="flex: {w.range[1] - w.range[0]} 1 0" data-range="{w.range[0]}-{w.range[1]}" bind:clientWidth={winW[wkey(w)]}>
+            <div class="win" style="flex: {w.range[1] - w.range[0]} 1 0" data-range="{w.range[0]}-{w.range[1]}" data-key={wkey(w)}>
               <div class="tags">
                 {#each items as it, i (it.b.id)}
                   <button class="tag" class:quiet={it.b.id === 'ch2284'} class:hl={highlight === it.k} style="left: {tagLeft(w, it.b.nm)}"
                     aria-label={bandTitle(it.b)} data-band={it.b.id} data-nm={it.b.nm}
                     onmouseenter={() => onHighlight(it.k)} onmouseleave={() => onHighlight(-1)} onfocus={() => onHighlight(it.k)} onblur={() => onHighlight(-1)}>
-                    <span class="nm" style="--shift: {pl.shift[i].toFixed(2)}px" bind:offsetWidth={nmW[it.b.id]}>{it.b.nm}{#if it.b.id === 'nh1545'}<span class="ast">*</span>{/if}</span>
+                    <span class="nm" style="--shift: {(pl.shift[i] ?? 0).toFixed(2)}px">{it.b.nm}{#if it.b.id === 'nh1545'}<span class="ast">*</span>{/if}</span>
                     <span class="g"><EvidenceGlyph state={it.b.state} size={10} /></span>
                     <!-- the tooltip, on hover and on keyboard focus (the label carries the same text for screen readers) -->
                     <span class="tip" class:end={gi >= groups.length / 2} aria-hidden="true">{keepRanges(bandTitle(it.b))}</span>
                   </button>
                 {/each}
                 {#if pl.sepAt !== null}
-                  <span class="sep" style="left: {pl.sepAt.toFixed(2)}px" aria-hidden="true">{PAIR_SEP.trim()}</span>
+                  <span class="sep" style="left: {pl.sepAt.toFixed(2)}px" aria-hidden="true">{PAIR_SEP}</span>
                 {/if}
               </div>
               <div class="cuplot">
@@ -314,6 +467,7 @@
     --line-h: 14px;
     --lane: calc(var(--line-h) + 12px);
     grid-area: plots;
+    position: relative;
     display: flex;
     gap: 6px;
     padding: 6px 14px 4px;
@@ -335,9 +489,12 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--ink-2);
+  }
+  .cut,
+  .mcut {
     font-size: var(--fs-xs);
     font-weight: 650;
-    color: var(--ink-2);
     letter-spacing: 0.01em;
   }
   .cut .short {
@@ -375,15 +532,40 @@
   /* the label lane: one line of numbers, each centred on its band (a close pair as one label "a · b" centred on the
      pair), and under it each band's state glyph, centred on the band's column; the same two lines in every close-up at
      every width, so titles, numbers and glyphs share their baselines across the row */
-  .tags {
-    position: relative;
-    height: var(--lane);
-    margin-top: 2px;
+  .tags,
+  .mtags {
     font-size: 10.5px;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
     line-height: var(--line-h);
     white-space: nowrap;
+  }
+  /* the row's label type: the design size, or a little tighter / smaller where the measured numbers need it (placeRow) */
+  .tags {
+    position: relative;
+    height: var(--lane);
+    margin-top: 2px;
+    font-size: var(--lab-fs, 10.5px);
+    letter-spacing: var(--lab-ls, 0px);
+  }
+  /* the measurer: the label texts at the design size and the titles, in the rendered font; laid out, never seen, and
+     taking no room (each text keeps its own width inside a box of none) */
+  .measure {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .measure span span {
+    display: block;
+    width: max-content;
+  }
+  .mtags .quiet {
+    font-weight: 500;
   }
   /* a band's button: a zero-width anchor on the band's x; its number and glyph hang from it, so the hit area is exactly
      what is drawn */
@@ -396,6 +578,8 @@
     border: 0;
     background: transparent;
     font: inherit;
+    /* a button's UA style resets the tracking; the row's label type (placeRow) may tighten it */
+    letter-spacing: inherit;
     color: var(--ink-2);
     cursor: default;
   }
@@ -484,6 +668,7 @@
     font-size: var(--fs-xs);
     font-weight: 400;
     font-variant-numeric: normal;
+    letter-spacing: normal;
     line-height: 1.4;
     text-align: left;
     pointer-events: none;
