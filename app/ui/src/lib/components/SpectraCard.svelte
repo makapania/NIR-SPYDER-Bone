@@ -3,7 +3,8 @@
   // Second derivative is drawn as −d²A/dλ² (bands up) unless the viewer flips it to the conventional d²A/dλ²
   // (bands down; display only, remembered per viewer); default view 1100–2450 nm. Display smoothing
   // changes only the main plot. When a correction was applied (high-res, or any corrected instrument) the main plot
-  // shows the corrected spectrum (what every model and band rule reads) with "As measured" one toggle away. The 2045 close-up defaults to the OH-corrected view:
+  // shows the corrected spectrum (what the models and band rules read; the 1545 nm no-transfer model reads the scan
+  // as measured) with "As measured" one toggle away. The 2045 close-up defaults to the OH-corrected view:
   // the window features with the OH/water direction projected out, exactly as the OH-corrected model sees them
   // (computed in Rust; the reading they imply IS the model's reading), with an "As measured" toggle; the 1500
   // close-up is OH-corrected. The corrected view exists only inside the model window.
@@ -171,7 +172,7 @@
   );
   const correctionTitle = $derived(
     scan.transfer
-      ? `The spectrum corrected to standard resolution (${scan.transfer.id} v${scan.transfer.version}${scan.transfer.provisional ? ', provisional' : ''}): what every model and band rule reads`
+      ? `The spectrum corrected to standard resolution (${scan.transfer.id} v${scan.transfer.version}${scan.transfer.provisional ? ', provisional' : ''}): what the models and band rules read (the 1545 nm no-transfer cross-check reads the scan as measured)`
       : '',
   );
 </script>

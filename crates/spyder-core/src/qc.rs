@@ -371,7 +371,7 @@ pub fn line_fit_eval(y: &[f64], x_eval: f64) -> f64 {
     yb + sxy / sxx * (x_eval - xb)
 }
 
-/// Relative splice steps (%) at the two header joins: |SWIR1 extrapolation - neighbour| / R(SWIR1 edge).
+/// Relative splice steps (%) at the scan's two detector joins: |SWIR1 extrapolation - neighbour| / R(SWIR1 edge).
 /// Lower join: line through the first 5 SWIR1 channels, extrapolated one channel down, minus R at the join.
 /// Upper join: line through the last 6 SWIR1 channels, extrapolated one channel up, minus R just above it.
 pub fn splice_steps_pct(scan: &Scan) -> Option<[f64; 2]> {
@@ -393,7 +393,7 @@ pub fn splice_steps_pct(scan: &Scan) -> Option<[f64; 2]> {
     Some([100.0 * o1.abs() / r[i1 + 1], 100.0 * o2.abs() / r[i2]])
 }
 
-/// B8 splice step at each header join: Note > 5%, Check > 15%.
+/// B8 splice step at each detector join (the scan's own): Note > 5%, Check > 15%.
 pub fn b8_splice_step(scan: &Scan) -> CheckResult {
     let (id, name) = ("B8", "splice step");
     if !scan.kind.is_scored() {

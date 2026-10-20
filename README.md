@@ -27,8 +27,9 @@ How to use it: [USER_GUIDE.md](USER_GUIDE.md) (also inside the app: **?** or F1)
 - `app/`: the desktop app (Tauri 2 shell + Svelte 5 UI).
 - `plugins/`: bundled model, correction (transfer) and parameter files (CC-BY-4.0). The engine works for any correction
   file: noise checks follow the correction applied, not a list of known files.
-- `reference/`: the frozen Python reference implementation used for parity tests.
-- `testdata/scans/`: 40 paired real scans of archaeological bone (the same bone on a standard and a high-res LabSpec 4),
+- `reference/`: the Python reference engine and end-to-end oracle; the Rust core is kept in exact parity with it (parity
+  tests), and the two change together.
+- `testdata/scans/`: 40 pairs of real scans of archaeological bone (the same bone on a standard and a high-res LabSpec 4),
   for testing and for checking the high-res transfer.
 
 ## Building
@@ -40,4 +41,4 @@ Pushing a `v*` tag builds both installers on GitHub into a draft release (`.gith
 ## Licence
 
 Code: MIT (`LICENSE`). Model and data files in `plugins/` and the test scans in `testdata/scans/`: CC-BY-4.0
-(`plugins/LICENSE.md`).
+(`plugins/LICENSE.md`, `testdata/scans/README.md`).

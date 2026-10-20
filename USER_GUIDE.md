@@ -32,7 +32,7 @@ result". If one spot says Unlikely and another says Borderline, that is normal a
 **Download** the installer for your computer from https://github.com/makapania/NIR-SPYDER-Bone/releases/latest: the
 `.exe` for Windows, the `.dmg` for a Mac (one file for both Apple Silicon and Intel Macs).
 
-**Windows.** Run the installer. It installs for your user account only and includes the web component it needs. The
+**Windows.** Run the installer. It installs for your user account only, and fetches the web component it needs (Microsoft WebView2) if the computer lacks it; Windows 10 and 11 normally have it. The
 installer is digitally signed. Windows may still show a SmartScreen warning while this new app builds a download
 history. Check that you downloaded it from the release page above and verify the publisher before proceeding.
 
@@ -100,9 +100,10 @@ handled exactly as before.
 **A lab's own correction file.** A correction file can be made for one instrument (one serial number), including a
 standard-resolution LabSpec 4 whose readings differ a little from ours. Put it in your plug-in folder (Help shows where);
 it is used for that instrument's scans only, and the scan's details name it. A file that changes a standard-resolution
-instrument's noise by less than 15% leaves every noise check exactly as for a scan read as measured. A file for a whole class of instrument in
-your plug-in folder does not replace the one the app ships with; one that reuses a shipped file's name and version is
-not used. Help lists any plug-in file the app did not use, and why.
+instrument's noise by 15% or less leaves every noise check exactly as for a scan read as measured, and the 1545 nm
+cross-check is not shown. A file for a whole class of instrument in your plug-in folder does not replace the one the app
+ships with unless it is a newer version of that same file (same name); one that reuses a shipped file's name and version
+is not used. Help lists any plug-in file the app did not use, and why.
 
 ### Other ASD instruments (uncalibrated)
 
@@ -190,9 +191,10 @@ The details panel shows:
   export names it in full: "N–H set, 2175 + 2045 nm, OH-corrected".)
 - **Ryder 2045** (Ryder et al. 2026; reads 2030–2060 nm): the published model, shown for reference. It does not set the
   verdict.
-- On high-resolution scans, and on any scan read through a correction or from another instrument: **1545 nm, no
-  transfer needed** (reads 1500–1550 nm), a second opinion that reads the scan exactly as measured. It does not set the
-  verdict; if it differs from the main reading by more than usual, a note says so.
+- On high-resolution scans, on scans from another instrument, and on any scan read through a correction that changes its
+  noise by more than 15% (section 4): **1545 nm, no transfer needed** (reads 1500–1550 nm), a second opinion that reads
+  the scan exactly as measured. It does not set the verdict; if it differs from the main reading by more than usual, a
+  note says so (not on an instrument that is not built in, section 4).
 - Two **additional estimates**, never used for the verdict (their tracks carry no verdict colours). **Low-range
   estimate** (the narrow 1545 nm band; reads 1533–1557 nm) is the low-range estimate shown under the verdict (see above); it reads the 1545 nm N–H band as a narrow band
   against its shoulders.
@@ -317,8 +319,9 @@ your choice. It changes the picture only, never a reading. A **Display smoothing
 changes the chart only; the models always use their own fixed smoothing. Shaded strips mark the model windows and the
 OH/water bands.
 
-When a correction was applied (high-res scans) the main chart shows the **transferred** spectrum (what every model
-reads), with **As measured** one click away.
+When a correction was applied (high-res scans, or a lab's own correction file) the main chart shows the **transferred**
+spectrum (what the models read; the 1545 nm no-transfer model reads the scan as measured), with **As measured** one click
+away.
 
 Two model-window close-ups sit beside the main chart: the **2045 nm model** window (showing the OH-corrected view the
 model actually reads, with an **Uncorrected** toggle) and the **1545 nm model** window. Under **Collagen bands**, four
@@ -372,7 +375,7 @@ a band's label highlights it on the main chart.
   against measured yields; no correction for them is built in yet.
 - **The high-res conversion is approximate.** High-res scans are converted to standard resolution before the models read
   them, so the app also shows the 1545 nm model with no transfer needed as a cross-check. The same holds for any
-  correction file.
+  correction file, except one that changes the noise by 15% or less, which is read like a scan as measured (section 4).
 - **Coatings and glue can make bone look better.** Thin coats of glue or lacquer can raise every collagen reading by
   1–4 points, and the foreign-organic sign catches only about half of them. Animal (hide) glue reads as the bone's own
   collagen: about half of glued scans trip the foreign-organic sign, but it is never named as glue. The contaminant
@@ -397,12 +400,13 @@ the desktop installer):
 ```
 spyder read     <file.asd | folder> [--json] [--recursive]
 spyder validate <plug-in file | folder> [--json]
-spyder predict  <file.asd | folder> --class std|hires [--json]
+spyder predict  <file.asd | folder> --class std|hires [--json] [--recursive]
 spyder analyse  <file.asd | folder> --class std|hires [--profile radiocarbon|isotopes|zooms]
                 [--csv out.csv] [--json] [--sort] [--recursive]
 ```
 
-`spyder analyse` runs the full per-scan pipeline and writes the same CSV as the app's Export button. The tool's README
+(The main options; `spyder <command> --help` lists them all.) `spyder analyse` runs the full per-scan pipeline and writes
+the same technical CSV as the app's Export button (`name (technical).csv`, section 8). The tool's README
 in the source repository has the details.
 
 ---

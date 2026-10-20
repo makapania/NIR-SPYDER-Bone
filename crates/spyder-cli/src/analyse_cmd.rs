@@ -1,6 +1,6 @@
 //! `spyder analyse`: the full per-scan pipeline (PLAN Steps 1-10): acquisition checks, the stream transfer,
 //! models and CONS3, evidence, ZooMS pattern, signs, C1, B9, long-wave policy, B6/B6b and the verdict of one
-//! analysis profile, with the CSV row (UTF-8 with BOM) and the analysis manifest. The records equal the frozen
+//! analysis profile, with the CSV row (UTF-8 with BOM) and the analysis manifest. The records equal the
 //! Python oracle's (`reference/oracle`).
 //!
 //! A bundled startup error (a failing shipped file, no verdict model) stops scoring: exit 1 with the reasons.

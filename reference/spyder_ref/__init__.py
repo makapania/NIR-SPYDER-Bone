@@ -1,4 +1,4 @@
-"""spyder_ref: the frozen Python reference engine for SPYDER Bone plug-in files (numpy only at runtime).
+"""spyder_ref: the Python reference engine for SPYDER Bone plug-in files (numpy only at runtime).
 
     import spyder_ref as SR
     SR.validate_file("plugins/collagen_consensus3_median.spyder-model.json")

@@ -15,29 +15,30 @@ only by the developer tools and tests (`pip install -e .[test]`).
 | `spyder_ref/validate_plugins.py` | Validates a whole plug-in folder as the app does on load: schemas, goldens, consensus component hashes, catalog hashes. `python -m spyder_ref.validate_plugins ../plugins` |
 | `spyder_ref/golden_gen.py` | Golden generator: expected values from research paths independent of the engine (scipy Savitzky–Golay, explicit transfer loop, N2 loop, explicit blur matrices and noise covariance for the gains). |
 | `spyder_ref/export.py` | Exporter for new linear collagen models (`export_regression`), with goldens and validation. |
-| `spyder_ref/schemas/` | JSON Schemas (draft 2020-12) for model (incl. `consensus`), transfer, bands, noise gains, instrument registry, reference set, catalog and golden-spectra files. |
-| `oracle/` | The end-to-end Python oracle (Steps 1–10 of the plan). |
+| `../plugins/schemas/` | JSON Schemas (draft 2020-12) for model (incl. `consensus`), transfer, bands, noise gains, instrument registry, reference set, catalog, golden-spectra, engine-check and analysis-profile files. |
+| `oracle/` | The end-to-end Python oracle: the whole per-scan pipeline, from reading the file to the verdict. |
 | `tests/` | Tests on public data only. |
 
 ## Conventions
 
-- Spectra are float64 on a 1 nm grid 350–2500 nm (2151 channels); reflectance = sample DN / white-reference DN.
+- Spectra are float64 on a 1 nm grid 350–2500 nm (2151 channels); reflectance = sample DN / white-reference DN
+  (legacy FieldSpec 3 files store reflectance directly).
 - Every number in a plug-in file is finite JSON (`allow_nan=False`); the loader rejects NaN/Infinity and 1e999.
 - A plug-in file is identified by `id@version` and the SHA-256 of its bytes. MAJOR changes predictions, MINOR adds
-  goldens or statistics, PATCH is text only.
+  goldens or statistics, PATCH is text only; a 0.x file (still provisional) bumps MINOR when its predictions change.
 - Goldens: at least 3 cases, at least one with the intermediate feature vector (regression), engine tolerance 1e-9
   absolute + 1e-9 relative (a file may tighten, never loosen). Golden spectra must sit in the plug-in's own folder.
 - **Consensus kind** (engine 1.1): `value` = median of an odd number of components; each component is a shipped model
   folded exactly into one linear functional of the processed spectrum and identified by id, version and file SHA-256.
   Outputs `value` and `component:<name>`.
-- **Computed gains** (format 2 of `bands.json` and `noise_gains.json`, DECISIONS 137): the noise and readability gains
+- **Computed gains** (format 2 of `bands.json` and `noise_gains.json`): the noise and readability gains
   are computed from the output's linear kernel, the correction actually applied (its blur and absorbance gain per
   detector segment, linearised) and the scan's own joins, under the tables' noise model (a correction file may carry its
   instrument's own `provenance.instrument_noise`). Nothing is keyed by a transfer file. An output without a gain is "not
   assessed" with the reason (a non-linear correction; "not available on this instrument" when a kernel or noise window
   is not inside one detector segment), never a guess; a band whose noise is unknown counts as too noisy (readable only
   when strong).
-- **Noise policies for any correction** (DECISIONS 137): the per-sign B6b gates, the reduced fallbacks, the long-wave
+- **Noise policies for any correction**: the per-sign B6b gates, the reduced fallbacks, the long-wave
   and soft-tier eligibility read the noise of each check's linear statistic after the correction applied
   (`gains.stat_term_gain`), against cuts fixed once in SD units in the check files; a stream read as measured keeps the
   standard-resolution gate table. A near-uncorrected correction (`checks.standard_like`: every statistic the noise
@@ -50,10 +51,13 @@ only by the developer tools and tests (`pip install -e .[test]`).
   are off (`checks.band_evidence_off`; `verdict.collagen_verdict(..., uncalibrated=True)`): evidence and the ZooMS band
   pattern are "not assessed: band evidence needs this instrument built in" (the band readings stay), the model verdict
   stands, no band ZooMS line, positive-signs line or bands-too-noisy note, the ZooMS profile says Can't tell, flags carry
-  `provisional` (same sort penalty), and the second-opinion note is not added (S1_R2 still shown).
+  `provisional` (same sort penalty; the soft contaminant note too), and the second-opinion note is not added (S1_R2 still
+  shown). B9 ("Doesn't look like bone") still applies: it is a shape test, not band evidence.
 - **Transfer selection** (`pick_transfer`): one version per id (the newest active); between ids, the caller's order
   (bundled before user, then by id); a file for this unit (`source_serial`, compared as text) first, even for the
   model's own class; then same class: none; then the first class-wide file. Versions are never compared across ids.
+  `pick_reader_transfer` reads a model a profile lists as `reads: "as_measured"` (the transfer-free 1545 nm model) on the
+  scan as measured, for every class.
 - **Correction file extras**: `provenance.visible_levels` (`fitted` | `not_fitted`; absent = fitted; heat reads the
   scan as measured when not fitted), `provenance.second_opinion_gap` (`points`, `n_scans` >= 20) and `reader_offsets`
   ({model id: wt%}, |offset| <= 5; a consensus takes its components' offsets before the median).

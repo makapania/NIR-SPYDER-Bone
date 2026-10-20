@@ -1,5 +1,5 @@
 //! `spyder read`: per scan, acceptance, header fields, N2 per window and the acquisition checks B1-B8
-//! (`--json`: schema `spyder-bone/read` v1; see README.md).
+//! (`--json`: schema `spyder-bone/read` v2; see README.md).
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};

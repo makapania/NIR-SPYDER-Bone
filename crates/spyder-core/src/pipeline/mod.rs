@@ -1,4 +1,4 @@
-//! The full per-scan pipeline (PLAN v3.2 Steps 1-10 in the Step 3 order of operations), a port of the frozen
+//! The full per-scan pipeline (PLAN v3.2 Steps 1-10 in the Step 3 order of operations), a port of the
 //! Python oracle `reference/oracle` (pipeline.py, checks.py, verdict.py, export.py). Its result record has the
 //! oracle's structure exactly, so that the end-to-end goldens and the private parity compare field by field.
 //!
