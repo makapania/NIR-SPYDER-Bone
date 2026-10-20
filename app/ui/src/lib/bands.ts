@@ -2,8 +2,8 @@
 // In the real app this table comes from the shipped `bands.json`; the UI only uses it for labels and
 // the close-up ranges.
 
-import { LEVEL_WORD } from './display';
-import type { BandId, BandReading, BandState, EvidenceLevel, ViewKey } from './types';
+import { LEVEL_WORD, bandsOffReason } from './display';
+import type { Assessment, BandId, BandReading, BandState, EvidenceLevel, ViewKey } from './types';
 
 export interface BandDef {
   id: BandId;
@@ -313,14 +313,15 @@ export function bandCount(bands: BandReading[]): BandCount {
 
 /** The list summary's tooltip: the level, the count and every band in wavelength order. The count is not a vote count
  *  (Astra, 2026-10-18): the level comes from the band rules, which weigh the bands differently. */
-export function bandSummaryTitle(level: EvidenceLevel, bands: BandReading[]): string {
+export function bandSummaryTitle(level: EvidenceLevel, bands: BandReading[], status?: Assessment): string {
   if (!bands.length) return 'No band reading';
+  const off = bandsOffReason(status);
   const c = bandCount(bands);
   const byNm = [...bands].sort((a, b) => a.nm - b.nm);
   const list = byNm.map((b) => `${b.nm} ${stateWord(b).toLowerCase()}`).join(', ');
   const noisy = c.noisy ? `, ${c.noisy} too noisy` : '';
   return (
-    `Protein bands: ${LEVEL_WORD[level]}. ${c.lit} of the ${c.total} bands in the close-ups are lit${noisy}: ${list}. ` +
+    `Protein bands: ${off ? `not assessed (${off})` : LEVEL_WORD[level]}. ${c.lit} of the ${c.total} bands in the close-ups are lit${noisy}: ${list}. ` +
     'The count is a quick look, not a vote: the level comes from the band rules, which weigh the bands differently.'
   );
 }

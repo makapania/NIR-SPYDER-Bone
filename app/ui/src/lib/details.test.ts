@@ -80,6 +80,20 @@ describe('checks: B6 and B6b are independent', () => {
     const noReading = { ...s, models: { ...s.models, cons3: s.models.cons3 ? { ...s.models.cons3, value: null } : null } };
     expect(checkRows(noReading)[0].d).toBe('Good signal, no saturation.');
   });
+  it('B6 not assessed: "Noise not assessed" with the reason, never "Good signal" (DECISIONS 137)', () => {
+    const na = (reason: string): CheckResult => ({ id: 'b6', outcome: 'ok', status: { status: 'not_assessed', reason } });
+    const rows = checkRows(scanWith([na('non-linear correction'), ok('b6b')]));
+    expect(rows.map((r) => r.d)).not.toContain('Good signal, no saturation.');
+    expect(rows[0]).toEqual({ icon: 'info', title: 'Scan quality', d: 'Noise not assessed: non-linear correction.', notice: false });
+    // the bracketed detail of an availability reason stays in the core's record
+    const r2 = checkRows(scanWith([na('not available on this instrument (band CH1728: 1711-1741 nm crosses the detector join at 1740 nm)'), ok('b6b')]));
+    expect(r2[0].d).toBe('Noise not assessed: not available on this instrument.');
+    // with a B6b Note the noisy-scan row stands alone
+    const r3 = checkRows(scanWith([na('non-linear correction'), { id: 'b6b', outcome: 'note', status: { status: 'assessed' } }]));
+    expect(r3.map((r) => r.title)).toContain('Noisy scan');
+    expect(r3.map((r) => r.d)).not.toContain('Good signal, no saturation.');
+    expect(r3.map((r) => r.d).some((d) => d.startsWith('Noise not assessed'))).toBe(false);
+  });
   it('a B6b Note without a B6 Check: noisy scan only', () => {
     const t = titles(scanWith([ok('b6'), { id: 'b6b', outcome: 'note', status: { status: 'assessed' } }]));
     expect(t).toContain('Noisy scan');

@@ -10,7 +10,9 @@ Kinds read here:
   spyder-bone/analysis_profile  radiocarbon / isotopes / zooms profiles
   spyder-bone/model, /transfer  through spyder_ref
   bands, noise gains, instrument registry: read through small adapters (_norm_*), because those files are owned by
-  another work package; each adapter turns the file into the normalised form documented on the adapter.
+  another work package; each adapter turns the file into the normalised form documented on the adapter. Since format 2
+  (DECISIONS 137) the band and noise tables hold no per-transfer gains: spyder_ref.tables computes them (bands_doc()
+  and gains() give the raw documents to it).
 """
 from __future__ import annotations
 
@@ -130,14 +132,29 @@ class PluginSet:
         return self._cache[k]
 
     def transfers(self) -> list[Doc]:
+        """The selected transfer per id, in precedence order. Per id the highest ACTIVE version across the roots wins
+        (the Rust registry's rule); the same id and version in two roots: the first root (the bundled folder) wins.
+        A file the reference refuses is never selected (the Rust registry disables it at load). Order: by the root of
+        the selected file (bundled before user), then by id: spyder_ref.pick_transfer takes the first match."""
         out = {}
         for d in self.docs:
-            if str(d.doc.get("format")) == "spyder-bone/transfer" and d.doc.get("status") != "withdrawn":
+            if str(d.doc.get("format")) == "spyder-bone/transfer" and d.doc.get("status", "active") == "active":
+                try:
+                    SR.check_transfer(d.doc)
+                except SR.SpyderError:
+                    continue
+                # reader offsets must name loaded models that are not consensus models (Rust: a cross-file rule)
+                bad = False
+                for mid in (d.doc.get("reader_offsets") or {}):
+                    m = self.find("spyder-bone/model", lambda x, mid=mid: x.get("id") == mid, required=False)
+                    bad = bad or m is None or m.doc.get("kind") == "consensus"
+                if bad:
+                    continue
                 key = d.id
-                if key not in out or (d.root_rank, tuple(-x for x in _ver(d.version))) < (
-                        out[key].root_rank, tuple(-x for x in _ver(out[key].version))):
+                if key not in out or (tuple(-x for x in _ver(d.version)), d.root_rank) < (
+                        tuple(-x for x in _ver(out[key].version)), out[key].root_rank):
                     out[key] = d
-        return list(out.values())
+        return sorted(out.values(), key=lambda d: (d.root_rank, d.id))
 
     def transfer_doc_for(self, model_doc, ctx):
         """spyder_ref.pick_transfer over the available transfers; returns ('none'|Doc|None)."""
@@ -171,10 +188,10 @@ class PluginSet:
             self._cache["bands"] = (_norm_bands(d.doc), d)
         return self._cache["bands"][0]
 
-    def band_gain(self, band_id, tkey):
-        b = self.bands().get(band_id, {})
-        g = (b.get("gain_E_per_N2") or {}).get(tkey)
-        return float(g) if g is not None else self.gains().band_gain(band_id, tkey)
+    def bands_doc(self) -> dict:
+        """The raw bands.json document (the computed readability gains read it through spyder_ref.tables)."""
+        self.bands()
+        return self._cache["bands"][1].doc
 
     def kernels(self) -> dict:
         """bands.json kernels, normalised to the check files' key names."""
@@ -199,6 +216,24 @@ class PluginSet:
             self._cache["registry"] = (_norm_registry(d.doc) if d else {}, d)
         return self._cache["registry"][0]
 
+    def class_of_file(self, fmt, joins, joins_source):
+        """The class of the instrument that wrote a file, from its format and detector joins (instruments.json
+        classes[c].header_hint), or None for a LabSpec 4 file (the Standard / High-res switch decides): the class whose
+        header_hint.file_format names the format ('as7', 'legacy'), unless the joins found in the file (header or
+        white-reference DN; joins_source 'default' found none) are exactly its header_hint.unless_joins_nm. Never the
+        format alone: as7 is ASD's file version 7, which a LabSpec 4 on older ASD software may write (joins 1000/1800)."""
+        self.registry()
+        d = self._cache["registry"][1]
+        for cls, v in ((d.doc.get("classes") or {}) if d else {}).items():
+            hint = v.get("header_hint") or {}
+            if fmt in (hint.get("file_format") or []):
+                unless = hint.get("unless_joins_nm")
+                if (unless is not None and joins_source != "default"
+                        and [float(x) for x in joins] == [float(x) for x in unless]):
+                    return None
+                return cls
+        return None
+
     # ------------------------------------------------------------------ provenance
     def used(self):
         """id@version -> sha256 of every file read so far (for the analysis manifest)."""
@@ -214,9 +249,8 @@ class PluginSet:
 # ---------------------------------------------------------------------- adapters
 def _norm_bands(doc):
     """Normalised band table: {band_id: {centre_nm, half_width_nm, weight, faint_u, detector, noise_window_nm,
-    gain_E_per_N2 {transfer key: gain}, kernel, u_sign (+1 / -1), projection (optional: {name, window_nm, direction,
-    centre, scale}: the band is read on the projected E, see kernels.band_value)}}. Readability gains live in bands.json (readability block); a
-    noise_gains.json 'bands' block is the fallback.
+    kernel, u_sign (+1 / -1), projection (optional: {name, window_nm, direction, centre, scale}: the band is read on the
+    projected E, see kernels.band_value)}}. Readability SDs are computed from the raw document (bands_doc()).
 
     Accepts the staging layout {"bands": {id: {...same keys...}}} and the list layout {"bands": [{"id": ...}, ...]};
     key aliases are mapped below. Extend here when the shipped bands.json layout differs."""
@@ -239,8 +273,6 @@ def _norm_bands(doc):
         rb = b.get("readability") or {}
         if rb.get("noise_window_nm"):
             r["noise_window_nm"] = rb["noise_window_nm"]
-        if rb.get("gain_E_per_N2"):
-            r["gain_E_per_N2"] = dict(rb["gain_E_per_N2"])
         if b.get("kernel"):
             r["kernel"] = b["kernel"]
         if b.get("projection"):
@@ -279,37 +311,20 @@ def _norm_registry(doc):
 
 
 class Gains:
-    """Noise-propagation gains keyed by model id (or band id) AND transfer key ('none' or the transfer file's sha256).
-
-    Normalised staging layout:
-      {"bands":  {band_id: {transfer_key: gain_E_per_N2}},                SD_E = gain x N2(band's noise window)
-       "models": {model_id: {transfer_key: {"terms": [{"window_nm": [lo, hi], "gain": g}, ...]}}},
-                                                                        SD% = sqrt(sum (g_i x N2_i)^2)
-       "consensus": {model_id: {"factor": f, "components": {feature: model_key}}}}   SD = f x median(component SDs)
-    """
+    """noise_gains.json (format 2): the noise model, the model noise windows, per-model settings and the consensus
+    factor. Each model's implied SD is COMPUTED for the correction applied and the scan's segments
+    (spyder_ref.tables.implied_sd); nothing is keyed by a transfer file."""
 
     def __init__(self, doc, d):
         self.doc = doc
         self.file = d
-
-    def band_gain(self, band_id, tkey):
-        b = self.doc.get("bands", {}).get(band_id)
-        if b is None or tkey not in b:
-            return None
-        return float(b[tkey])
-
-    def model_terms(self, model_key, tkey):
-        m = self.doc.get("models", {}).get(model_key)
-        if m is None or tkey not in m:
-            return None
-        return m[tkey]["terms"]
 
     def consensus(self, model_id):
         return self.doc.get("consensus", {}).get(model_id)
 
 
 def transfer_key(tdoc):
-    """'none' for no transfer, else the transfer file's sha256 (noise gains are keyed by it; PLAN Step 2b)."""
+    """'none' for no transfer, else the transfer file's sha256 (the record names the correction by it)."""
     if tdoc is None or tdoc == "none":
         return "none"
     return tdoc.sha256

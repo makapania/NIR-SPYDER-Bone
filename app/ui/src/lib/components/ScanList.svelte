@@ -10,7 +10,7 @@
   import Icon from './Icon.svelte';
   import { formatReading, shortName, splitName, timeOf } from '../display';
   import { strongPanelNote, zoomsLine } from '../notes';
-  import { flagLabel, flagText, noteText } from '../strings';
+  import { noteText, shownFlag } from '../strings';
   import { isUnscored, type SortMode } from '../sort';
   import type { ScanResult } from '../types';
 
@@ -66,7 +66,8 @@
   /** Every fired sign in full, for the pennant's tooltip and accessible name. */
   const flagsText = (s: ScanResult) =>
     fired(s)
-      .map((f) => `${flagLabel(f.id)}: ${flagText(f.id, f.heatKind)}`)
+      .map((f) => shownFlag(s, f.id, f.heatKind))
+      .map((f) => `${f.label}: ${f.text}`)
       .join(' ');
   const lifted = (s: ScanResult) => s.verdictRule === 'lift_good' || s.verdictRule === 'lift_borderline';
 

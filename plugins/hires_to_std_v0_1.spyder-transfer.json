@@ -35,7 +35,7 @@
    "gain": 0.6343,
    "offset": 0.2312,
    "clip_min": 1e-06,
-   "note": "A = log10(1/max(R, 1e-6)); A' = g*A + c per detector segment (VNIR, SWIR1, SWIR2); R' = 10^(-A'). The offsets only keep the displayed absorbance continuous at the training joins; every derivative-based output ignores them."
+   "note": "A = log10(1/max(R, 1e-6)); A' = g*A + c per detector segment (VNIR, SWIR1, SWIR2); R' = 10^(-A'). The offsets keep the absorbance continuous at the training joins. Derivative-based outputs (models, bands, contaminant signs) ignore them; the heat check reads reflectance levels (visible reflectance and the visible edge against 1250-1300 nm), so the offsets matter there: they are not display-only."
   }
  ],
  "provenance": {

@@ -2,8 +2,8 @@
   // The spectra card: the main plot over the reference bones, and the two model-window close-ups.
   // Second derivative is drawn as −d²A/dλ² (bands up) unless the viewer flips it to the conventional d²A/dλ²
   // (bands down; display only, remembered per viewer); default view 1100–2450 nm. Display smoothing
-  // changes only the main plot. On high-res the main plot shows the transferred spectrum (what every model and
-  // band rule reads) with "As measured" one toggle away. The 2045 close-up defaults to the OH-corrected view:
+  // changes only the main plot. When a correction was applied (high-res, or any corrected instrument) the main plot
+  // shows the corrected spectrum (what every model and band rule reads) with "As measured" one toggle away. The 2045 close-up defaults to the OH-corrected view:
   // the window features with the OH/water direction projected out, exactly as the OH-corrected model sees them
   // (computed in Rust; the reading they imply IS the model's reading), with an "As measured" toggle; the 1500
   // close-up is OH-corrected. The corrected view exists only inside the model window.
@@ -24,7 +24,7 @@
     /** Draw the 2nd derivative the conventional way (bands down) instead of bands up. */
     bandsDown: boolean;
     onBandsDown: (down: boolean) => void;
-    /** High-res main plot: the transferred spectrum ('std', default) or the scan as measured ('meas'). */
+    /** Main plot of a corrected scan: the corrected spectrum ('std', default) or the scan as measured ('meas'). */
     stream: 'std' | 'meas';
     ohWindows: OhWindowInfo[];
     themeKey: string;
@@ -62,9 +62,10 @@
   const SMOOTHING = Array.from({ length: 21 }, (_, i) => 11 + 2 * i);
   const REF_COLOR: Record<string, string> = { '0%': '--r0', '1%': '--r1', '3%': '--r3', '6%': '--r6', '10%': '--r10' };
   const RAMP = ['--r0', '--r1', '--r3', '--r6', '--r10'];
-  const hires = $derived(scan.instrumentClass === 'hires');
-  /** The scan as measured on the main plot (high-res only; standard-res is its own stream). */
-  const asMeasured = $derived(hires && stream === 'meas');
+  /** A correction made the stream the models read (DECISIONS 137: whatever the instrument; none = as measured). */
+  const corrected = $derived(!!scan.transfer);
+  /** The scan as measured on the main plot (a corrected scan only; otherwise it is its own stream). */
+  const asMeasured = $derived(corrected && stream === 'meas');
   const MEAS: Record<'R' | 'A' | 'D2', ViewKey> = { R: 'R_meas', A: 'A_meas', D2: 'D2_meas' };
   const win2045 = $derived(ohWindows.find((w) => w.label === '2045'));
   const win1500 = $derived(ohWindows.find((w) => w.label === '1500'));
@@ -119,7 +120,7 @@
       { lo: 1500, hi: 1550, kind: 'window', label: '1545' },
       { lo: 2030, hi: 2060, kind: 'window', label: '2045' },
     ];
-    // band states belong to the transferred spectrum: no band shading over the as-measured high-res curve
+    // band states belong to the corrected spectrum: no band shading over the as-measured curve
     if (mode === 'D2' && scan.evidence.bands.length && !asMeasured) {
       scan.evidence.bands.forEach((b, k) =>
         s.push({ lo: b.nm - 2, hi: b.nm + 2, kind: 'band', state: b.state, flagged, highlight: highlight === k }),
@@ -166,7 +167,12 @@
           : `Inverted 2nd derivative, −d²A/dλ² (×10⁻⁵): bands point up · display smoothing SG ${smoothing}`,
   );
   const streamNote = $derived(
-    !hires ? '' : asMeasured ? ' · high-res, as measured (the models read the transferred spectrum)' : ' · high-res, transferred to standard resolution',
+    !corrected ? '' : asMeasured ? ' · as measured (the models read the corrected spectrum)' : ' · corrected to standard resolution',
+  );
+  const correctionTitle = $derived(
+    scan.transfer
+      ? `The spectrum corrected to standard resolution (${scan.transfer.id} v${scan.transfer.version}${scan.transfer.provisional ? ', provisional' : ''}): what every model and band rule reads`
+      : '',
   );
 </script>
 
@@ -184,11 +190,10 @@
       </select>
     </label>
     {#if smoothing !== 31 && mode === 'D2'}<span class="chainnote">Chart only: the models read SG 31.</span>{/if}
-    {#if hires}
-      <div class="seg" role="group" aria-label="High-res spectrum">
-        <button aria-pressed={stream === 'std'} onclick={() => onStream('std')}
-          title="The spectrum transferred to standard resolution (provisional): what every model and band rule reads">Transferred</button>
-        <button aria-pressed={stream === 'meas'} onclick={() => onStream('meas')} title="The high-res scan as measured">As measured</button>
+    {#if corrected}
+      <div class="seg" role="group" aria-label="Corrected spectrum">
+        <button aria-pressed={stream === 'std'} onclick={() => onStream('std')} title={correctionTitle}>Transferred</button>
+        <button aria-pressed={stream === 'meas'} onclick={() => onStream('meas')} title="The scan as measured">As measured</button>
       </div>
     {/if}
     <span class="spacer"></span>

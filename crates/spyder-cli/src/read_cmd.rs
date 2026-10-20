@@ -18,7 +18,7 @@ const B6_REASON: &str = "B6 is per model and transfer: see `spyder predict` (noi
 
 pub const USAGE: &str = "usage: spyder read <file.asd | folder> [--json] [--recursive]
 
-  Reads ASD scan files (LabSpec 4 as8 .asd, Trek-type as7 .asd, FieldSpec 3
+  Reads ASD scan files (LabSpec 4 as8 or as7 .asd, Trek-type as7 .asd, FieldSpec 3
   legacy .000 and ViewSpec .sco; a .sco beside its source is skipped) and
   prints, per scan, whether it is accepted, its header fields, the detector
   joins used (header, white-reference steps or default), N2 noise per window

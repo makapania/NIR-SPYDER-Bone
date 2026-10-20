@@ -1,10 +1,16 @@
 """The end-to-end oracle: PLAN v3.2 Steps 1-10 in the Step 3 order of operations.
 
   1. read the file; raw acquisition statistics (N2 per window, R range, splice steps) on the AS-MEASURED scan;
-  2. resolve the instrument class (an INPUT: the user's Standard / High-res switch; a known serial may preset it and a
-     mismatch adds a gentle note), then the models, the transfer and the analysis profiles;
-  3. select the noise parameters that match each model and the transfer actually applied (keyed by transfer hash);
-  4. B6, long-wave eligibility, band readability;
+  2. resolve the instrument class (an INPUT: the user's Standard / High-res switch for LabSpec files; a file another
+     instrument wrote, named by its format in the instrument registry, is scored as that instrument's class; a known
+     serial may preset the switch and a mismatch adds a gentle note), then the models, the correction and the profiles;
+     the noise policies (per-sign gates, long-wave, soft tier, second opinion, S1_R2 shown) key on the correction applied
+     and on whether the stream is the native standard-resolution scan (as measured, or through a near-uncorrected
+     correction such as a standard-resolution unit's own file), never on class names (DECISIONS 137);
+  3. noise propagation computed for each model and band from the correction actually applied and the scan's own
+     detector segments (spyder_ref.tables / gains; no lookup by transfer file);
+  4. B6, long-wave eligibility, band readability (an unknown band noise is +infinity: unreadable unless strong, with a
+     "band noise unknown" note);
   5. on the standard-resolution-equivalent stream: B9, models, CONS3, evidence, ZooMS pattern, signs, C1;
   6. verdict per analysis type; CSV row + analysis manifest (export.py).
 """
@@ -17,6 +23,7 @@ import numpy as np
 from . import asd, checks, verdict as VD
 from ._ref import SR
 from .params import PluginSet, load_npy, transfer_key
+from spyder_ref import gains as GN, tables as TB
 
 ORACLE_VERSION = "1.0.0"
 ANALYSES = ("radiocarbon", "isotopes", "zooms")
@@ -30,18 +37,49 @@ def _f(x):
     return x if math.isfinite(x) else None
 
 
-def _rss(terms, n2c):
-    s = 0.0
-    for t in terms:
-        s += (t["gain"] * n2c(*t["window_nm"])) ** 2
-    return math.sqrt(s)
+NO_GAIN = "not assessed: no noise gain for this model and transfer"
 
 
-def b6_noise(value, sd, p):
+def model_shown(spec, native, cls):
+    """A profile model is computed and shown: on every scan, or only when the stream is not the native
+    standard-resolution scan ('non_native': a correction applied, unless near-uncorrected, or another instrument's scan
+    as measured); a legacy class list (shown_for_classes) names classes."""
+    if spec.get("role") == "verdict_input":
+        return True
+    w = spec.get("shown_for")
+    if w is not None:
+        return w == "every_scan" or (w == "non_native" and not native)
+    return cls in spec.get("shown_for_classes", [])
+
+
+def second_opinion_applies(so, native, cls):
+    w = so.get("streams")
+    if w is not None:
+        return w == "every_scan" or (w == "non_native" and not native)
+    return cls in so.get("classes", [])
+
+
+def _transferred(tdoc, wl, R, sctx):
+    """The transferred stream on the scan's grid. A transfer that fails, or whose output is not on the scan's grid (a
+    block-SNV correction keeps only its block's points), gives a NaN stream: its consumers are not assessed."""
+    try:
+        w2, X = SR.apply_transfer(tdoc, wl, np.asarray(R, float)[None, :], sctx)
+    except SR.SpyderError:
+        return np.full(len(wl), np.nan)
+    if len(w2) != len(wl) or np.any(np.asarray(w2) != np.asarray(wl)):
+        return np.full(len(wl), np.nan)
+    return X[0]
+
+
+def b6_noise(value, sd, p, status="assessed", applies=True):
     """B6 (DECISIONS 109): Check when a verdict cut lies within check_if_cut_within_sd x the implied SD of the reading,
-    i.e. when noise alone could carry the reading across a cut. No SD: not assessed; no finite reading: no outcome."""
-    if sd is None:
-        return {"status": "not assessed: no noise gain for this model and transfer", "outcome": None}
+    i.e. when noise alone could carry the reading across a cut. Not applied to an exempt reader; no SD: not assessed,
+    with the noise status (a non-linear correction, not available on this instrument, ...); no finite reading: no
+    outcome."""
+    if not applies:
+        return {"status": TB.B6_NOT_APPLIED, "outcome": None}
+    if sd is None or not math.isfinite(sd):
+        return {"status": NO_GAIN if status in (None, "assessed") else status, "outcome": None}
     v = _f(value)
     if v is None:
         return {"status": "assessed", "outcome": None}
@@ -79,6 +117,12 @@ class Oracle:
         if reason:
             return self._rejected(reason, meta)
         R = asd.reflectance_of(h, dn, ref)
+        # a file another instrument wrote (named in the instrument registry by its format and detector joins) is scored
+        # as that instrument's class: the Standard / High-res switch chooses between the LabSpec classes only
+        # (DECISIONS 137). An as7 file with the LabSpec joins 1000/1800 is a LabSpec 4 file, like as8.
+        fc = P.class_of_file(h["format"], h["splices_nm"], h["joins_source"])
+        if fc is not None and fc != instrument_class:
+            instrument_class, class_source = fc, "file_format"
         ctx = {"instrument_class": instrument_class, "class_source": class_source, "serial": h["serial"],
                "splices_nm": h["splices_nm"]}
         return self.analyse_spectrum(wl, R, ctx, dn=dn, meta=meta)
@@ -122,11 +166,17 @@ class Oracle:
         no_dn = ("not assessed: the file stores reflectance only" if meta.get("format") == "legacy"
                  else "not assessed: no raw DN (spectrum input)")
         acq.update(checks.acquisition(wl, R_meas, acqp, dn, joins, no_dn))
-        # the stream's transfer is resolved (picked) first: the per-sign B6b gates are keyed by it (phase 0c); it is
-        # applied after the Rescan check below
+        # the stream's correction is resolved (picked) first: the per-sign B6b gates follow the noise after it
+        # (DECISIONS 137); it is applied after the Rescan check below. native: the standard-resolution scan as measured,
+        # or through a near-uncorrected correction (every noise-policy gain within check.acquisition's std_like_within
+        # of uncorrected, e.g. a standard-resolution unit's own file): every noise policy then treats the stream
+        # exactly like a native standard-resolution scan (Matt, 2026-10-19: LabSpec 4 standard never changes)
         st = P.stream_transfer(cls, serial)
-        skey = transfer_key(st) if st not in (None, "none") else "none"
-        acq["B6b"], gates, reduced = checks.b6b(acqp, n2c, skey)
+        sops, sinn = GN.correction_of(st.doc if st not in (None, "none") else None)
+        near = checks.standard_like(acqp, P.cp("longwave"), P.cp("signs"), wl, joins, sops, sinn)
+        native = (checks.NEAR_UNCORRECTED if near else
+                  checks.NATIVE_SCAN if (cls == STD and st == "none") else None)
+        acq["B6b"], gates, reduced = checks.b6b(acqp, n2c, wl, joins, sops, sinn, near=near)
         gated = acq["B6b"]["gated"]
         rec["checks"] = acq
         bad = checks.unusable(acq)
@@ -148,27 +198,35 @@ class Oracle:
         sctx = SR.ScanContext(joins, cls, serial)
         if st is None:
             R_std, skey = R_meas, "none"
-            rec["instrument"]["notes"].append({"key": "no_transfer_available"})
+            # no correction for this instrument is installed: every result is uncalibrated for it
+            rec["instrument"]["notes"].append({"key": "instrument_uncalibrated", "class": cls})
             stream_t = None
         elif st == "none":
             R_std, skey, stream_t = R_meas, "none", None
         else:
-            R_std = SR.apply_transfer(st.doc, wl, R_meas[None, :], sctx)[1][0]
+            R_std = _transferred(st.doc, wl, R_meas, sctx)
             skey, stream_t = transfer_key(st), st
             P._cache[("used_transfer", st.id)] = st
         rec["stream"] = {"transfer": stream_t.ref if stream_t else "none",
                          "transfer_sha256": stream_t.sha256 if stream_t else None,
                          "provisional": bool(stream_t and stream_t.doc.get("provisional", True))}
-        # ---- Step 4: long-wave eligibility, band readability (keyed gains), [B6 with the models below]
-        lw = checks.longwave(P.cp("longwave"), cls, n2c)
+        # ---- Step 4: long-wave eligibility, band readability (gains computed for the stream's correction), [B6 with
+        # the models below]
+        lw = checks.longwave(P.cp("longwave"), native, n2c, wl, joins, sops, sinn)
         rec["checks"]["longwave"] = lw
-        bands = P.bands(); G = P.gains()
-        sd_E = {}
-        for b, bd in bands.items():
-            gb = P.band_gain(b, skey)
-            if gb is not None and bd.get("noise_window_nm"):
-                sd_E[b] = gb * n2c(*bd["noise_window_nm"])
+        bands = P.bands(); bdoc = P.bands_doc()
+        sd_E, unknown = {}, {}
+        for b in sorted(bands):
+            sd, why = TB.readability_sd(bdoc, b, wl, joins, sops, sinn, n2c)
+            if sd is None:
+                continue
+            sd_E[b] = sd
+            if why != "assessed":
+                unknown[b] = why
         rec["band_noise"] = {"transfer_key": skey, "sd_E": {b: _f(v) for b, v in sorted(sd_E.items())}}
+        if unknown:
+            rec["band_noise"]["noise_unknown"] = unknown
+            rec["instrument"]["notes"].append({"key": "band_noise_unknown", "bands": sorted(unknown)})
         # ---- Step 5: spectral consumers on the standard-resolution-equivalent stream
         evp = P.cp("evidence_levels")
         from . import kernels as K
@@ -185,36 +243,57 @@ class Oracle:
         # models
         # Codex Phase 3 review 1: every profile reads its OWN model list (verdict input, second opinion); the
         # record's models block is the union over the profiles, keyed by the profiles' model keys
-        rec["models"], per_profile = self._models([profs[a].doc["parameters"] for a in ANALYSES], wl, R_meas, sctx,
-                                                  n2c, cls)
+        rec["models"], per_profile, noise = self._models([profs[a].doc["parameters"] for a in ANALYSES], wl, R_meas,
+                                                         sctx, n2c, cls, native)
         b6p = acqp["B6_noise"]
         for k, mr in rec["models"].items():
-            mr["B6"] = b6_noise(mr.get("value"), mr.get("implied_sd"), b6p)
+            why, applies = noise.get(k, (NO_GAIN, True))
+            mr["B6"] = b6_noise(mr.get("value"), mr.get("implied_sd"), b6p, why, applies)
         # evidence and ZooMS
         ev = checks.evidence(wl, E, evp, bands, sd_E)
         zo = checks.zooms(wl, E, P.cp("zooms_patterns"), bands, sd_E)
+        # no correction for this instrument (uncalibrated): the band calls are off (DECISIONS 137, amended 2026-10-19)
+        uncal = st is None
+        if uncal:
+            checks.band_evidence_off(ev, zo)
         rec["evidence"] = ev; rec["zooms_pattern"] = zo
         # signs and C1
-        sg = checks.signs(wl, R_std, P.cp("signs"), P.cp("heat"), gates, reduced)
+        # heat reads the corrected stream when the correction's visible levels were fitted (or none applies), else the
+        # scan as measured, with a note (DECISIONS 137: the levels are not display-only)
+        fitted, so_gap, _ = SR.transfer_settings(stream_t.doc) if stream_t else (True, None, {})
+        if not fitted:
+            rec["instrument"]["notes"].append({"key": "visible_levels_not_fitted"})
+        sg = checks.signs(wl, R_std, P.cp("signs"), P.cp("heat"), gates, reduced,
+                          heat_stream=None if fitted else R_meas)
         spec = any(sg[n].get("fired") for n in P.cp("c1")["runs_only_if_not_fired"])
         c1r = checks.c1(wl, E, P.cp("c1"), gates.get("C1"), spec, bool(lw["tail_unreliable_c1"]),
                         lwp["when_unreliable"]["c1"], reduced.get("C1"))
-        sg["soft"] = checks.soft_tier(P.cp("signs"), P.cp("c1"), cls, n2c, sg, c1r)
+        sg["soft"] = checks.soft_tier(P.cp("signs"), P.cp("c1"), native, n2c, sg, c1r, wl, joins, sops, sinn)
         rec["signs"] = sg; rec["C1"] = c1r
         # ---- Step 9: verdicts
         notfit = b9r.get("outcome") == "fail"
+        # B9 ("Doesn't look like bone") replaces the verdict on every instrument, also one not built in, where the
+        # readings otherwise set it (DECISIONS 137): a deliberate exception. B9 is an input screen, not band evidence:
+        # the highest Pearson correlation of the scan's D2 profile with bone prototypes, a shape test that a uniform
+        # band-depth (calibration) change does not move; it is about rock and other targets, not bone quality
+        # (DECISIONS 118). On the 61 real FieldSpec 3 / Trek scans it passed on all.
         for ai, a in enumerate(ANALYSES):
             pp = profs[a].doc["parameters"]
             m, comps, s1 = per_profile[ai]
             if notfit:
                 rec[a] = {"verdict": "Doesn't look like bone", "rule_step": "B9", "notes_all": [], "notes_shown": [],
-                          "flags": VD.flags_for(pp, sg, c1r)}
+                          "flags": VD.flags_for(pp, sg, c1r, provisional=uncal)}
             elif pp["kind"] == "collagen_rule_L2":
-                rec[a] = VD.collagen_verdict(pp, m, comps, ev, zo, sg, c1r, gated, rec.get("models"))
+                rec[a] = VD.collagen_verdict(pp, m, comps, ev, zo, sg, c1r, gated, rec.get("models"), uncalibrated=uncal)
             else:
-                rec[a] = VD.zooms_verdict(pp, zo, sg, c1r, m)
-            if not notfit and pp.get("second_opinion") and s1 is not None and m is not None and cls in pp["second_opinion"]["classes"]:
-                if abs(s1 - m) > pp["second_opinion"]["gap_points"]:
+                rec[a] = VD.zooms_verdict(pp, zo, sg, c1r, m, uncalibrated=uncal)
+            so = pp.get("second_opinion")
+            # S1_R2 stays shown on an uncalibrated instrument, but its second-opinion note is not added there: the
+            # instrument note already says the readings are uncalibrated (DECISIONS 137, amended 2026-10-19)
+            if (not notfit and not uncal and so and s1 is not None and m is not None
+                    and second_opinion_applies(so, native, cls)):
+                # the correction's own gap when it carries one (estimated from >= 20 scans), else the profile's
+                if abs(s1 - m) > (so_gap if so_gap is not None else so["gap_points"]):
                     rec[a]["notes_all"].append({"key": "second_opinion_differs", "s1": s1, "m": m})
             self._sort(rec[a], a, m, ev.get("S"))
         self._finish(rec, n2c)
@@ -246,32 +325,36 @@ class Oracle:
             self._b9[key] = arr
         return self._b9[key]
 
-    def _models(self, pps, wl, R_meas, sctx, n2c, cls):
-        """pps: the profiles' parameter blocks. Returns (models record, [(m, comps, s1) per profile])."""
+    def _models(self, pps, wl, R_meas, sctx, n2c, cls, native=False):
+        """pps: the profiles' parameter blocks. Returns (models record, [(m, comps, s1) per profile], {model key: (noise
+        status, whether B6 applies)}). A model whose spec says reads 'as_measured' (S1_R2) runs on the scan as measured
+        for any class; a correction's reader_offsets are added to the readings it makes (a consensus: to its components
+        before the median)."""
         P = self.P; G = P.gains()
-        out = {}
+        out, noise = {}, {}
         tcache = {}
         specs = []                                    # union of the profiles' model specs, first profile first
         for pp in pps:
             for spec in pp["models"]:
                 if spec["key"] not in [s["key"] for s in specs]:
                     specs.append(spec)
-        shown = {s["key"]: any(cls in x["shown_for_classes"] or x["role"] == "verdict_input"
-                               for pp in pps for x in pp["models"] if x["key"] == s["key"]) for s in specs}
+        shown = {s["key"]: any(model_shown(x, native, cls) for pp in pps for x in pp["models"] if x["key"] == s["key"])
+                 for s in specs}
         dn = pps[0].get("domain_note_ratio_above")
         for spec in specs:
             md = P.model(spec["model_id"])
             if not shown[spec["key"]]:
                 continue
-            pick = P.transfer_doc_for(md.doc, sctx)
+            # the per-reader stream policy (spyder_ref.pick_reader_transfer; the predictions share it)
+            pick = "none" if spec.get("reads") == "as_measured" else P.transfer_doc_for(md.doc, sctx)
             if pick is None:
-                X, tkey, tref = R_meas, "none", "none (no transfer available)"
+                X, tdoc, tref = R_meas, None, "none (no transfer available)"
             elif pick == "none":
-                X, tkey, tref = R_meas, "none", "none"
+                X, tdoc, tref = R_meas, None, "none"
             else:
                 if pick.id not in tcache:
-                    tcache[pick.id] = SR.apply_transfer(pick.doc, wl, R_meas[None, :], sctx)[1][0]
-                X, tkey, tref = tcache[pick.id], transfer_key(pick), pick.ref
+                    tcache[pick.id] = _transferred(pick.doc, wl, R_meas, sctx)
+                X, tdoc, tref = tcache[pick.id], pick.doc, pick.ref
                 P._cache[("used_transfer", pick.id)] = pick
             try:
                 pr = SR.predict(md.doc, wl, X[None, :], sctx)
@@ -282,19 +365,29 @@ class Oracle:
                  "value": _f(pr["value"][0]) if "value" in pr else None,
                  "domain_ratio": _f(pr["domain_ratio"][0]) if "domain_ratio" in pr else None}
             feats = {k.split(":", 1)[1]: _f(v[0]) for k, v in pr.items() if k.startswith(("feature:", "component:"))}
+            offs = SR.transfer_settings(tdoc)[2] if tdoc is not None else {}
+            if offs and "value" in pr:
+                if md.doc.get("kind") == "consensus":
+                    co = {c["name"]: offs[c["id"]] for c in md.doc["consensus"]["components"] if c["id"] in offs}
+                    if co:
+                        vals = [float(pr[f"component:{c['name']}"][0]) + co.get(c["name"], 0.0)
+                                for c in md.doc["consensus"]["components"]]
+                        for c in md.doc["consensus"]["components"]:
+                            if c["name"] in co:
+                                feats[c["name"]] = _f(float(pr[f"component:{c['name']}"][0]) + co[c["name"]])
+                        r["value"] = _f(float(np.median(vals)))
+                        r["component_offsets"] = co
+                elif md.id in offs:
+                    r["value"] = _f(float(pr["value"][0]) + offs[md.id])
+                    r["reader_offset"] = offs[md.id]
+            ops, inn = GN.correction_of(tdoc)
+            isd = TB.implied_sd(G.doc, md.doc, wl, sctx.splices_nm, ops, inn, n2c)
             if spec["role"] == "verdict_input":
                 r["components"] = {c: feats.get(c) for c in spec["components"]}
-                cs = G.consensus(md.id)
-                if cs:
-                    sds = []
-                    for c, mk in cs["components"].items():
-                        t = G.model_terms(mk, tkey)
-                        sds.append(None if t is None else _rss(t, n2c))
-                    r["component_sd"] = dict(zip(cs["components"], sds))
-                    r["implied_sd"] = None if None in sds else cs["factor"] * float(np.median(sds))
-            else:
-                t = G.model_terms(md.id, tkey)
-                r["implied_sd"] = None if t is None else _rss(t, n2c)
+                if isd["component_sd"] is not None:
+                    r["component_sd"] = dict(isd["component_sd"])
+            r["implied_sd"] = isd["sd"]
+            noise[spec["key"]] = (isd["status"], isd["b6"])
             r["domain_note"] = bool(dn is not None and r["domain_ratio"] is not None and r["domain_ratio"] > dn)
             out[spec["key"]] = r
         per = []
@@ -309,4 +402,4 @@ class Oracle:
                 elif x["role"] == "second_opinion":
                     s1 = r["value"]
             per.append((m, comps or {}, s1))
-        return out, per
+        return out, per, noise

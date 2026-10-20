@@ -2,9 +2,9 @@
 //!
 //! spyder read     <file.asd | folder> [--json] [--recursive]
 //! spyder validate <plug-in file | folder> [--json] [--user] [--pin id@version]...
-//! spyder predict  <file.asd | folder> --class std|hires [--json] [--recursive]
+//! spyder predict  <file.asd | folder> --class std|hires|CLASS [--json] [--recursive]
 //!                 [--plugins DIR] [--user-plugins DIR] [--pin id@version]...
-//! spyder analyse  <file.asd | folder> --class std|hires [--profile radiocarbon|isotopes|zooms]
+//! spyder analyse  <file.asd | folder> --class std|hires|CLASS [--profile radiocarbon|isotopes|zooms]
 //!                 [--csv out.csv] [--json] [--sort] [--recursive] [--plugins DIR] [--user-plugins DIR] [--pin ...]
 //!
 //! Arguments are taken as OS strings (paths need not be UTF-8).

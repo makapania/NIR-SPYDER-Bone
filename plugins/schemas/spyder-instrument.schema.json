@@ -1,7 +1,7 @@
 {
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "https://spyder-bone.org/schemas/spyder-instrument.schema.json",
- "title": "SPYDER Bone instrument registry (presets the Standard / High-res switch)",
+ "title": "SPYDER Bone instrument registry (classes, serial presets, other instruments' file formats)",
  "type": "object",
  "required": [
   "format",
@@ -93,7 +93,31 @@
         },
         "minItems": 2,
         "maxItems": 2
+       },
+       "file_format": {
+        "type": "array",
+        "items": {
+         "enum": [
+          "as8",
+          "as7",
+          "legacy"
+         ]
+        },
+        "description": "a file of this format is scored as this class (unless unless_joins_nm excludes it)"
+       },
+       "unless_joins_nm": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 1,
+        "description": "with file_format: a file of that format whose detector joins, as found in the file (the header, else the white-reference DN; never the default 1000/1800 used when neither gives them), are exactly these is not this class's file; it is read as a LabSpec 4 file and the switch decides its class"
        }
+      },
+      "dependentRequired": {
+       "unless_joins_nm": [
+        "file_format"
+       ]
       }
      },
      "serials": {

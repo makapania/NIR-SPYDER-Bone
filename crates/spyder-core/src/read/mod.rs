@@ -1,6 +1,6 @@
-//! File readers: ASD `as8` (LabSpec 4), `as7` (Trek-type handheld) and legacy v1 reflectance files (FieldSpec 3
-//! `.NNN` / ViewSpec `.sco`) in the verified acquisition modes (PLAN section 3 Step 1, DECISIONS 43, 87-88). Every
-//! reader returns `Err` for any malformed input; none ever panics.
+//! File readers: ASD `as8` (LabSpec 4), `as7` (the Trek-type handheld, or a LabSpec 4 on older ASD software) and
+//! legacy v1 reflectance files (FieldSpec 3 `.NNN` / ViewSpec `.sco`) in the verified acquisition modes (PLAN
+//! section 3 Step 1, DECISIONS 43, 87-88). Every reader returns `Err` for any malformed input; none ever panics.
 
 pub mod asd;
 

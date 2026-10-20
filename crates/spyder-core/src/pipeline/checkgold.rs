@@ -15,16 +15,19 @@ use super::kernels::derivative;
 use super::val::{flatten, matches_check_expected, Obj, V};
 use super::verdict::{verdict_for, VerdictInputs};
 use crate::plugins::checks::{CheckParams, EngineCheck};
+use crate::plugins::gains::Correction;
 use crate::plugins::golden::{cases, tolerance, Failure, GoldenRun, GoldenSpectra};
 use crate::plugins::profiles::AnalysisProfile;
-use crate::plugins::tables::Bands;
+use crate::plugins::tables::{golden_corrections, Bands, GoldenCorrection};
 use crate::plugins::{Node, PResult, PluginError};
 
-/// What the check goldens need from the other plug-ins.
+/// What the check goldens need from the other plug-ins (and the file's own golden block).
 pub struct CheckEnv<'a> {
     pub bands: Option<&'a Bands>,
     /// check name -> its parameters (signs and heat need each other).
     pub checks: BTreeMap<String, &'a CheckParams>,
+    /// The golden block of the file being run (its named corrections).
+    pub golden: Option<&'a Node<'a>>,
 }
 
 fn flat_map(o: Obj) -> BTreeMap<String, V> {
@@ -45,6 +48,31 @@ fn input_bool(inputs: &Node, k: &str) -> PResult<bool> {
         None => Ok(false),
         Some(b) => b.bool(),
     }
+}
+
+/// A case's joins (`splices_nm`, default 1000/1800).
+fn input_joins(inputs: &Node) -> PResult<Vec<f64>> {
+    match inputs.opt("splices_nm") {
+        None => Ok(vec![1000.0, 1800.0]),
+        Some(j) => j.vec_f64(),
+    }
+}
+
+/// The correction a case names (`correction`: "none" or a name in the golden block's `corrections`).
+fn golden_correction(env: &CheckEnv, inputs: &Node) -> PResult<Option<GoldenCorrection>> {
+    let name = input_opt_str(inputs, "correction")?.unwrap_or_else(|| "none".into());
+    if name == "none" {
+        return Ok(None);
+    }
+    let mut cs = match env.golden {
+        Some(g) => golden_corrections(g)?,
+        None => BTreeMap::new(),
+    };
+    cs.remove(&name).map(Some).ok_or_else(|| {
+        PluginError::golden(format!(
+            "golden correction {name:?} is not in the golden block's corrections"
+        ))
+    })
 }
 
 /// The check's outputs for one spectrum, flattened (what the goldens compare).
@@ -72,22 +100,49 @@ pub fn compute_check(
     Ok(match p {
         CheckParams::Acquisition { .. } => {
             let mut n2c = N2Cache::new(wl, x);
-            // check goldens are LabSpec spectra (oracle checkgold: the default joins and B2 text)
+            // check goldens are LabSpec spectra (oracle checkgold: the B2 text); joins 1000/1800 unless given
+            let joins = input_joins(inputs)?;
             let mut r = C::acquisition(
                 wl,
                 x,
                 p,
                 None,
-                &[1000.0, 1800.0],
+                &joins,
                 "not assessed: no raw DN (spectrum input)",
             );
-            let key = input_opt_str(inputs, "transfer_key")?.unwrap_or_else(|| "none".into());
-            r.set("B6b", C::b6b(p, &mut n2c, &key).0);
+            let gc = golden_correction(env, inputs)?;
+            let route = C::Route {
+                wl,
+                joins: &joins,
+                corr: gc.as_ref().map(|g| Correction {
+                    ops: &g.ops,
+                    noise: &g.noise,
+                    key: "golden",
+                }),
+                cache: None,
+            };
+            // a near-uncorrected correction reads the uncorrected table; the test reads the long-wave and soft-tier
+            // statistics too (check.longwave, check.signs), only when there is a correction
+            let near =
+                gc.is_some() && C::standard_like(p, need("longwave")?, need("signs")?, &route);
+            r.set("B6b", C::b6b(p, &mut n2c, &route, near).0);
             flat_map(r)
         }
         CheckParams::Longwave { .. } => {
-            let cls = inputs.req("instrument_class")?.str()?;
-            flat_map(C::longwave(p, cls, &mut N2Cache::new(wl, x)).0)
+            let joins = input_joins(inputs)?;
+            let gc = golden_correction(env, inputs)?;
+            let route = C::Route {
+                wl,
+                joins: &joins,
+                corr: gc.as_ref().map(|g| Correction {
+                    ops: &g.ops,
+                    noise: &g.noise,
+                    key: "golden",
+                }),
+                cache: None,
+            };
+            let native = inputs.req("native")?.bool()?.then_some(C::NATIVE_SCAN);
+            flat_map(C::longwave(p, native, &mut N2Cache::new(wl, x), &route).0)
         }
         CheckParams::B9 {
             kernel,
@@ -157,7 +212,7 @@ pub fn compute_check(
                     reduced.insert(k, v.str()?.to_string());
                 }
             }
-            flat_map(C::signs(wl, x, p, need("heat")?, &gates, &reduced))
+            flat_map(C::signs(wl, x, p, need("heat")?, &gates, &reduced, None))
         }
         CheckParams::Heat { .. } => {
             let CheckParams::Signs { kernel, .. } = need("signs")? else {
@@ -273,6 +328,7 @@ pub fn compute_profile(prof: &AnalysisProfile, inputs: &Node) -> PResult<BTreeMa
         }
     }
     let x = VerdictInputs {
+        uncalibrated: false,
         signs: &sg,
         c1: &c1,
         level,
@@ -401,6 +457,12 @@ pub fn run_check_goldens(
     spectra: &GoldenSpectra,
 ) -> PResult<GoldenRun> {
     let golden = doc.req("golden")?;
+    let env = CheckEnv {
+        bands: env.bands,
+        checks: env.checks.clone(),
+        golden: Some(&golden),
+    };
+    let env = &env;
     let mut run = GoldenRun::empty(tolerance(&golden)?);
     for (i, case) in cases(&golden)?.iter().enumerate() {
         let (name, exp) = case_parts(case, i)?;

@@ -29,11 +29,9 @@ pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|p| p.into_inner())
 }
 
-pub fn remembered_class(c: Option<InstrumentClass>) -> Option<&'static str> {
-    c.map(|c| match c {
-        InstrumentClass::Standard => spyder_core::plugins::CLASS_STD,
-        InstrumentClass::Hires => spyder_core::plugins::CLASS_HIRES,
-    })
+/// The class a folder's remembered switch names: the two LabSpec classes, or a registry class id.
+pub fn remembered_class(c: Option<InstrumentClass>) -> Option<String> {
+    c.map(|c| c.core_class())
 }
 
 impl Shared {
@@ -51,7 +49,7 @@ impl Shared {
         &self,
         folder: Option<String>,
         live: bool,
-        remembered: Option<&'static str>,
+        remembered: Option<String>,
         log: Option<spyder_watch::session::SessionLog>,
     ) -> u64 {
         let mut cur = lock(&self.session);
@@ -90,7 +88,7 @@ impl Shared {
         &self,
         gen: u64,
         folder: Option<String>,
-        remembered: Option<&'static str>,
+        remembered: Option<String>,
         files: &[PathBuf],
     ) -> Option<usize> {
         let mut s = Session::new(gen, folder, false, remembered);
@@ -133,7 +131,9 @@ pub async fn session_set_class(
     live: State<'_, Live>,
     class: String,
 ) -> Result<SessionInfo, String> {
-    let c = core_class(&class).ok_or_else(|| format!("unknown instrument class {class:?}"))?;
+    let c = core_class(&shared.core, &class)
+        .ok_or_else(|| format!("unknown instrument class {class:?}"))?;
+    let remember = c.clone();
     let sh = Arc::clone(&shared);
     let folder = tauri::async_runtime::spawn_blocking(move || {
         let mut s = lock(&sh.session);
@@ -143,7 +143,7 @@ pub async fn session_set_class(
     .await
     .map_err(|e| e.to_string())?;
     if let Some(f) = folder {
-        live.remember_class(&f, c);
+        live.remember_class(&f, &remember);
     }
     let s = lock(&shared.session);
     Ok(scoring::session_info(

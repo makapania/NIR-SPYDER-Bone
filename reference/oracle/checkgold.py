@@ -4,10 +4,12 @@ run on load and must test something: >= 3 cases, every case a non-empty `expecte
 
 Check-file case:   {"name", "spectrum_sha256" (the standard-resolution-stream spectrum, or the as-measured one for
                    'acquisition' and 'longwave'), "inputs": {...}, "expected": {flat dotted keys: value}}
-  inputs: acquisition: {"transfer_key": "none" | transfer file sha256} (the per-sign B6b table);
+  inputs: acquisition: {"correction": "none" | a name in the golden block's "corrections" (operators and instrument
+          noise, as in the table goldens), optional "splices_nm"} (the per-sign B6b gates follow the noise after it);
           evidence_levels / zooms_patterns: {"sd_E": {band: SD in E units}}
           signs: {"gates": {sign: gate reason or null}, optional "reduced": {sign: fallback variant}};
-          c1: {"gate" (reason or null), "specific_fired", "tail_unreliable", "longwave_mode", optional "reduced"};  b9: {"truncated": bool};  longwave: {"instrument_class"}
+          c1: {"gate" (reason or null), "specific_fired", "tail_unreliable", "longwave_mode", optional "reduced"};  b9: {"truncated": bool};
+          longwave: {"native": bool (the native standard-resolution scan as measured), "correction": as acquisition}
 Profile case:      {"name", "inputs": {"m", "components", "evidence_level", "zooms_verdict", "zooms_pattern",
                    "signs_fired": [...], "c1_status", "gated", optional "signs_gated": [...] (per-sign gates),
                    optional "signs_reduced": [...] (signs running a reduced fallback; fired if in signs_fired),
@@ -62,17 +64,32 @@ def tolerance(doc):
     return tol
 
 
-def compute_check(name, P, wl, x, inputs):
+def golden_correction(golden, name):
+    """(operators, instrument noise) of a correction a check golden names: 'none' -> (None, None)."""
+    if name in (None, "none"):
+        return None, None
+    c = ((golden or {}).get("corrections") or {}).get(name)
+    if c is None:
+        raise GoldenError(f"golden correction {name!r} is not in the golden block's corrections")
+    return list(c["operator"]), dict(c.get("instrument_noise") or {})
+
+
+def compute_check(name, P, wl, x, inputs, golden=None):
     """The check's outputs for one spectrum, as a flat dict (what the goldens compare)."""
     p = P.cp(name)
     x = np.asarray(x, float)
+    joins = tuple(inputs.get("splices_nm", (1000.0, 1800.0)))
     if name == "acquisition":
         n2c = checks.N2Cache(wl, x)
-        r = checks.acquisition(wl, x, p, None)
-        r["B6b"] = checks.b6b(p, n2c, inputs.get("transfer_key", "none"))[0]
+        r = checks.acquisition(wl, x, p, None, joins)
+        ops, inn = golden_correction(golden, inputs.get("correction", "none"))
+        # a near-uncorrected correction reads the uncorrected table (the test reads check.longwave and check.signs too)
+        near = ops is not None and checks.standard_like(p, P.cp("longwave"), P.cp("signs"), wl, joins, ops, inn)
+        r["B6b"] = checks.b6b(p, n2c, wl, joins, ops, inn, near=near)[0]
         return flatten(r)
     if name == "longwave":
-        return flatten(checks.longwave(p, inputs["instrument_class"], checks.N2Cache(wl, x)))
+        ops, inn = golden_correction(golden, inputs.get("correction", "none"))
+        return flatten(checks.longwave(p, bool(inputs["native"]), checks.N2Cache(wl, x), wl, joins, ops, inn))
     if name == "b9":
         tr = bool(inputs.get("truncated", False))
         sc = (p["truncated"] if tr else p)["prototypes"]
@@ -145,7 +162,7 @@ def run(doc, P, spectra):
             if c.get("spectrum_sha256") not in spectra:
                 raise GoldenError(f"case {c.get('name')}: spectrum not in the golden spectra file")
             wl, x = spectra[c["spectrum_sha256"]]
-            got = compute_check(doc["check"], P, wl, x, c.get("inputs", {}))
+            got = compute_check(doc["check"], P, wl, x, c.get("inputs", {}), doc.get("golden"))
         n0 = len(res)
         for k, w in exp.items():
             if k not in got:

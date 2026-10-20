@@ -138,30 +138,30 @@ fn fuzz_every_string_field_of_every_shipped_plugin() {
             .iter()
             .map(|c| (c.check.clone(), &c.params))
             .collect(),
+        golden: None,
     };
-    let transfers: Vec<_> = [
-        "hires_to_std_v0_1.spyder-transfer.json",
-        "hires_to_std_v0_2.spyder-transfer.json",
-    ]
-    .iter()
-    .map(|f| {
-        let bytes = std::fs::read(plugins().join(f)).unwrap();
-        let v: Value = serde_json::from_slice(&bytes).unwrap();
-        spyder_core::transfer::parse_transfer(
-            &Node::root(&v),
-            &spyder_core::plugins::sha256_hex(&bytes),
-        )
+    // the noise table's goldens resolve their models by file sha256
+    let models: Vec<(String, spyder_core::model::Model)> = std::fs::read_dir(plugins())
         .unwrap()
-    })
-    .collect();
-    let tmap: BTreeMap<String, &spyder_core::transfer::Transfer> = transfers
-        .iter()
-        .map(|t| (t.file_sha256.clone(), t))
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| p.to_string_lossy().ends_with(".spyder-model.json"))
+        .map(|p| {
+            let bytes = std::fs::read(&p).unwrap();
+            let v: Value = serde_json::from_slice(&bytes).unwrap();
+            (
+                spyder_core::plugins::sha256_hex(&bytes),
+                parse_model(&Node::root(&v)).unwrap(),
+            )
+        })
         .collect();
+    let mmap: BTreeMap<String, &spyder_core::model::Model> =
+        models.iter().map(|(s, m)| (s.clone(), m)).collect();
     let files = [
         "collagen_2045_ryder2026_n140.spyder-model.json",
         "collagen_consensus3_median.spyder-model.json",
         "collagen_1500_snv_transfer_free.spyder-model.json",
+        "hires_to_std_v0_3.spyder-transfer.json",
         "hires_to_std_v0_2.spyder-transfer.json",
         "bands.json",
         "noise_gains.json",
@@ -209,12 +209,12 @@ fn fuzz_every_string_field_of_every_shipped_plugin() {
                         }
                         "spyder-bone/bands" => {
                             if let Ok(b) = parse_bands(&node) {
-                                let _ = run_table_goldens(&node, TableRef::Bands(&b), &gs, &tmap);
+                                let _ = run_table_goldens(&node, TableRef::Bands(&b), &gs, &mmap);
                             }
                         }
                         "spyder-bone/noise_gains" => {
                             if let Ok(b) = parse_noise_gains(&node) {
-                                let _ = run_table_goldens(&node, TableRef::Noise(&b), &gs, &tmap);
+                                let _ = run_table_goldens(&node, TableRef::Noise(&b), &gs, &mmap);
                             }
                         }
                         "spyder-bone/instrument" => {
@@ -244,21 +244,90 @@ fn fuzz_every_string_field_of_every_shipped_plugin() {
     assert!(n > 400, "{n}");
 }
 
-/// HIGH 2: a recursive noise consensus (a component that is itself a consensus) is rejected at parse time.
+/// A change applied to a parsed plug-in document.
+type Mutation = Box<dyn Fn(&mut Value)>;
+
+/// HIGH 2 (format 2, DECISIONS 137): a consensus's SD comes from the consensus file's own folded components, so a
+/// recursive consensus cannot be written any more; what can be malformed is rejected at parse time: a format-1 table
+/// (per-transfer gains), a bad consensus factor, no model noise window, a bad recorded gain or noise model.
 #[test]
-fn recursive_noise_consensus_is_rejected() {
-    let mut ng = read("noise_gains.json");
+fn malformed_noise_and_band_tables_are_rejected() {
     let cid = "collagen.spyder.consensus3_median";
-    ng["consensus"][cid]["components"]["wc2045"] = json!(cid);
-    ng["models"][cid] = ng["models"]["collagen.spyder.2045_oh_corrected"].clone();
-    let e = parse_noise_gains(&Node::root(&ng)).unwrap_err();
-    assert_eq!(e.kind, ErrorKind::Schema, "{e}");
-    // all components pointing to one model that is a second consensus
-    let mut ng = read("noise_gains.json");
-    let other = json!({"factor": 1.0, "components": {"a": cid, "b": cid, "c": cid}});
-    ng["consensus"]["other"] = other;
-    ng["models"][cid] = ng["models"]["collagen.spyder.2045_oh_corrected"].clone();
-    assert!(parse_noise_gains(&Node::root(&ng)).is_err());
+    let bad_noise: Vec<(&str, Mutation)> = vec![
+        (
+            "format_version",
+            Box::new(|v| v["format_version"] = json!(1)),
+        ),
+        (
+            "bad factor",
+            Box::new(move |v| v["consensus"][cid]["factor"] = json!(0.0)),
+        ),
+        (
+            "at least one window",
+            Box::new(|v| v["model_noise_windows_nm"] = json!([])),
+        ),
+        (
+            "window",
+            Box::new(|v| v["model_noise_windows_nm"] = json!([[1550, 1500]])),
+        ),
+        (
+            "gain must be > 0",
+            Box::new(|v| {
+                v["models"]["collagen.spyder.1500_snv_transfer_free"]["recorded"]["terms"][0]
+                    ["gain"] = json!(-1.0)
+            }),
+        ),
+        (
+            "correlation_nm",
+            Box::new(|v| v["noise_model"]["correlation_nm"] = json!(-1.0)),
+        ),
+        (
+            "noise_model",
+            Box::new(|v| {
+                v.as_object_mut().unwrap().remove("noise_model");
+            }),
+        ),
+        (
+            "b6",
+            Box::new(|v| v["models"]["collagen.spyder.1728_ch"]["b6"] = json!("no")),
+        ),
+    ];
+    for (why, f) in bad_noise {
+        let mut ng = read("noise_gains.json");
+        f(&mut ng);
+        let e = parse_noise_gains(&Node::root(&ng)).expect_err(why);
+        assert_eq!(e.kind, ErrorKind::Schema, "{why}: {e}");
+        assert!(e.to_string().contains(why), "{why}: {e}");
+    }
+    let bad_bands: Vec<(&str, Mutation)> = vec![
+        (
+            "format_version",
+            Box::new(|v| v["format_version"] = json!(1)),
+        ),
+        (
+            "format 1",
+            Box::new(|v| {
+                v["bands"]["CH2262"]["readability"]["gain_E_per_N2"] = json!({"none": 0.02})
+            }),
+        ),
+        (
+            "envelope_factor",
+            Box::new(|v| v["bands"]["CH1689"]["readability"]["envelope_factor"] = json!(0.0)),
+        ),
+        (
+            "correlation_nm",
+            Box::new(|v| v["noise_model"]["correlation_nm"] = json!("x")),
+        ),
+    ];
+    for (why, f) in bad_bands {
+        let mut b = read("bands.json");
+        f(&mut b);
+        let e = parse_bands(&Node::root(&b)).expect_err(why);
+        assert!(
+            e.to_string().contains(why) || why == "correlation_nm",
+            "{why}: {e}"
+        );
+    }
 }
 
 /// MEDIUM 4: an explicitly pinned experimental transfer is used; without the pin the active one is.
@@ -333,25 +402,40 @@ fn identical_duplicate_keeps_the_loaded_copy() {
     );
 }
 
-/// MEDIUM 6: noise and band goldens must test every declared gain (model x transfer key, consensus).
+/// MEDIUM 6: noise and band goldens must test every output they govern (each golden model, the consensus, each
+/// recorded gain; each band with a readability block). Format 2: the goldens no longer need any transfer file.
 #[test]
 fn table_goldens_must_test_every_gain() {
     let d = folder("gains");
-    for f in [
-        "golden_spectra_public_v2.json",
-        "hires_to_std_v0_1.spyder-transfer.json",
-        "hires_to_std_v0_2.spyder-transfer.json",
-    ] {
-        std::fs::copy(plugins().join(f), d.join(f)).unwrap();
+    std::fs::copy(
+        plugins().join("golden_spectra_public_v2.json"),
+        d.join("golden_spectra_public_v2.json"),
+    )
+    .unwrap();
+    for e in std::fs::read_dir(plugins()).unwrap().filter_map(Result::ok) {
+        let n = e.file_name().to_string_lossy().to_string();
+        if n.ends_with(".spyder-model.json") {
+            std::fs::copy(e.path(), d.join(&n)).unwrap();
+        }
+    }
+    // the shipped tables load from a folder with no transfer file at all (no same-folder rule since format 2)
+    std::fs::copy(
+        plugins().join("noise_gains.json"),
+        d.join("noise_gains.json"),
+    )
+    .unwrap();
+    std::fs::copy(plugins().join("bands.json"), d.join("bands.json")).unwrap();
+    let reg = load(&[(&d, Origin::User)], &Pins::new());
+    for f in ["noise_gains.json", "bands.json"] {
+        let e = entry(&reg, f);
+        assert_eq!(e.state, State::Loaded, "{f}: {:?}", e.error);
     }
     let mut ng = read("noise_gains.json");
     for c in ng["golden"]["cases"].as_array_mut().unwrap() {
-        if c["transfer_key"] != "none" {
-            c["expected"]
-                .as_object_mut()
-                .unwrap()
-                .remove("SD:collagen.ryder2026.2045");
-        }
+        c["expected"]
+            .as_object_mut()
+            .unwrap()
+            .remove("SD:collagen.ryder2026.2045");
     }
     write(&d, "noise_gains.json", &ng);
     let mut b = read("bands.json");
@@ -364,12 +448,7 @@ fn table_goldens_must_test_every_gain() {
         let e = entry(&reg, f);
         assert_eq!(e.state, State::Disabled, "{f}");
         assert_eq!(e.error.as_ref().unwrap().kind, ErrorKind::GoldenInvalid);
-        assert!(e
-            .error
-            .as_ref()
-            .unwrap()
-            .message
-            .contains("no case tests the gains"));
+        assert!(e.error.as_ref().unwrap().message.contains("no case tests"));
     }
 }
 

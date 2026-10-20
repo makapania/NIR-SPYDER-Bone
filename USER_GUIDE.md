@@ -73,8 +73,8 @@ A file that cannot be read is still listed, with the reason, so nothing silently
 ## 4. The Standard / High-res switch
 
 LabSpec 4 instruments come in standard-resolution and high-resolution versions, and the two need different handling:
-on high-resolution scans the app converts the spectrum to standard resolution before reading it (a "transfer"). The
-toolbar has a **Standard / High-res** switch.
+on high-resolution scans the app converts the spectrum to standard resolution before reading it (a correction, also
+called a "transfer"). The toolbar has a **Standard / High-res** switch for LabSpec 4 files.
 
 - If the app knows your instrument's serial number, the switch is preset for you, with a note saying so.
 - If it doesn't, the app looks at the detector settings stored in the file (its SWIR gains, which differ between the
@@ -91,20 +91,51 @@ folders and open them separately.
 
 If you are not sure which kind of LabSpec 4 you have, ask whoever runs the instrument.
 
-### Other ASD instruments (provisional)
+**How the correction is used.** The correction a scan is read through is named in its details and in the export. The
+noise checks follow it: how noisy a scan may be before a contaminant check is skipped, when the region above 2300 nm is
+left out, and when band noise is too high to read a faint band are all worked out from the noise left after that
+correction, so the same rules hold for any correction file. A standard-resolution LabSpec 4 scan read as measured is
+handled exactly as before.
+
+**A lab's own correction file.** A correction file can be made for one instrument (one serial number), including a
+standard-resolution LabSpec 4 whose readings differ a little from ours. Put it in your plug-in folder (Help shows where);
+it is used for that instrument's scans only, and the scan's details name it. A file that changes a standard-resolution
+instrument's noise by less than 15% leaves every noise check exactly as for a scan read as measured. A file for a whole class of instrument in
+your plug-in folder does not replace the one the app ships with; one that reuses a shipped file's name and version is
+not used. Help lists any plug-in file the app did not use, and why.
+
+### Other ASD instruments (uncalibrated)
 
 The models were built on a standard-resolution LabSpec 4, but other ASD full-range instruments save very similar data,
 and the app reads them:
 
 | Instrument | Files | What is stored |
 |---|---|---|
-| LabSpec 4 (standard or high-res) | `.asd` (format "as8") | raw counts and the white reference |
+| LabSpec 4 (standard or high-res) | `.asd` (format "as8"; "as7" from older ASD software) | raw counts and the white reference |
 | Trek-type handheld (ASD mineral-identification line) | `.asd` (format "as7") | raw counts and the white reference |
 | FieldSpec 3 | `name.000`, `name.001` ... and ViewSpec `.sco` (legacy format) | reflectance only |
 
-- **Use the Standard setting** for these instruments. Their detector settings point to Standard, so the switch is preset
-  that way. Their spectral resolution is like a standard LabSpec 4 (FieldSpec 3: 3/10/10 nm at 700/1400/2100 nm; the
-  Trek-type handheld is rated 3/9.8/8.1 nm), so no conversion is applied.
+- **The app knows these instruments from the file**: FieldSpec 3 by its older file format, the Trek-type handheld by
+  the "as7" format together with its detector joins (1000 and about 1785 nm). It scores their scans as that
+  instrument, whatever the Standard / High-res switch says; the switch is for LabSpec 4 files. A file format alone
+  does not name an instrument: an "as7" file whose joins are at 1000 and 1800 nm, as a LabSpec 4 running older ASD
+  software may write, is read as a LabSpec 4 scan like any "as8" file (the switch, the serial preset and the detector
+  settings apply). The instrument shows in the status bar, in the scan's details and in the export. Their spectral
+  resolution is like a standard LabSpec 4 (FieldSpec 3: 3/10/10 nm at 700/1400/2100 nm; the Trek-type handheld is
+  rated 3/9.8/8.1 nm).
+- **No correction is built in for them yet**, so their results are labelled uncalibrated: the models read the scan as
+  measured, and a note in the details says so. The verdict follows the readings alone: band evidence (flat bands
+  lowering the verdict, strong bands raising it, the ZooMS band check) needs the instrument built in, so it shows as
+  "not assessed"; the band close-ups still show the bands. The one exception is **Doesn't look like bone**: that check
+  compares the shape of the spectrum with bone (a shape that calibration does not change, unlike band depths), so a
+  target that is not bone is still called so. The contaminant and heat signs still run and show, marked
+  provisional on this instrument (the flags and the possible-thin-coating note, on screen and in the export). The
+  1545 nm model that reads the scan as measured is shown beside the main reading, without the "second opinion
+  differs" note (the readings are uncalibrated in any case).
+- **To have an instrument built in, contact Matt Sponheimer (makapania@gmail.com):** he can send a set of reference
+  bones to scan on your instrument, and its correction then ships with the app. A lab that cannot scan reference bones
+  can send scans of its own bones of known yield instead; a correction is sent back only if it actually improves that
+  lab's readings.
 - **Detector joins are found per file.** The joins between the instrument's three detectors are not always at 1000 and
   1800 nm (the Trek-type handheld switches at about 1785 nm and leaves the header blank). The app uses the joins in the
   file header when they look right, otherwise finds them in the white reference, otherwise assumes 1000/1800 nm. The
@@ -115,7 +146,7 @@ and the app reads them:
   on a Trek-type handheld, with measured collagen yields), the models ranked the bones well on both instruments and read
   the near-zero bones below 0.5%, but the readings ran low against the yields, by about half at high yields (an 18%
   bone read about 10%). Whether that comes from the instruments or from how the yields were measured is not settled.
-  Until it is, treat readings from these instruments as provisional, especially in the 1–5% range.
+  Until it is, treat readings from these instruments as uncalibrated, especially in the 1–5% range.
 
 ---
 
@@ -159,8 +190,9 @@ The details panel shows:
   export names it in full: "N–H set, 2175 + 2045 nm, OH-corrected".)
 - **Ryder 2045** (Ryder et al. 2026; reads 2030–2060 nm): the published model, shown for reference. It does not set the
   verdict.
-- On high-resolution scans only: **1545 nm, no transfer needed** (reads 1500–1550 nm), a second opinion that reads the
-  scan exactly as measured. It does not set the verdict; if it differs from the main reading, a note says so.
+- On high-resolution scans, and on any scan read through a correction or from another instrument: **1545 nm, no
+  transfer needed** (reads 1500–1550 nm), a second opinion that reads the scan exactly as measured. It does not set the
+  verdict; if it differs from the main reading by more than usual, a note says so.
 - Two **additional estimates**, never used for the verdict (their tracks carry no verdict colours). **Low-range
   estimate** (the narrow 1545 nm band; reads 1533–1557 nm) is the low-range estimate shown under the verdict (see above); it reads the 1545 nm N–H band as a narrow band
   against its shoulders.
@@ -285,8 +317,8 @@ your choice. It changes the picture only, never a reading. A **Display smoothing
 changes the chart only; the models always use their own fixed smoothing. Shaded strips mark the model windows and the
 OH/water bands.
 
-On high-res scans the main chart shows the **transferred** spectrum (what every model reads), with **As measured** one
-click away.
+When a correction was applied (high-res scans) the main chart shows the **transferred** spectrum (what every model
+reads), with **As measured** one click away.
 
 Two model-window close-ups sit beside the main chart: the **2045 nm model** window (showing the OH-corrected view the
 model actually reads, with an **Uncorrected** toggle) and the **1545 nm model** window. Under **Collagen bands**, four
@@ -336,10 +368,11 @@ a band's label highlights it on the main chart.
 - **The reading is an estimate.** Typical error is about ± 1 point below 3%, and larger on bone unlike the bones the
   models were built on. When a spectrum is outside that range, the model's row says "Less familiar spectrum": read that
   number with more caution.
-- **Other ASD instruments are provisional** (section 4): the readings ranked bones well in a first test but ran low
-  against measured yields; there is no per-instrument correction yet.
+- **Other ASD instruments are uncalibrated** (section 4): the readings ranked bones well in a first test but ran low
+  against measured yields; no correction for them is built in yet.
 - **The high-res conversion is approximate.** High-res scans are converted to standard resolution before the models read
-  them, so the app also shows the 1545 nm model with no transfer needed as a cross-check.
+  them, so the app also shows the 1545 nm model with no transfer needed as a cross-check. The same holds for any
+  correction file.
 - **Coatings and glue can make bone look better.** Thin coats of glue or lacquer can raise every collagen reading by
   1–4 points, and the foreign-organic sign catches only about half of them. Animal (hide) glue reads as the bone's own
   collagen: about half of glued scans trip the foreign-organic sign, but it is never named as glue. The contaminant
@@ -406,6 +439,10 @@ Rescan with more averages (100–200), or pick a lighter or cleaner spot.
 
 **A note says my switch setting disagrees with the file's serial or detector settings.**
 Flip the Standard / High-res switch to match your instrument. It is remembered for the folder.
+
+**My FieldSpec 3 or Trek-type scans say "Uncalibrated instrument".**
+No correction for that instrument is built in yet, so the models read the scans as measured (section 4). The switch does
+not change them: it is for LabSpec 4 files.
 
 **The switch was set for me. Can I trust it?**
 A known serial number is reliable; a preset "from the detector settings" is a good guess. If you know your instrument,

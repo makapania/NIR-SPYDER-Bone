@@ -1,6 +1,9 @@
 //! The scans on screen (one session: an opened folder or files, or a watched folder) with their immutable
 //! input bytes and their core records. The Standard / High-res switch is per session (remembered per folder by
-//! the settings file); flipping it re-analyses every scan from the cached bytes (cheap). The record holds all
+//! the settings file); flipping it re-analyses every scan from the cached bytes (cheap). Classes are the instrument
+//! registry's (DECISIONS 137): the switch sets a LabSpec class; a file another instrument wrote (known by its file
+//! format and, for as7, its detector joins) is scored as that instrument's class by the core (its record says so,
+//! `class_source` "file_format"); an as7 file with the LabSpec joins 1000/1800 is a LabSpec file. The record holds all
 //! three analysis types; the app shows the radiocarbon / isotopes verdict for every analysis, with the ZooMS line
 //! (DECISIONS 80 amended: no analysis picker).
 //!
@@ -54,29 +57,21 @@ impl ClassSource {
     }
 }
 
-/// The UI's class names.
-pub fn ui_class(class: &str) -> &'static str {
-    if class == CLASS_HIRES {
-        "hires"
-    } else {
-        "standard"
+/// The UI's class names: "standard" and "hires" for the two LabSpec classes, the registry's class id otherwise.
+pub fn ui_class(class: &str) -> String {
+    match class {
+        CLASS_HIRES => "hires".into(),
+        CLASS_STD | "" => "standard".into(),
+        other => other.into(),
     }
 }
 
-/// A registry class name as the core's static class constant.
-fn static_class(class: &str) -> &'static str {
-    if class == CLASS_HIRES {
-        CLASS_HIRES
-    } else {
-        CLASS_STD
-    }
-}
-
-/// The core's class from the UI's name.
-pub fn core_class(ui: &str) -> Option<&'static str> {
+/// The core's class from the UI's name (or a class id the instrument registry lists).
+pub fn core_class(core: &Core, ui: &str) -> Option<String> {
     match ui {
-        "standard" | "std" | CLASS_STD => Some(CLASS_STD),
-        "hires" | "high-res" | CLASS_HIRES => Some(CLASS_HIRES),
+        "standard" | "std" | CLASS_STD => Some(CLASS_STD.into()),
+        "hires" | "high-res" | CLASS_HIRES => Some(CLASS_HIRES.into()),
+        other if core.has_class(other) => Some(other.into()),
         _ => None,
     }
 }
@@ -121,15 +116,15 @@ pub struct Entry {
     pub modified_ms: Option<i64>,
     /// The class the file's header SWIR gains suggest (registry `header_hint`), if any. A heuristic: it presets
     /// the switch for an unlisted serial and adds a gentle note, never more.
-    pub hint: Option<&'static str>,
+    pub hint: Option<String>,
     /// The core record for `cfg` (None: not scored: unreadable input, or no verdict model).
     pub record: Option<Arc<Obj>>,
-    cfg: Option<(&'static str, ClassSource)>,
+    cfg: Option<(String, ClassSource)>,
     /// Milliseconds the last analysis took (the performance budget).
     pub score_ms: f64,
     log_meta: Option<Value>,
     /// The configuration whose result was last handed to the session log.
-    logged: Option<(&'static str, ClassSource)>,
+    logged: Option<(String, ClassSource)>,
 }
 
 impl Entry {
@@ -177,6 +172,27 @@ impl Entry {
         Some((g(436), g(438)))
     }
 
+    /// The class the record was scored as (the switch's, or another instrument's, identified from the file).
+    pub fn class(&self) -> Option<&str> {
+        self.record
+            .as_ref()?
+            .get("instrument")
+            .and_then(V::as_obj)
+            .and_then(|o| o.get("class"))
+            .and_then(V::as_str)
+    }
+
+    /// Whether the core scored this file as another instrument's class (identified from the file).
+    pub fn class_from_file_format(&self) -> bool {
+        self.record
+            .as_ref()
+            .and_then(|r| r.get("instrument"))
+            .and_then(V::as_obj)
+            .and_then(|o| o.get("class_source"))
+            .and_then(V::as_str)
+            == Some("file_format")
+    }
+
     /// The serial the record read from the file.
     pub fn serial(&self) -> Option<u64> {
         let r = self.record.as_ref()?;
@@ -217,7 +233,7 @@ pub struct Session {
     pub folder: Option<String>,
     /// A watched folder (arrival order matters) rather than opened files.
     pub live: bool,
-    pub class: &'static str,
+    pub class: String,
     pub source: ClassSource,
     pub entries: Vec<Entry>,
     next: u64,
@@ -268,18 +284,18 @@ impl Session {
         gen: u64,
         folder: Option<String>,
         live: bool,
-        remembered: Option<&'static str>,
+        remembered: Option<String>,
     ) -> Session {
         Session {
             gen,
             folder,
             live,
-            class: remembered.unwrap_or(CLASS_STD),
             source: if remembered.is_some() {
                 ClassSource::User
             } else {
                 ClassSource::Default
             },
+            class: remembered.unwrap_or_else(|| CLASS_STD.into()),
             entries: Vec::new(),
             next: 1,
             log: None,
@@ -306,10 +322,10 @@ impl Session {
         };
         let mut out = Vec::new();
         for e in &mut self.entries {
-            let (Some(meta), Some(cfg)) = (&e.log_meta, e.cfg) else {
+            let (Some(meta), Some(cfg)) = (&e.log_meta, e.cfg.clone()) else {
                 continue;
             };
-            if e.logged == Some(cfg) {
+            if e.logged.as_ref() == Some(&cfg) {
                 continue;
             }
             let reason = if e.logged.is_some() {
@@ -317,13 +333,26 @@ impl Session {
             } else {
                 "arrival"
             };
+            // the class the scan was scored as (another instrument's file keeps its own)
+            let class = ui_class(e.class().unwrap_or(&cfg.0));
+            let source = match e
+                .record
+                .as_deref()
+                .and_then(|r| r.get("instrument"))
+                .and_then(V::as_obj)
+                .and_then(|o| o.get("class_source"))
+                .and_then(V::as_str)
+            {
+                Some("file_format") => "file_format",
+                _ => cfg.1.ui_str(),
+            };
             e.logged = Some(cfg);
             let result = e
                 .record
                 .as_deref()
                 .map(|r| serde_json::to_value(r).unwrap_or(Value::Null))
                 .unwrap_or(Value::Null);
-            let (class, source) = (ui_class(cfg.0), cfg.1.ui_str());
+            let class = class.as_str();
             let sha = meta.get("sha256").and_then(Value::as_str).unwrap_or("");
             let key = result_key(&e.path, sha, class, source, &result);
             if log.contains_result(&key) {
@@ -364,13 +393,13 @@ impl Session {
     }
 
     fn score_entry(&mut self, core: &Core, i: usize) {
-        let (class, source) = (self.class, self.source);
+        let (class, source) = (self.class.clone(), self.source);
         let e = &mut self.entries[i];
-        if e.cfg == Some((class, source)) {
+        if e.cfg.as_ref() == Some(&(class.clone(), source)) {
             return;
         }
         let t0 = Instant::now();
-        e.record = score(core, e, class, source).map(Arc::new);
+        e.record = score(core, e, &class, source).map(Arc::new);
         e.score_ms = t0.elapsed().as_secs_f64() * 1e3;
         e.cfg = Some((class, source));
     }
@@ -400,19 +429,25 @@ impl Session {
             logged: None,
         });
         let i = self.entries.len() - 1;
-        let hint = self.entries[i]
-            .swir_gains()
-            .and_then(|(g1, g2)| core.class_of_swir_gains(g1, g2))
-            .map(static_class);
-        self.entries[i].hint = hint;
         self.score_entry(core, i);
+        // the header's SWIR gains hint at a LabSpec class; a file another instrument wrote (its class set by its file
+        // format) gives no hint: it neither presets the switch nor gets a "detector settings" note
+        let hint = if self.entries[i].class_from_file_format() {
+            None
+        } else {
+            self.entries[i]
+                .swir_gains()
+                .and_then(|(g1, g2)| core.class_of_swir_gains(g1, g2))
+                .map(str::to_string)
+        };
+        self.entries[i].hint = hint.clone();
         // A listed serial presets the switch (and outranks an earlier header preset); else the first file whose
         // header gains suggest a class presets it. The user's switch is never touched.
         if matches!(self.source, ClassSource::Default | ClassSource::Header) {
             let known = self.entries[i]
                 .serial()
                 .and_then(|s| core.class_of_serial(s))
-                .map(static_class);
+                .map(str::to_string);
             let preset = match (known, hint) {
                 (Some(k), _) => Some((k, ClassSource::Preset)),
                 (None, Some(h)) if self.source == ClassSource::Default => {
@@ -431,7 +466,7 @@ impl Session {
     }
 
     /// The user's switch: re-analyse every scan.
-    pub fn set_class(&mut self, core: &Core, class: &'static str) {
+    pub fn set_class(&mut self, core: &Core, class: String) {
         self.class = class;
         self.source = ClassSource::User;
         self.rescore(core);
@@ -439,9 +474,10 @@ impl Session {
 
     /// Bring every record up to the current class (parallel; each analysis is independent).
     pub fn rescore(&mut self, core: &Core) {
-        let (class, source) = (self.class, self.source);
+        let (class, source) = (self.class.clone(), self.source);
+        let want = Some((class.clone(), source));
         let todo: Vec<usize> = (0..self.entries.len())
-            .filter(|&i| self.entries[i].cfg != Some((class, source)))
+            .filter(|&i| self.entries[i].cfg != want)
             .collect();
         if todo.len() < 4 {
             for i in todo {
@@ -456,6 +492,7 @@ impl Session {
             .clamp(1, 8);
         let chunk = todo.len().div_ceil(threads);
         let entries = &self.entries;
+        let cls = class.as_str();
         let results: Vec<(usize, Option<Obj>, f64)> = std::thread::scope(|sc| {
             let hs: Vec<_> = todo
                 .chunks(chunk)
@@ -464,7 +501,7 @@ impl Session {
                         ix.iter()
                             .map(|&i| {
                                 let t0 = Instant::now();
-                                let r = score(core, &entries[i], class, source);
+                                let r = score(core, &entries[i], cls, source);
                                 (i, r, t0.elapsed().as_secs_f64() * 1e3)
                             })
                             .collect::<Vec<_>>()
@@ -479,7 +516,7 @@ impl Session {
             let e = &mut self.entries[i];
             e.record = r.map(Arc::new);
             e.score_ms = ms;
-            e.cfg = Some((class, source));
+            e.cfg = Some((class.clone(), source));
         }
         self.log_results();
     }
@@ -488,8 +525,8 @@ impl Session {
         self.entries.iter().find(|e| e.id == id)
     }
 
-    /// The first serial in the session, and the class the registry knows it as.
-    pub fn serial_info(&self, core: &Core) -> (Option<u64>, Option<&'static str>) {
+    /// The first serial in the session, and the class the registry knows it as (the UI's name).
+    pub fn serial_info(&self, core: &Core) -> (Option<u64>, Option<String>) {
         let mut first = None;
         for e in &self.entries {
             if let Some(s) = e.serial() {

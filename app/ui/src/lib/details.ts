@@ -1,7 +1,8 @@
 // The details column's words: each model row's annotations and the Checks list. Pure functions of the core's
 // result (no numbers computed here; nothing here changes a verdict), so vitest can hold them.
 
-import { UNUSABLE_TEXT, flagLabel } from './strings';
+import { isLabSpec } from './instrument';
+import { PROVISIONAL, UNUSABLE_TEXT, shownFlag } from './strings';
 import type { Assessment, ModelReading, PanelContrast, ScanResult, VerdictRule } from './types';
 
 export type AnnotationKind = 'assessment' | 'domain' | 'noise';
@@ -81,6 +82,9 @@ export function checkRows(scan: ScanResult): CheckRow[] {
   else {
     const b6bNote = b6b?.outcome === 'note';
     const b6Check = b6?.outcome === 'check';
+    // B6 not assessed (a correction the engine cannot propagate noise through, not available on this instrument, ...):
+    // the noise is unknown, so this row never says "Good signal" (DECISIONS 137)
+    const b6NotAssessed = !!b6 && b6.status.status !== 'assessed';
     const c3 = scan.models?.cons3?.value;
     const hasCons3 = c3 != null && Number.isFinite(c3);
     const sdText = b6?.value != null && Number.isFinite(b6.value) ? ` (noise SD ≈ ${b6.value.toFixed(1)} points)` : '';
@@ -88,7 +92,7 @@ export function checkRows(scan: ScanResult): CheckRow[] {
       out.push({
         icon: 'noise',
         title: 'Noisy scan',
-        d: 'A dark or noisy spot. Consider 100–200 averages on high-res.',
+        d: 'A dark or noisy spot. Consider 100–200 averages.',
         notice: true,
       });
     if (b6Check)
@@ -97,6 +101,14 @@ export function checkRows(scan: ScanResult): CheckRow[] {
         title: 'Noise could change the verdict',
         d: `The collagen reading sits within noise reach of a verdict cut${sdText}. A rescan with more averages could change the verdict.`,
         notice: true,
+      });
+    else if (b6NotAssessed && !b6bNote)
+      out.push({
+        icon: 'info',
+        title: 'Scan quality',
+        // the core's reason without its technical detail in brackets ("not available on this instrument (band ...)")
+        d: `Noise not assessed${b6.status.status === 'not_assessed' && b6.status.reason ? `: ${b6.status.reason.split(' (')[0]}` : ''}.`,
+        notice: false,
       });
     // only about a reading that exists (a not-assessed CONS3 can still carry an implied SD)
     else if (!b6bNote && hasCons3 && b6?.value != null && Number.isFinite(b6.value) && b6.value > NOISE_SD_QUIET)
@@ -111,7 +123,15 @@ export function checkRows(scan: ScanResult): CheckRow[] {
   const checked = contaminant.filter((s) => !notChecked.includes(s));
   const heatSign = scan.signs.find((s) => s.id === 'burnt');
   const heatUnchecked = !!heatSign && (heatSign.status.status === 'gated' || heatSign.status.status === 'not_assessed');
-  for (const f of fired) out.push({ icon: 'flag', title: flagLabel(f.id), d: 'Shown beside the verdict; it never changes the verdict.', notice: true });
+  // an instrument with no built-in correction: its contaminant and heat signs are provisional (DECISIONS 137)
+  const prov = scan.uncalibrated ? PROVISIONAL : '';
+  for (const f of fired)
+    out.push({
+      icon: 'flag',
+      title: shownFlag(scan, f.id).label,
+      d: `${prov}Shown beside the verdict; it never changes the verdict.`,
+      notice: true,
+    });
   if (notChecked.length && !rescan)
     out.push({
       icon: 'info',
@@ -122,8 +142,8 @@ export function checkRows(scan: ScanResult): CheckRow[] {
   else if (!fired.length && !rescan)
     out.push(
       heatUnchecked
-        ? { icon: 'ok', title: 'No contaminant signs', d: 'No sign of lipids (such as wax), consolidants, plaster or foreign organics. Thin coats, animal glue and some consolidants can still go unseen.', notice: false }
-        : { icon: 'ok', title: 'No contaminant or heat signs', d: 'No sign of lipids (such as wax), consolidants, plaster, foreign organics or charring. Thin coats, animal glue and some consolidants can still go unseen.', notice: false },
+        ? { icon: 'ok', title: 'No contaminant signs', d: `${prov}No sign of lipids (such as wax), consolidants, plaster or foreign organics. Thin coats, animal glue and some consolidants can still go unseen.`, notice: false }
+        : { icon: 'ok', title: 'No contaminant or heat signs', d: `${prov}No sign of lipids (such as wax), consolidants, plaster, foreign organics or charring. Thin coats, animal glue and some consolidants can still go unseen.`, notice: false },
     );
   if (heatUnchecked && !rescan)
     out.push({ icon: 'info', title: 'Heat sign not checked', d: 'The heat check could not read this scan, so charring or calcining was not checked.', notice: true });
@@ -148,10 +168,10 @@ export function checkRows(scan: ScanResult): CheckRow[] {
       icon: 'info',
       title: 'Long-wave region not used',
       d: c1Reduced
-        ? 'Above 2300 nm is too noisy on this high-res scan, so the bone check and the general organic check run without it. In this reduced form the organic check can miss some glues and lacquers (for example cellulose-nitrate glues and animal glue).'
+        ? 'Above 2300 nm is too noisy on this scan, so the bone check and the general organic check run without it. In this reduced form the organic check can miss some glues and lacquers (for example cellulose-nitrate glues and animal glue).'
         : c1Ran
-          ? 'Above 2300 nm is too noisy on this high-res scan for the bone check, which runs without it. The general organic check still uses it.'
-          : 'Above 2300 nm is too noisy on this high-res scan for the bone check, which runs without it.',
+          ? 'Above 2300 nm is too noisy on this scan for the bone check, which runs without it. The general organic check still uses it.'
+          : 'Above 2300 nm is too noisy on this scan for the bone check, which runs without it.',
       notice: true,
     });
   }
@@ -168,6 +188,14 @@ export function checkRows(scan: ScanResult): CheckRow[] {
       icon: 'info',
       title: 'Contaminant checks on high-res',
       d: "The checks were developed on standard-resolution scans. On high-resolution instruments they have been tested only by adding known contaminant spectra to real high-resolution scans. Thick coatings and plaster were caught on most scans; thin coats of glue or lacquer are often missed on both kinds of instrument. Treat 'no sign found' as reassuring, not as proof.",
+      notice: false,
+      standing: true,
+    });
+  else if (!isLabSpec(scan.instrumentClass) && !rescan)
+    out.push({
+      icon: 'info',
+      title: 'Contaminant checks on this instrument',
+      d: "The checks were developed on LabSpec 4 standard-resolution scans and have not been tested on this instrument. Treat 'no sign found' as reassuring at most, not as proof.",
       notice: false,
       standing: true,
     });

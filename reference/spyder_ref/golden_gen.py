@@ -10,6 +10,9 @@ the engine's implementation, so a bug in the engine cannot write its own expecte
   transfers  an explicit per-channel loop: Gaussian taps to radius ceil(truncate*sigma) (or round), renormalised inside
              the detector segment, never crossing a join; then the per-segment absorbance affine in numpy.
   N2         a line-by-line loop over the second differences (checked against spyder_ref.n2).
+  gains      (format-2 noise and band tables) the phase 0b p04 method: kernels folded with scipy's SG coefficients, the
+             correction's adjoint as an explicit segment blur matrix (transposed) x the segment's absorbance gain, the
+             variance from the kernel as a second difference against the differenced noise Gaussian's autocorrelation.
 """
 from __future__ import annotations
 import math
@@ -161,3 +164,160 @@ def transfer_cases(doc, spectra, note="research: explicit segment-blur loop + nu
                     "expected": {"transferred_at": {str(int(round(l))): float(v) for l, v in zip(wl, Rt)}},
                     "generated_by": note})
     return out
+
+
+# ------------------------------------------------------------------ noise and readability gains (format 2 tables)
+# Research path for the computed gains (spyder_ref.gains): the p04 method of phase 0b. The output's absorbance kernel
+# is folded with scipy's Savitzky-Golay coefficients; the correction's adjoint is an explicit segment blur MATRIX
+# (transposed) times the segment's absorbance gain; the variance comes from the kernel written as a second difference
+# (two cumulative sums) against the autocorrelation of the differenced noise Gaussian (taps to +-ceil(8 sigma)).
+def _research_sg(window, polyorder, deriv, delta):
+    from scipy.signal import savgol_coeffs
+    return savgol_coeffs(int(window), int(polyorder), deriv=int(deriv), delta=float(delta), use="dot")
+
+
+def research_band_kernel(bands_doc, band, wl=WL):
+    """Plain band kernel (no projection): mean over centre +- half_width of scale x SG(absorbance)."""
+    b = bands_doc["bands"][band]; k = bands_doc["kernels"][b["kernel"]]; sg = k["savgol"]
+    c = _research_sg(sg["window"], sg["polyorder"], sg.get("deriv", 0), sg.get("delta", 1.0))
+    h = int(sg["window"]) // 2
+    w = np.zeros(len(wl))
+    pts = [i for i in range(len(wl)) if b["centre_nm"] - b["half_width_nm"] - 1e-9 <= wl[i] <= b["centre_nm"] + b["half_width_nm"] + 1e-9]
+    for i in pts:
+        assert h <= i < len(wl) - h
+        w[i - h:i + h + 1] += float(k["scale"]) * c / len(pts)
+    return w
+
+
+def research_model_kernels(doc, wl=WL):
+    """{component name or None: absorbance kernel} of a regression [absorbance, savgol] model or a consensus file."""
+    ops = [op["op"] for op in doc["preprocessing"]]
+    if doc.get("kind") == "consensus":
+        assert ops == ["absorbance"], ops
+        out = {}
+        for c in doc["consensus"]["components"]:
+            w = np.zeros(len(wl))
+            for lam, b in zip(c["feature"]["wavelengths_nm"], c["feature"]["weights"]):
+                w[int(np.flatnonzero(np.abs(wl - lam) <= 1e-6)[0])] += b
+            out[c["name"]] = w
+        return out
+    assert ops == ["absorbance", "savgol"], ops
+    sg = doc["preprocessing"][1]
+    c = _research_sg(sg["window"], sg["polyorder"], sg.get("deriv", 0), sg.get("delta", 1.0))
+    h = int(sg["window"]) // 2
+    w = np.zeros(len(wl))
+    for lam, b in zip(doc["features"]["wavelengths_nm"], doc["regression"]["coefficients"]):
+        i = int(np.flatnonzero(np.abs(wl - lam) <= 1e-6)[0])
+        assert h <= i < len(wl) - h
+        w[i - h:i + h + 1] += b * c
+    return {None: w}
+
+
+def _research_blur_matrix(wl, a, b, sigma, truncate, radius):
+    n = b - a
+    B = np.zeros((n, n))
+    r = math.ceil(truncate * sigma) if radius == "ceil" else math.floor(truncate * sigma + 0.5)
+    for i in range(a, b):
+        js = range(max(a, i - r), min(b, i + r + 1))
+        t = np.array([math.exp(-0.5 * ((wl[j] - wl[i]) / sigma) ** 2) for j in js])
+        B[i - a, [j - a for j in js]] = t / t.sum()
+    return B
+
+
+def _research_seg_value(v, s):
+    return float(v) if isinstance(v, (int, float)) else float(v[s])
+
+
+def _research_d2(w):
+    nz = np.flatnonzero(w != 0); a, b = nz[0], nz[-1]
+    h = np.cumsum(np.cumsum(w[a:b + 1])); s = np.abs(h).max()
+    assert abs(h[-1]) < 1e-9 * s and abs(h[-2]) < 1e-9 * s, "kernel is not a second difference"
+    return h[:-2]
+
+
+def _research_var_ratio(h, correlation_nm, step=1.0):
+    """var(h . n) / var(d2 . n) for n = white noise smoothed by the Gaussian taps, from the explicit covariance matrix
+    C[i, j] = autocorrelation of the taps at lag i - j."""
+    sd = correlation_nm / step
+    if sd > 0:
+        r = math.ceil(8.0 * sd)
+        g = np.exp(-0.5 * (np.arange(-r, r + 1) / sd) ** 2); g /= g.sum()
+    else:
+        g = np.array([1.0])
+    ac = np.correlate(g, g, "full")[len(g) - 1:]
+
+    def quad(v):
+        n = len(v)
+        lag = np.abs(np.arange(n)[:, None] - np.arange(n)[None, :])
+        C = np.where(lag < len(ac), ac[np.minimum(lag, len(ac) - 1)], 0.0)
+        return float(v @ C @ v)
+    return quad(np.asarray(h, float)) / quad(np.array([1.0, -2.0, 1.0]))
+
+
+def research_gains(w, wl, joins, ops=None, correlation_nm=1.25):
+    """{segment index: gain per unit N2} of an absorbance kernel through a correction (ops None = none). Each segment's
+    part on the stream must be a second difference (asserted, as the p04 method requires)."""
+    segs = _seg_bounds(wl, joins)
+    out = {}
+    for s, (a, b) in enumerate(segs):
+        part = w[a:b].copy()
+        if not np.any(part != 0):
+            continue
+        full = np.zeros(len(wl)); full[a:b] = part
+        _research_d2(full)
+        for op in reversed(ops or []):
+            if op["op"] == "absorbance_affine":
+                part = _research_seg_value(op["gain"], s) * part
+            elif op["op"] == "gaussian_blur":
+                sg = _research_seg_value(op["sigma_nm"], s)
+                if sg > 0:
+                    part = _research_blur_matrix(wl, a, b, sg, op.get("truncate", 4.0), op.get("radius", "round")).T @ part
+            else:
+                raise ValueError(f"research gains: no op {op['op']}")
+        nz = np.flatnonzero(part)
+        out[s] = 1e-5 * math.sqrt(_research_var_ratio(part[nz[0]:nz[-1] + 1], correlation_nm, wl[1] - wl[0]))
+    return out
+
+
+def research_window_segment(wl, joins, lo, hi):
+    """The segment holding the N2 window's centres (lo <= wl < hi) and their neighbours, else None (also when the grid
+    does not hold the whole window: a point below lo and one at or above hi)."""
+    segs = _seg_bounds(wl, joins)
+    if not (wl[0] < lo and wl[-1] >= hi):
+        return None
+    idx = [i for i in range(1, len(wl) - 1) if lo <= wl[i] < hi]
+    if not idx:
+        return None
+    for s, (a, b) in enumerate(segs):
+        if a <= idx[0] - 1 and idx[-1] + 1 < b:
+            return s
+    return None
+
+
+def research_band_sd(bands_doc, band, wl, R, joins, ops=None, inoise=None):
+    r = bands_doc["bands"][band]["readability"]
+    g = research_gains(research_band_kernel(bands_doc, band, wl), wl, joins, ops,
+                       (inoise or {}).get("correlation_nm", bands_doc["noise_model"]["correlation_nm"]))
+    (s, gain), = g.items()
+    lo, hi = r["noise_window_nm"]
+    assert research_window_segment(wl, joins, lo, hi) == s
+    fac = ((inoise or {}).get("ch_envelope_factors") or {}).get(band, r.get("envelope_factor", 1.0))
+    return gain * fac * n2_loop(R, lo, hi, wl)
+
+
+def research_model_sd(ng, doc, wl, R, joins, ops=None, inoise=None):
+    rec = (ng.get("models", {}).get(doc["id"]) or {}).get("recorded")
+    if rec is not None:
+        assert ops is None
+        return math.sqrt(sum((t["gain"] * n2_loop(R, *t["window_nm"], wl)) ** 2 for t in rec["terms"]))
+    corr = (inoise or {}).get("correlation_nm", ng["noise_model"]["correlation_nm"])
+    sds = []
+    for w in research_model_kernels(doc, wl).values():
+        s2 = 0.0
+        for s, gain in research_gains(w, wl, joins, ops, corr).items():
+            win = [x for x in ng["model_noise_windows_nm"] if research_window_segment(wl, joins, *x) == s][0]
+            s2 += (gain * n2_loop(R, *win, wl)) ** 2
+        sds.append(math.sqrt(s2))
+    if doc.get("kind") == "consensus":
+        return ng["consensus"][doc["id"]]["factor"] * float(np.median(sds))
+    return sds[0]

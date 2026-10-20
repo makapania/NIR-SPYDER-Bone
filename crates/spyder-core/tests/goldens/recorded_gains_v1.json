@@ -1,0 +1,251 @@
+{
+ "format": "spyder-bone/recorded-gains",
+ "version": 1,
+ "source": "plugins/noise_gains.json and plugins/bands.json in format 1 (noise_gains.core@1.0.0, bands.core@1.0.0; main ab9bab0): the gains recorded per transfer file before DECISIONS 137 made the engine compute them",
+ "rule": "a gain computed for the same correction at joins 1000/1800 must round to the recorded value (6 decimal places: |computed - recorded| <= 5e-7)",
+ "corrections": {
+  "none": null,
+  "v0.1": {
+   "file": "hires_to_std_v0_1.spyder-transfer.json",
+   "sha256": "671a08407b1fd4737f7d358db8648703b92ac2ef212ad9dbcdbf3de0b788b27e",
+   "note": "the file as re-issued with the offsets' wording corrected (operator note: not display-only; DECISIONS 137 fix-up): its operators are those format 1 recorded under sha256 62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff"
+  },
+  "v0.2": {
+   "file": "hires_to_std_v0_2.spyder-transfer.json",
+   "sha256": "c5b9a96824556215fe06318057e58621b78e33c0252032a9097f6ad77a45f687",
+   "note": "the file as re-issued with the superseded wording (title, provenance; DECISIONS 137 Phase 4) and the offsets' wording corrected (not display-only; fix-up): its operators are those format 1 recorded under sha256 3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
+  }
+ },
+ "joins_nm": [
+  1000.0,
+  1800.0
+ ],
+ "models": {
+  "collagen.ryder2026.2045": {
+   "none": [
+    {
+     "window_nm": [
+      2000,
+      2100
+     ],
+     "gain": 0.006102
+    }
+   ],
+   "v0.2": [
+    {
+     "window_nm": [
+      2000,
+      2100
+     ],
+     "gain": 0.003281
+    }
+   ],
+   "v0.1": [
+    {
+     "window_nm": [
+      2000,
+      2100
+     ],
+     "gain": 0.003326
+    }
+   ]
+  },
+  "collagen.spyder.2045_oh_corrected": {
+   "none": [
+    {
+     "window_nm": [
+      2000,
+      2100
+     ],
+     "gain": 0.019809
+    }
+   ],
+   "v0.2": [
+    {
+     "window_nm": [
+      2000,
+      2100
+     ],
+     "gain": 0.009377
+    }
+   ],
+   "v0.1": [
+    {
+     "window_nm": [
+      2000,
+      2100
+     ],
+     "gain": 0.009504
+    }
+   ]
+  },
+  "collagen.spyder.1500_oh_corrected": {
+   "none": [
+    {
+     "window_nm": [
+      1500,
+      1550
+     ],
+     "gain": 0.030097
+    }
+   ],
+   "v0.2": [
+    {
+     "window_nm": [
+      1500,
+      1550
+     ],
+     "gain": 0.017465
+    }
+   ],
+   "v0.1": [
+    {
+     "window_nm": [
+      1500,
+      1550
+     ],
+     "gain": 0.015714
+    }
+   ]
+  },
+  "collagen.spyder.nh3_oh_corrected": {
+   "none": [
+    {
+     "window_nm": [
+      1500,
+      1550
+     ],
+     "gain": 0.003606
+    },
+    {
+     "window_nm": [
+      2000,
+      2100
+     ],
+     "gain": 0.009948
+    }
+   ],
+   "v0.2": [
+    {
+     "window_nm": [
+      1500,
+      1550
+     ],
+     "gain": 0.001966
+    },
+    {
+     "window_nm": [
+      2000,
+      2100
+     ],
+     "gain": 0.004579
+    }
+   ],
+   "v0.1": [
+    {
+     "window_nm": [
+      1500,
+      1550
+     ],
+     "gain": 0.001769
+    },
+    {
+     "window_nm": [
+      2000,
+      2100
+     ],
+     "gain": 0.004641
+    }
+   ]
+  }
+ },
+ "nonlinear_models": {
+  "collagen.spyder.1500_snv_transfer_free": {
+   "none": [
+    {
+     "window_nm": [
+      1500,
+      1550
+     ],
+     "gain": 0.020064
+    }
+   ]
+  }
+ },
+ "bands": {
+  "CH1689": {
+   "none": 0.026948,
+   "v0.2": 0.014259,
+   "v0.1": 0.01283
+  },
+  "CH1728": {
+   "none": 0.030494,
+   "v0.2": 0.016135,
+   "v0.1": 0.014519
+  },
+  "NH2044": {
+   "none": 0.017729,
+   "v0.2": 0.008327,
+   "v0.1": 0.008441
+  },
+  "AM2175": {
+   "none": 0.017729,
+   "v0.2": 0.008327,
+   "v0.1": 0.008441
+  },
+  "CH2262": {
+   "none": 0.020743,
+   "v0.2": 0.009743,
+   "v0.1": 0.009876
+  },
+  "CH2284": {
+   "none": 0.025175,
+   "v0.2": 0.011824,
+   "v0.1": 0.011986
+  },
+  "NH1545c": {
+   "none": 0.017729,
+   "v0.2": 0.009381,
+   "v0.1": 0.008441
+  }
+ },
+ "envelope_factors": {
+  "CH1689": 1.52,
+  "CH1728": 1.72,
+  "CH2262": 1.17,
+  "CH2284": 1.42
+ },
+ "consensus_factor": {
+  "collagen.spyder.consensus3_median": 1.0
+ },
+ "band_noise_windows_nm": {
+  "CH1689": [
+   1500,
+   1600
+  ],
+  "CH1728": [
+   1500,
+   1600
+  ],
+  "NH2044": [
+   2000,
+   2100
+  ],
+  "AM2175": [
+   2000,
+   2100
+  ],
+  "CH2262": [
+   2220,
+   2245
+  ],
+  "CH2284": [
+   2220,
+   2245
+  ],
+  "NH1545c": [
+   1500,
+   1600
+  ]
+ }
+}

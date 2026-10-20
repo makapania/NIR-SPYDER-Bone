@@ -843,27 +843,123 @@ def predict(m, wl, X, ctx):
 
 
 # --------------------------------------------------------------------------- transfers
+READER_OFFSET_MAX = 5.0          # wt%: a larger additive reader offset is refused
+SECOND_OPINION_MIN_SCANS = 20   # a correction's own second-opinion gap needs at least this many scans behind it
+
+
+def _num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
 def check_transfer(t):
+    """Structural checks of a transfer (correction) file. Besides the operators: the optional instrument noise, the
+    visible levels, the second-opinion gap and the per-reader offsets (DECISIONS 137). source_class may equal
+    target_class only in a file for one unit (source_serial set: a lab's own standard-resolution unit)."""
     _check_header(t, TRANSFER_FORMAT)
     for k in ("id", "version", "source_class", "target_class", "operator", "golden"):
         if k not in t:
             raise SpyderError(f"missing {k}")
+    ser = t.get("source_serial")
+    if ser is not None and not (isinstance(ser, str) or (isinstance(ser, int) and not isinstance(ser, bool)
+                                                          and ser >= 0)):
+        raise SpyderError("source_serial must be an integer, a string or null")
+    if t["source_class"] == t["target_class"] and ser is None:
+        raise SpyderError("source_class and target_class must differ (except in a file for one unit: source_serial)")
+    ops = t["operator"] if isinstance(t["operator"], list) else [t["operator"]]
+    for op in ops:
+        if isinstance(op, dict) and op.get("op") == "absorbance_affine":
+            g = op.get("gain")
+            for x in (g if isinstance(g, list) else [g]):
+                if not (_num(x) and x != 0):
+                    raise SpyderError("absorbance_affine gain must be a finite non-zero number (a zero gain erases "
+                                      "the spectrum)")
+    prov = t.get("provenance") or {}
+    inn = prov.get("instrument_noise")
+    if inn is not None:
+        # the instrument's own noise (DECISIONS 137): read by the computed noise and readability gains
+        if not isinstance(inn, dict):
+            raise SpyderError("provenance.instrument_noise must be an object")
+        c = inn.get("correlation_nm")
+        if c is not None and not (_num(c) and c >= 0):
+            raise SpyderError("instrument_noise.correlation_nm must be a finite number >= 0")
+        for b, f in (inn.get("ch_envelope_factors") or {}).items():
+            if not (_num(f) and f > 0):
+                raise SpyderError(f"instrument_noise.ch_envelope_factors {b}: must be a positive finite number")
+    # absent = fitted; anything but "fitted" / "not_fitted" (null included) is refused, with the Rust engine's message
+    # (transfer::VISIBLE_LEVELS_ERROR), so the two engines never read heat on different streams
+    if "visible_levels" in prov and prov["visible_levels"] not in ("fitted", "not_fitted"):
+        raise SpyderError('provenance.visible_levels must be "fitted" or "not_fitted"')
+    gap = prov.get("second_opinion_gap")
+    if gap is not None:
+        if not isinstance(gap, dict) or not (_num(gap.get("points")) and gap["points"] > 0):
+            raise SpyderError("provenance.second_opinion_gap.points must be a positive finite number")
+        n = gap.get("n_scans")
+        if not (isinstance(n, int) and not isinstance(n, bool) and n >= SECOND_OPINION_MIN_SCANS):
+            raise SpyderError(f"provenance.second_opinion_gap.n_scans must be an integer >= {SECOND_OPINION_MIN_SCANS} "
+                              "(a gap estimated from fewer scans is not used)")
+    ro = t.get("reader_offsets")
+    if ro is not None:
+        if not isinstance(ro, dict):
+            raise SpyderError("reader_offsets must be an object {model id: offset in wt%}")
+        for mid, v in ro.items():
+            if not (_num(v) and abs(v) <= READER_OFFSET_MAX):
+                raise SpyderError(f"reader_offsets {mid}: must be a finite number of at most {READER_OFFSET_MAX:g} wt% "
+                                  "either way")
     return t
 
 
+def transfer_settings(t):
+    """(visible levels fitted, second-opinion gap or None, {model id: reader offset}) of a checked transfer file. A
+    file that does not say whether its visible levels were fitted counts as fitted: every correction made before the
+    field existed (v0.1, v0.2, the paired-scan builder's) fitted them."""
+    prov = t.get("provenance") or {}
+    gap = prov.get("second_opinion_gap")
+    return (prov.get("visible_levels", "fitted") == "fitted", None if gap is None else float(gap["points"]),
+            {k: float(v) for k, v in (t.get("reader_offsets") or {}).items()})
+
+
+def _vt(v):
+    return tuple(int(x) for x in str(v).split("."))
+
+
 def pick_transfer(model, ctx, transfers):
-    """Same class (or listed in also_valid_for) -> 'none'; else the most specific active transfer
-    source_class -> trained_on_class (a matching source_serial beats a class-wide one), newest version;
-    else None (the app still predicts and says so, gently). No chaining in format 1."""
+    """The transfer a model runs through for this scan, or 'none' (the scan as measured), or None (no transfer
+    available: the app still predicts and says so). `transfers` in precedence order (bundled files before user files,
+    then by id); within one id only the newest active version counts (versions are never compared across ids).
+    A file for this unit (source_serial equal to the scan's serial, compared as text) from the scan's class to the
+    model's class wins, even for the model's own class (a lab's own unit file); otherwise the scan's class is the
+    model's own (or in also_valid_for): 'none'; otherwise the first class-wide file from the scan's class to the
+    model's class. No chaining in format 1."""
     target = model["instrument"]["trained_on_class"]
+    newest, order = {}, []
+    for t in transfers:
+        if t.get("status", "active") != "active":
+            continue
+        k = t.get("id")
+        if k not in newest:
+            order.append(k)
+            newest[k] = t
+        elif _vt(t["version"]) > _vt(newest[k]["version"]):
+            newest[k] = t
+    ser = None if ctx.serial is None else str(ctx.serial)
+    cands = [newest[k] for k in order if newest[k]["source_class"] == ctx.instrument_class
+             and newest[k]["target_class"] == target]
+    unit = [t for t in cands if t.get("source_serial") is not None and ser is not None
+            and str(t["source_serial"]) == ser]
+    if unit:
+        return unit[0]
     if ctx.instrument_class == target or ctx.instrument_class in model["instrument"].get("also_valid_for", []):
         return "none"
-    cands = [t for t in transfers if t["source_class"] == ctx.instrument_class and t["target_class"] == target
-             and t.get("status", "active") == "active" and t.get("source_serial") in (None, ctx.serial)]
-    if not cands:
-        return None
-    return max(cands, key=lambda t: (t.get("source_serial") is not None,
-                                     tuple(int(x) for x in t["version"].split("."))))
+    whole = [t for t in cands if t.get("source_serial") is None]
+    return whole[0] if whole else None
+
+
+def pick_reader_transfer(model, ctx, transfers, reads_as_measured=False):
+    """The stream one reader reads: the per-reader stream policy, shared by the predictions (Rust `spyder predict`) and
+    the pipeline (oracle `_models`; Rust transfer::select_for_reader). A reader whose profile spec says reads
+    'as_measured' (S1_R2, transfer-free) reads the scan as measured for every class ('none'), even when a unit file or
+    another instrument's correction matches; every other reader: pick_transfer."""
+    return "none" if reads_as_measured else pick_transfer(model, ctx, transfers)
 
 
 def apply_transfer(t, wl, X, ctx):

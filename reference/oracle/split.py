@@ -20,14 +20,39 @@ import json
 import re
 import sys
 
+NAMES_REL = ("planning", "work", "phase0b", "oracle", "private_names.txt")
+
+
+def _names_candidates(repo, env):
+    """Where the private-names list may be: $SPYDER_PRIVATE_NAMES, this checkout's private planning folder, and, when
+    this checkout is a git worktree (its .git is a file naming the worktree's git folder), the main checkout's planning
+    folder (worktrees have no planning/ of their own)."""
+    from pathlib import Path
+    repo = Path(repo)
+    cands = [env.get("SPYDER_PRIVATE_NAMES", ""), str(repo.joinpath(*NAMES_REL))]
+    g = repo / ".git"
+    try:
+        if g.is_file():
+            line = g.read_text(encoding="utf-8").strip()
+            if line.startswith("gitdir:"):
+                wdir = Path(line[len("gitdir:"):].strip())
+                if not wdir.is_absolute():
+                    wdir = repo / wdir
+                cd = wdir / "commondir"
+                common = (wdir / cd.read_text(encoding="utf-8").strip()) if cd.is_file() else wdir.parent.parent
+                cands.append(str(common.resolve().parent.joinpath(*NAMES_REL)))
+    except OSError:
+        pass
+    return cands
+
+
 def _load_private_names() -> list[str]:
     """Names that must not appear in public text. The list itself is private: it is read from the file named by
-    SPYDER_PRIVATE_NAMES (one name per line, lower case), or from the private planning folder when it exists. Without
-    it the name check is skipped (and says so)."""
+    SPYDER_PRIVATE_NAMES (one name per line, lower case), or from the private planning folder when it exists (the main
+    checkout's, from a git worktree). Without it the name check is skipped (and says so)."""
     import os
     from pathlib import Path
-    cands = [os.environ.get("SPYDER_PRIVATE_NAMES", ""),
-             str(Path(__file__).resolve().parents[2] / "planning" / "work" / "phase0b" / "oracle" / "private_names.txt")]
+    cands = _names_candidates(Path(__file__).resolve().parents[2], os.environ)
     for c in cands:
         if c and Path(c).is_file():
             return [ln.strip().lower() for ln in Path(c).read_text(encoding="utf-8").splitlines() if ln.strip()]

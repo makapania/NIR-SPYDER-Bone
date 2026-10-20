@@ -184,6 +184,7 @@ fn non_finite_heat_reading_is_not_assessed() {
         checks["heat"],
         &Default::default(),
         &Default::default(),
+        None,
     );
     for n in ["plaster", "wax", "ester", "burnt"] {
         let o = s.get(n).and_then(V::as_obj).unwrap();

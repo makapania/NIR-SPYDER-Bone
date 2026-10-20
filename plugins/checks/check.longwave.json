@@ -3,28 +3,61 @@
  "format_version": 1,
  "check": "longwave",
  "id": "check.longwave",
- "version": "1.0.0",
+ "version": "2.0.0",
  "engine_min": "1.0",
  "status": "active",
  "title": "Long-wave (> 2300 nm) eligibility",
- "description": "White-reference signal falls to about 25% at 2300-2400 nm, and high-res units are 5-10x noisier than standard units at equal brightness, so the tail is noise on dark high-res scans (PLAN v3.2 Step 2c). A high-res scan whose as-measured N2(2300-2400) exceeds the cut is 'tail-unreliable': B9 and C1 then run their validated truncated variants (no data above 2300 nm; each check file's 'truncated' block), or return 'not assessed: long-wave region too noisy' if the mode says so. The cut is per check: B9 uses tail_unreliable_if_n2_above, C1 (the contaminant check only) uses c1_tail_unreliable_if_n2_above. Nothing else in v1 reads above 2300 nm.",
+ "description": "White-reference signal falls to about 25% at 2300-2400 nm, so the long-wave tail can be noise (PLAN v3.2 Step 2c). On any stream that is not the native standard-resolution scan (a correction applied, unless near-uncorrected: check.acquisition std_like_within; or another instrument's scan as measured; DECISIONS 137) the tail is 'tail-unreliable' when the noise SD of the 2350 nm reading, propagated through the stream's correction, times the as-measured N2(2300-2400) exceeds the cut: B9 and C1 then run their validated truncated variants (no data above 2300 nm; each check file's 'truncated' block), or return 'not assessed: long-wave region too noisy' if the mode says so. The cut is per check, in SD units: B9 uses b9_sd_above, C1 (the contaminant check only) c1_sd_above. A native standard-resolution scan, also through a near-uncorrected correction, is not assessed (its tail is used as today). Nothing else in v1 reads above 2300 nm.",
  "licence": "CC-BY-4.0",
  "created": "2026-10-03",
  "provenance": {
   "basis": "Phase 0a; Phase 0b item 10. Cut 150 on the as-measured N2(2300-2400) of high-res scans (a high-resolution variation set: median 100, 90th percentile 133; a noisy high-resolution session runs 166-1,695; standard-resolution reference bone median 11-30). Truncated variants validated in item 10: B9 clean-pool minimum 0.457 (0 of 1,201 fail); C1 out-of-fold false alarms 0.50% (full 0.58%); under added tail noise the truncated variants vary 2-3x less than the full ones.",
   "provisional": true,
-  "c1_cut": "Phase 0c (DECISIONS 76): full C1 keeps clean false alarms at 0.5-1.0% up to a high-resolution N2(2300-2400) of about 250 (1.4% at 250-300, 3.4% at 300-400; C1 gate at its limit), so C1 runs full up to 250 for the contaminant check only; B9 keeps 150. The truncated C1 drops the 2350 nm band and is blind to cellulose-nitrate glues and animal glue."
+  "c1_cut": "Phase 0c (DECISIONS 76): full C1 keeps clean false alarms at 0.5-1.0% up to a high-resolution N2(2300-2400) of about 250 (1.4% at 250-300, 3.4% at 300-400; C1 gate at its limit), so C1 runs full up to 250 for the contaminant check only; B9 keeps 150. The truncated C1 drops the 2350 nm band and is blind to cellulose-nitrate glues and animal glue.",
+  "any_correction": "DECISIONS 137 (g2): the cuts are v0.2's 150 (B9) and 250 (C1) on N2(2300-2400) turned into SD units once (the tail reading's noise gain through v0.2 x the cut); on the high-resolution sets in hand this reproduces every v0.2 long-wave call. Implied N2 cuts: no correction 70 / 117, a FieldSpec 3-like correction 39 / 65, a standard-resolution unit's own file 74 / 124."
  },
  "parameters": {
-  "applies_to_classes": [
-   "asd.labspec4.hires"
-  ],
+  "applies_to": "non_native",
   "n2_window_nm": [
    2300,
    2400
   ],
-  "tail_unreliable_if_n2_above": 150.0,
-  "c1_tail_unreliable_if_n2_above": 250.0,
+  "tail_statistic": {
+   "kernel": {
+    "absorbance_clip": 1e-06,
+    "savgol": {
+     "window": 31,
+     "polyorder": 3,
+     "deriv": 2,
+     "delta": 1.0,
+     "mode": "interp"
+    },
+    "scale": -100000.0
+   },
+   "windows": [
+    [
+     2348,
+     2352,
+     1.0
+    ]
+   ],
+   "of": "the 2350 nm band reading on the C1 kernel (the long-wave part C1 and B9 read)"
+  },
+  "correlation_nm": 1.25,
+  "b9_sd_above": 1.2491178732534014,
+  "c1_sd_above": 2.0818631220890023,
+  "anchor": {
+   "correction": "transfer.labspec4.hires_to_std@0.2.0",
+   "sha256": "c5b9a96824556215fe06318057e58621b78e33c0252032a9097f6ad77a45f687",
+   "joins_nm": [
+    1000.0,
+    1800.0
+   ],
+   "n2_cuts": {
+    "b9": 150.0,
+    "c1": 250.0
+   }
+  },
   "when_unreliable": {
    "b9": "truncated",
    "c1": "truncated"
@@ -45,10 +78,11 @@
     "name": "rc_good_positive_all_six",
     "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
     "inputs": {
-     "instrument_class": "asd.labspec4.std"
+     "native": true,
+     "correction": "none"
     },
     "expected": {
-     "status": "not assessed: standard-resolution class",
+     "status": "not assessed: native standard-resolution scan",
      "n2": 44.810031315685684,
      "tail_unreliable": false,
      "tail_unreliable_c1": false
@@ -58,7 +92,8 @@
     "name": "hires_longwave_not_assessed",
     "spectrum_sha256": "cfd4daa220dafc7f24cc645b8467ab2fe836c0e8a128022fdf4aa7331001bbb9",
     "inputs": {
-     "instrument_class": "asd.labspec4.hires"
+     "native": false,
+     "correction": "transfer.labspec4.hires_to_std@0.3.0"
     },
     "expected": {
      "status": "assessed",
@@ -71,7 +106,8 @@
     "name": "pair22_hires",
     "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
     "inputs": {
-     "instrument_class": "asd.labspec4.hires"
+     "native": false,
+     "correction": "transfer.labspec4.hires_to_std@0.3.0"
     },
     "expected": {
      "status": "assessed",
@@ -81,10 +117,25 @@
     }
    },
    {
+    "name": "asd_file_as7_detected_joins",
+    "spectrum_sha256": "398b24182857f70334a551d5929031b7269827a47f9dbba57b41b103ef460df4",
+    "inputs": {
+     "native": true,
+     "correction": "none"
+    },
+    "expected": {
+     "status": "not assessed: native standard-resolution scan",
+     "n2": 21.664238351381886,
+     "tail_unreliable": false,
+     "tail_unreliable_c1": false
+    }
+   },
+   {
     "name": "hires_longwave_300_c1_truncated",
     "spectrum_sha256": "6592bb6dde72a183f97afeb35a0751ec73251cdaace8a0fedc9c1db0053f5ad3",
     "inputs": {
-     "instrument_class": "asd.labspec4.hires"
+     "native": false,
+     "correction": "transfer.labspec4.hires_to_std@0.3.0"
     },
     "expected": {
      "status": "assessed",
@@ -93,6 +144,37 @@
      "tail_unreliable_c1": true
     }
    }
-  ]
+  ],
+  "corrections": {
+   "transfer.labspec4.hires_to_std@0.3.0": {
+    "operator": [
+     {
+      "op": "gaussian_blur",
+      "sigma_nm": [
+       0.0,
+       3.3973,
+       3.3973
+      ],
+      "truncate": 4.0,
+      "radius": "ceil",
+      "segments": "from_scan"
+     },
+     {
+      "op": "absorbance_affine",
+      "gain": [
+       0.5777,
+       0.6983,
+       0.5881
+      ],
+      "offset": [
+       0.2742,
+       0.2005,
+       0.3552
+      ],
+      "clip_min": 1e-06
+     }
+    ]
+   }
+  }
  }
 }

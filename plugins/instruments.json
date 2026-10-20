@@ -2,13 +2,13 @@
  "format": "spyder-bone/instrument",
  "format_version": 1,
  "id": "instruments.asd.labspec4",
- "version": "1.1.0",
+ "version": "2.1.0",
  "engine_min": "1.0",
  "status": "active",
  "licence": "CC-BY-4.0",
  "created": "2026-10-03",
- "title": "Instrument registry: ASD LabSpec 4 classes and serial presets",
- "description": "The user's Standard / High-res switch decides the class (DECISIONS 50). This registry only PRESETS the switch for a new folder when a file's serial is listed, and lets the app show a gentle note when a file's serial is known to be the other class. The switch always wins. Unknown serials: the header's SWIR detector gains may preset it instead (header_hint; a heuristic), else the switch keeps its current (or default) position. Exports record the class and whether the user set it or a serial preset it. Per-unit details (per-lab transfer files) come later with the calibration kit.",
+ "title": "Instrument registry: classes, serial presets and the file formats of other instruments",
+ "description": "The user's Standard / High-res switch decides the class of LabSpec 4 files (DECISIONS 50). This registry PRESETS the switch for a new folder when a file's serial is listed, and lets the app show a gentle note when a file's serial is known to be the other class. The switch always wins for LabSpec files. Unknown serials: the header's SWIR detector gains may preset it instead (header_hint.swir_gain; a heuristic), else the switch keeps its current (or default) position. A file another instrument wrote is scored as that instrument's class whatever the switch says. It is identified by its file format and, where the format alone does not settle it, by its detector joins (header_hint.file_format, header_hint.unless_joins_nm): FieldSpec 3 legacy reflectance files, and as7 files whose detector joins are not the LabSpec 4 joins 1000/1800 nm (the Trek-type handheld: 1000/1785). An as7 file with joins 1000/1800 is read as a LabSpec 4 file, like as8: as7 is only ASD's file version 7, which a LabSpec 4 on older ASD software may write. No correction is built in for the other classes yet, so their results are uncalibrated and say so (DECISIONS 137). Exports record the class and where it came from.",
  "default_class": "asd.labspec4.std",
  "switch": {
   "labels": {
@@ -18,7 +18,8 @@
   "remembered": "per watched folder / session",
   "preset_from_serial": true,
   "mismatch_note": "This file's instrument (serial {serial}) is listed as {other}. Results use the {current} setting; change the switch if that is wrong.",
-  "preset_from_header": true
+  "preset_from_header": true,
+  "preset_from_file_format": true
  },
  "classes": {
   "asd.labspec4.std": {
@@ -59,23 +60,49 @@
      60
     ]
    }
+  },
+  "asd.fieldspec3": {
+   "display_name": "FieldSpec 3 (older ASD file format)",
+   "long_name": "ASD FieldSpec 3 (legacy v1 reflectance files: .NNN, ViewSpec .sco)",
+   "serials": [],
+   "header_hint": {
+    "file_format": [
+     "legacy"
+    ]
+   }
+  },
+  "asd.trek": {
+   "display_name": "Trek-type handheld",
+   "long_name": "ASD Trek-type handheld (as7 files whose detector joins are not 1000/1800 nm; seen at 1000/1785)",
+   "serials": [],
+   "header_hint": {
+    "file_format": [
+     "as7"
+    ],
+    "unless_joins_nm": [
+     1000,
+     1800
+    ]
+   }
   }
  },
  "accepted_input": {
-  "file_version": "as8",
+  "file_versions": [
+   "as8",
+   "as7",
+   "ASD"
+  ],
   "grid": {
    "start_nm": 350,
    "step_nm": 1,
    "n": 2151
   },
-  "joins_nm": [
-   1000,
-   1800
-  ]
+  "joins": "per file (DECISIONS 87)"
  },
  "provenance": {
   "serials": "units whose files were used in development; no lab or owner is named",
   "fwhm": "published instrument bandwidths (manufacturer specifications)",
-  "header_hint": "SWIR1 and SWIR2 gains (header bytes 436/438) across 681 distinct files from all five units: standard 284-694 (three units, 2014-2026), high-res 16-21 (two units, 2025-2026). Ranges are padded; both gains must agree. Five units only: a hint, never a rule."
+  "header_hint": "SWIR1 and SWIR2 gains (header bytes 436/438) across 681 distinct files from all five units: standard 284-694 (three units, 2014-2026), high-res 16-21 (two units, 2025-2026). Ranges are padded; both gains must agree. Five units only: a hint, never a rule.",
+  "file_format": "DECISIONS 88-89: the reader handles LabSpec as8, Trek-type as7 (raw DN + white reference) and legacy v1 'ASD' reflectance (FieldSpec 3 .NNN, ViewSpec .sco); since 2.0.0 another instrument's file is scored as its class (DECISIONS 137). A file format is only ASD's file version, never an instrument by itself: from 2.1.0 an as7 file is the Trek-type handheld's only when its detector joins, as found in the file (the header, else the white-reference DN), are not 1000/1800 (2.0.0 took every as7 file as Trek-type). In the 669 development files every LabSpec 4 file is as8 with header joins 1000/1800; the Trek-type files are as7 with blank header joins (0/0) and joins found in the white-reference DN at 1000/1785; the FieldSpec 3 files are legacy v1 (header joins 1000/1800), a format no LabSpec 4 writes. Their header SWIR gains (FieldSpec 3 633/206, Trek-type 390/396) fall in the standard range, so before 2.0.0 they were scored as LabSpec standard."
  }
 }

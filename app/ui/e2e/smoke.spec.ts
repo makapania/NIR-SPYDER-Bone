@@ -70,7 +70,7 @@ test('no "wet" anywhere on screen', async ({ page }) => {
 
 test('high-res stream toggle, the OH-corrected close-up toggle and Export CSV', async ({ page }) => {
   await page.goto('/');
-  const streamGroup = page.getByRole('group', { name: 'High-res spectrum' });
+  const streamGroup = page.getByRole('group', { name: 'Corrected spectrum' });
   await expect(streamGroup.getByRole('button', { name: 'Transferred' })).toHaveAttribute('aria-pressed', 'true');
   await streamGroup.getByRole('button', { name: 'As measured' }).click();
   await expect(page.locator('.ylabel')).toContainText('as measured');
@@ -81,7 +81,7 @@ test('high-res stream toggle, the OH-corrected close-up toggle and Export CSV', 
   await page.getByTestId('export-csv').click();
   await expect(page.getByRole('status')).toContainText('needs the desktop app');
   await page.getByRole('button', { name: 'Standard', exact: true }).click();
-  await expect(page.getByRole('group', { name: 'High-res spectrum' })).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Corrected spectrum' })).toHaveCount(0);
   await page.getByRole('button', { name: 'High-res', exact: true }).click();
 });
 

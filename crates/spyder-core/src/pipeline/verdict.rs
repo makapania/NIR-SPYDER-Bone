@@ -33,6 +33,12 @@
 //! Ryder line (Matt, phase 0d REPORT_zooms_models): on an Unlikely verdict with no band line, when the published Ryder
 //! 2045 model reads >= the profile's cut (0.34, the paper's a priori ZooMS cut), zooms_better_ryder (params r, at_least) is
 //! the ZooMS line; a faint protein note then stays in the details. Suppressed by the same fired signs.
+//! Uncalibrated instruments (DECISIONS 137, amended 2026-10-19: no correction for the scan's instrument is installed,
+//! `VerdictInputs::uncalibrated`): the band calls are off. The model verdict stands (no flat bands lead, no +D, no lift,
+//! no blocked lift); no ZooMS band line and no faint protein note (the Ryder line, a model reading, stays); no
+//! positive-signs line and no bands-too-noisy note (both read the bands); the flags still show, each marked provisional
+//! (they still set the sort penalty), and so does the soft contaminant note (possible_thin_coating, marked
+//! provisional); the ZooMS profile says Can't tell (rule step band_evidence_not_built_in, no pattern).
 
 use super::val::{strs, Obj, V};
 use crate::plugins::profiles::{AnalysisProfile, ModelsDisagreeWhen, ProfileParams, RuleL2};
@@ -56,6 +62,8 @@ pub struct VerdictInputs<'a> {
     pub models: &'a Obj,
     /// Every contaminant sign gated (the B6b summary); per-sign gating is read from the sign statuses.
     pub gated: bool,
+    /// No correction for the scan's instrument is installed: the band calls are off and the flags provisional.
+    pub uncalibrated: bool,
 }
 
 fn rank(v: &str) -> i32 {
@@ -281,6 +289,14 @@ pub fn flags_for(prof: &AnalysisProfile, x: &VerdictInputs) -> V {
                 .with("signs", strs(&burnt)),
         ));
     }
+    // an instrument with no built-in correction: its contaminant and heat signs are provisional
+    if x.uncalibrated {
+        for f in &mut out {
+            if let V::Map(o) = f {
+                o.set("provisional", true);
+            }
+        }
+    }
     V::List(out)
 }
 
@@ -318,7 +334,8 @@ fn contaminant_check_state(
     (skipped, checked)
 }
 
-/// (above_bone_range, possible_thin_coating) and (c1_reduced, signs_reduced): the notes every analysis shares.
+/// (above_bone_range, possible_thin_coating) and (c1_reduced, signs_reduced): the notes every analysis shares. On an
+/// instrument with no built-in correction the soft contaminant note is marked provisional, as the flags are.
 fn common_notes(above: Option<f64>, m: Option<f64>, x: &VerdictInputs) -> (Vec<Obj>, Vec<Obj>) {
     let mut first = Vec::new();
     let mut last = Vec::new();
@@ -330,11 +347,13 @@ fn common_notes(above: Option<f64>, m: Option<f64>, x: &VerdictInputs) -> (Vec<O
     if let Some(soft) = x.signs.get("soft").and_then(V::as_obj) {
         if fired(soft) {
             let comps = soft.get("components").cloned().unwrap_or(V::List(vec![]));
-            first.push(
-                Obj::new()
-                    .with("key", "possible_thin_coating")
-                    .with("components", comps),
-            );
+            let mut n = Obj::new()
+                .with("key", "possible_thin_coating")
+                .with("components", comps);
+            if x.uncalibrated {
+                n.set("provisional", true);
+            }
+            first.push(n);
         }
     }
     if status_of(x, "C1").starts_with("assessed: truncated") {
@@ -471,7 +490,12 @@ pub fn zooms_better(
     {
         return Vec::new();
     }
-    let band = band_line(p, verdict, step, m, x);
+    // an uncalibrated instrument: no band line and no faint protein note; only the Ryder line (a model reading)
+    let band = if x.uncalibrated {
+        None
+    } else {
+        band_line(p, verdict, step, m, x)
+    };
     if let Some(b) = &band {
         if b.get("key").and_then(V::as_str) != Some("zooms_faint_protein") {
             return vec![b.clone()];
@@ -587,7 +611,9 @@ pub fn collagen_verdict(
     let mut step = "model_verdict".to_string();
     let mut notes: Vec<Obj> = Vec::new();
     let (fl, pd, lf) = (&p.flat_bands_lead, &p.plus_d, &p.lift);
-    if fl.enabled && x.level == fl.evidence_level {
+    if x.uncalibrated {
+        // the band calls are off: the model verdict stands
+    } else if fl.enabled && x.level == fl.evidence_level {
         v = fl.verdict.clone();
         step = "flat_bands_lead".into();
         notes.push(Obj::new().with("key", "flat_bands_lead").with("m", m));
@@ -681,7 +707,13 @@ pub fn collagen_verdict(
     let panel_suppresses = notes_fired
         .iter()
         .any(|n| nt.positive_signs_suppressed_by_notes.iter().any(|s| s == n));
-    if promising && contam.is_empty() && !unchecked && !soft_fired && !panel_suppresses {
+    if promising
+        && contam.is_empty()
+        && !unchecked
+        && !soft_fired
+        && !panel_suppresses
+        && !x.uncalibrated
+    {
         if x.zooms_verdict == nt.positive_signs_all_six_zooms_verdict {
             notes.push(Obj::new().with("key", "positive_signs_all_six"));
         } else if nt.positive_signs_clear_levels.iter().any(|l| l == x.level)
@@ -690,7 +722,7 @@ pub fn collagen_verdict(
             notes.push(Obj::new().with("key", "positive_signs_clear"));
         }
     }
-    if nt.bands_too_noisy_level.as_deref() == Some(x.level) {
+    if nt.bands_too_noisy_level.as_deref() == Some(x.level) && !x.uncalibrated {
         notes.push(Obj::new().with("key", "bands_too_noisy"));
     }
     notes.extend(last);
@@ -710,12 +742,22 @@ pub fn collagen_verdict(
 }
 
 /// The ZooMS verdict: the band-pattern verdict of the check (DECISIONS 17), including its 1545 nm vote. With a
-/// notes block: above_bone_range and possible_thin_coating (one shown, profile order), c1_reduced details-only.
+/// notes block: above_bone_range and possible_thin_coating (one shown, profile order), c1_reduced details-only. An
+/// uncalibrated instrument: no band pattern, so Can't tell (rule step band_evidence_not_built_in, no pattern).
 pub fn zooms_verdict(prof: &AnalysisProfile, m: Option<f64>, x: &VerdictInputs) -> Obj {
+    let (verdict, step, pattern) = if x.uncalibrated {
+        ("Can't tell", "band_evidence_not_built_in", V::Null)
+    } else {
+        (
+            x.zooms_shown_verdict,
+            "zooms_pattern",
+            V::from(x.zooms_pattern),
+        )
+    };
     let mut out = Obj::new()
-        .with("verdict", x.zooms_shown_verdict)
-        .with("rule_step", "zooms_pattern")
-        .with("pattern", x.zooms_pattern)
+        .with("verdict", verdict)
+        .with("rule_step", step)
+        .with("pattern", pattern)
         .with("flags", flags_for(prof, x))
         .with("notes_all", V::List(vec![]))
         .with("notes_shown", V::List(vec![]));

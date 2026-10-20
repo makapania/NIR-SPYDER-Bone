@@ -12,6 +12,14 @@ from . import kernels as K
 from .n2 import n2 as _n2
 
 NAN = float("nan")
+INF = float("inf")
+
+
+def _band_sd(sd_E, b):
+    """A band's noise SD for the readability gate: a missing or NaN SD is +infinity (fail safe: unknown noise is "too
+    noisy", never "readable"; such a band is can't tell unless strong)."""
+    v = sd_E.get(b)
+    return INF if v is None or math.isnan(v) else v
 
 
 def _f(x):
@@ -92,33 +100,139 @@ def acquisition(wl, R, P, dn=None, joins=(1000.0, 1800.0), no_dn_status="not ass
     return out
 
 
-def b6b(P, n2c, tkey="none"):
-    """Per-sign B6b gates (phase 0c, DECISIONS 76), decided on the AS-MEASURED N2 once the stream's transfer key is
-    known: the table for `tkey` ('none' or the transfer file's sha256; a key without an entry uses
-    unknown_transfer_key_uses). A gated sign with a fallback for `tkey` (fallbacks_by_transfer_key; an unknown key has
-    none) runs its reduced variant when N2 of the fallback window <= n2_at_most (2026-10-13, PREREG_hires_fallback).
+UNAVAILABLE = "not available on this instrument"
+
+
+def _window_ok(wl, lo, hi):
+    """The N2 window lies on the scan's grid whole (with the neighbours its second difference reads)."""
+    from spyder_ref import gains as GN
+    return GN.window_covered(np.asarray(wl, float), lo, hi)
+
+
+def _unavailable(why):
+    return why if why.startswith(UNAVAILABLE) else f"{UNAVAILABLE} ({why})"
+
+
+def stat_sd(st, n2c, wl, joins, ops, inoise, correlation_nm, win, what):
+    """(SD of one detector term of a linear statistic on this scan, None) or (None, why not): the term's gain through
+    the correction (spyder_ref.gains.stat_term_gain) x N2(win) on the AS-MEASURED scan (NaN when N2 is not finite)."""
+    from spyder_ref import gains as GN
+    try:
+        g = GN.stat_term_gain(st, wl, joins, ops, inoise, correlation_nm, win, what)
+    except GN.GainError as e:
+        return None, e.status[len("not assessed: "):] if e.status.startswith("not assessed: ") else e.status
+    return g * n2c(*win), None
+
+
+def _stat(g, name):
+    st = dict(g["statistics"][name])
+    if isinstance(st["kernel"], str):
+        st["kernel"] = g["kernels"][st["kernel"]]
+    return st
+
+
+BANDS_NOT_BUILT_IN = "not assessed: band evidence needs this instrument built in"
+
+
+def band_evidence_off(ev, zo):
+    """An instrument with no built-in correction (DECISIONS 137, amended 2026-10-19: uncalibrated instruments): the band
+    calls are off. The evidence level and the ZooMS band pattern (pattern, verdict, the 1545 nm vote) become 'not
+    assessed: band evidence needs this instrument built in' (null); the band readings themselves (E, u, SD, per-band
+    state, lit / readable) stay for the close-ups and the export. In place."""
+    ev["status"] = BANDS_NOT_BUILT_IN
+    ev["level"] = None
+    zo["status"] = BANDS_NOT_BUILT_IN
+    for k in ("pattern", "verdict", "pattern_verdict", "vote_1545"):
+        zo[k] = None
+
+
+NATIVE_SCAN = "native standard-resolution scan"
+NEAR_UNCORRECTED = "near-uncorrected correction (read as a native standard-resolution scan)"
+
+
+def standard_like(Pa, Pl, Ps, wl, joins=(1000.0, 1800.0), ops=None, inoise=None):
+    """Whether a correction leaves the stream's noise standard-resolution-like (DECISIONS 137; Matt, 2026-10-19:
+    LabSpec 4 standard never changes): every statistic the noise policies read (check.acquisition's B6b gate and
+    fallback statistics, check.longwave's tail reading, check.signs' soft-tier statistic) has a noise gain through the
+    correction within std_like_within (check.acquisition) of its gain as measured, e.g. a standard-resolution unit's own
+    file. Every noise policy then treats the stream exactly like a native standard-resolution scan: the uncorrected
+    B6b table (no fallbacks), long-wave not assessed, the soft tier always eligible, the profiles' non-native models
+    and second opinion off. A gain that cannot be computed: not near. No correction (ops None): False."""
+    from spyder_ref import gains as GN
+    if ops is None:
+        return False
+    g = Pa["B6b_signs_gate"]
+    corr = g.get("correlation_nm", 1.25)
+    terms = [(_stat(g, e["statistic"]), corr, tuple(e["n2_window_nm"]), f"check.acquisition {e['statistic']}")
+             for e in g["corrected"].values() if e is not None]
+    terms += [(_stat(g, f["statistic"]), corr, tuple(f["n2_window_nm"]), f"check.acquisition {f['statistic']}")
+              for f in g.get("fallbacks", {}).values()]
+    if Pl is not None and "tail_statistic" in Pl:
+        terms.append((Pl["tail_statistic"], Pl.get("correlation_nm", 1.25), tuple(Pl["n2_window_nm"]),
+                      "check.longwave tail_statistic"))
+    st = (Ps or {}).get("soft_tier")
+    if st:
+        el = st["eligibility"]
+        terms.append((el["otherwise_statistic"], el.get("correlation_nm", 1.25), tuple(el["otherwise_n2_window_nm"]),
+                      "check.signs soft_tier"))
+    try:
+        return all(abs(GN.stat_term_gain(s, wl, joins, ops, inoise, c, w, what)
+                       / GN.stat_term_gain(s, wl, joins, None, None, c, w, what) - 1.0) <= g["std_like_within"]
+                   for s, c, w, what in terms)
+    except GN.GainError:
+        return False
+
+
+def b6b(P, n2c, wl, joins=(1000.0, 1800.0), ops=None, inoise=None, near=False):
+    """Per-sign B6b gates (phase 0c, DECISIONS 76; DECISIONS 137: for ANY correction), decided on the AS-MEASURED N2.
+
+    The stream as measured (ops None), or through a near-uncorrected correction (near, standard_like): the uncorrected
+    table, exactly today's standard-resolution gates (a sign is gated when N2 of its window exceeds n2_above; no
+    fallbacks).
+    Any other correction: a sign is gated when the propagated SD of its statistic's designated detector term exceeds
+    sd_above (fixed once from the v0.2 cuts, in SD units); burnt (null) is never gated; a gated sign with a fallback
+    runs its reduced form when the reduced statistic's SD is at most sd_at_most (DECISIONS 107). A window the scan does
+    not cover: the sign is not checked, 'not available on this instrument (...)'.
     Returns (summary record, {sign: gate reason or None}, {sign: reduced variant}). Summary: n2 = N2(n2_window_nm),
     signs_gated = contaminant signs gated with no eligible fallback (not checked), signs_reduced = gated signs whose
     reduced variant is eligible (it runs, except C1 when a specific sign fired: C1 is then 'skipped' as usual),
     gated = every contaminant sign in signs_gated, outcome Note when either list is non-empty."""
     g = P["B6b_signs_gate"]
-    tab = g["by_transfer_key"].get(tkey)
-    if tab is None:
-        tab = g["by_transfer_key"][g["unknown_transfer_key_uses"]]
-    gates = {}
-    for s in g["signs"]:
-        e = tab.get(s)
-        if e is None:                          # a null gate: the sign is never gated (burnt on v0.2)
-            gates[s] = None
-            continue
-        lo, hi = e["n2_window_nm"]
-        gates[s] = f"noise in {int(lo)}-{int(hi)} nm" if n2c(lo, hi) > e["n2_above"] else None
-    fb = (g.get("fallbacks_by_transfer_key") or {}).get(tkey) or {}
-    reduced = {}
-    for s in g["contaminant_signs"]:
-        f = fb.get(s)
-        if gates.get(s) and f and n2c(*f["n2_window_nm"]) <= f["n2_at_most"]:
-            reduced[s] = f["variant"]
+    corr = g.get("correlation_nm", 1.25)
+    gates, reduced = {}, {}
+    table = ops is None or bool(near)
+    if table:
+        for s in g["signs"]:
+            e = g["uncorrected"].get(s)
+            if e is None:
+                gates[s] = None
+                continue
+            lo, hi = e["n2_window_nm"]
+            if not _window_ok(wl, lo, hi):
+                gates[s] = f"{UNAVAILABLE} (the N2 window {int(lo)}-{int(hi)} nm is not covered by the scan)"
+                continue
+            gates[s] = f"noise in {int(lo)}-{int(hi)} nm" if n2c(lo, hi) > e["n2_above"] else None
+    else:
+        for s in g["signs"]:
+            e = g["corrected"].get(s)
+            if e is None:                          # never gated (burnt: it reads the visible edge, not the SWIR2)
+                gates[s] = None
+                continue
+            lo, hi = e["n2_window_nm"]
+            sd, why = stat_sd(_stat(g, e["statistic"]), n2c, wl, joins, ops, inoise, corr, (lo, hi),
+                              f"check.acquisition {e['statistic']}")
+            if why is not None:
+                gates[s] = _unavailable(why)
+                continue
+            gates[s] = f"noise in {int(lo)}-{int(hi)} nm" if sd > e["sd_above"] else None
+        for s in g["contaminant_signs"]:
+            f = g.get("fallbacks", {}).get(s)
+            if not (f and gates.get(s)) or gates[s].startswith(UNAVAILABLE):
+                continue
+            sd, why = stat_sd(_stat(g, f["statistic"]), n2c, wl, joins, ops, inoise, corr, tuple(f["n2_window_nm"]),
+                              f"check.acquisition {f['statistic']}")
+            if why is None and sd <= f["sd_at_most"]:
+                reduced[s] = f["variant"]
     v = n2c(*g["n2_window_nm"])
     sg = [s for s in g["contaminant_signs"] if gates.get(s) and s not in reduced]
     sr = [s for s in g["contaminant_signs"] if s in reduced]
@@ -132,15 +246,26 @@ def unusable(acq):
 
 
 # ====================================================================== Step 2c: long-wave eligibility
-def longwave(P, instrument_class, n2c):
+def longwave(P, native, n2c, wl=None, joins=(1000.0, 1800.0), ops=None, inoise=None):
+    """The long-wave tail (> 2300 nm) on any stream that is not the native standard-resolution scan (a correction
+    applied, unless near-uncorrected; or another instrument's scan as measured; DECISIONS 137): tail-unreliable for B9 /
+    C1 when the propagated SD of the tail reading (through the stream's correction; none as measured) x
+    N2(n2_window_nm) exceeds b9_sd_above / c1_sd_above (fixed once from the v0.2 cuts, in SD units). native: why the
+    stream counts as the native standard-resolution scan (NATIVE_SCAN or NEAR_UNCORRECTED; True means NATIVE_SCAN): not
+    assessed, for that reason. A window or reading the scan does not cover: not available on this instrument, the tail
+    unreliable."""
     lo, hi = P["n2_window_nm"]
     v = n2c(lo, hi)
-    applies = instrument_class in P["applies_to_classes"]
-    unrel = bool(applies and v > P["tail_unreliable_if_n2_above"])
-    # per-check cut (phase 0c): C1 (the contaminant check only) has its own, higher cut; B9 keeps the shared one
-    unrel_c1 = bool(applies and v > P.get("c1_tail_unreliable_if_n2_above", P["tail_unreliable_if_n2_above"]))
-    return {"status": "assessed" if applies else "not assessed: standard-resolution class",
-            "n2": _f(v), "tail_unreliable": unrel, "tail_unreliable_c1": unrel_c1}
+    if native:
+        why = native if isinstance(native, str) else NATIVE_SCAN
+        return {"status": f"not assessed: {why}", "n2": _f(v), "tail_unreliable": False, "tail_unreliable_c1": False}
+    sd, why = stat_sd(P["tail_statistic"], n2c, wl, joins, ops, inoise, P.get("correlation_nm", 1.25), (lo, hi),
+                      "check.longwave tail_statistic")
+    if why is not None:
+        return {"status": f"not assessed: {_unavailable(why)}", "n2": _f(v), "tail_unreliable": True,
+                "tail_unreliable_c1": True}
+    return {"status": "assessed", "n2": _f(v), "tail_unreliable": bool(sd > P["b9_sd_above"]),
+            "tail_unreliable_c1": bool(sd > P["c1_sd_above"])}
 
 
 # ====================================================================== Step 5: B9
@@ -187,7 +312,7 @@ def evidence(wl, E, P, bands, sd_E):
                 "n_readable_core": None, "n_lit_core": None, "guard_max_E": None, "bands": {}}
     w = {b: float(bands[b]["weight"]) for b in ids}
     u = {b: _u(bands, b, r[b]) for b in ids}
-    sdu = {b: (sd_E[b] / w[b] if sd_E.get(b) is not None else NAN) for b in ids}
+    sdu = {b: _band_sd(sd_E, b) / w[b] for b in ids}
     sdmax = P["readability"]["sd_max_u"]; clear_t = P["thresholds_u"]["clear"]; strong_t = P["thresholds_u"]["strong"]
     unread_below = P["readability"]["unreadable_only_if_u_below"]
 
@@ -251,8 +376,7 @@ def zooms(wl, E, P, bands, sd_E):
     fr = P["readability"]
     for b in six:
         wb = float(bands[b]["weight"])
-        sd = sd_E.get(b)
-        sd = NAN if sd is None else sd
+        sd = _band_sd(sd_E, b)
         rd[b] = not (sd > fr["sd_max_frac_w"] * wb and r[b] < fr["unreadable_only_if_E_below_frac_w"] * wb)
         lit[b] = r[b] > P["lit_if_E_above"]
     nP = sum(lit[b] for b in prot); nC = sum(lit[b] for b in ch)
@@ -270,7 +394,7 @@ def zooms(wl, E, P, bands, sd_E):
     # verdict = the ZooMS verdict (after the 1545 vote); pattern_verdict = the band pattern alone, which is what the
     # radiocarbon / isotopes rules read (+D, lift, positive signs): the vote belongs to ZooMS only (DECISIONS 75)
     out = {"status": "assessed", "pattern": pat, "verdict": v, "pattern_verdict": v,
-           "bands": {b: {"E": r[b], "lit": bool(lit[b]), "readable": bool(rd[b]), "sd_E": _f(sd_E.get(b, NAN))}
+           "bands": {b: {"E": r[b], "lit": bool(lit[b]), "readable": bool(rd[b]), "sd_E": _f(_band_sd(sd_E, b))}
                      for b in six}}
     # phase 0c vote (DECISIONS 75): a readable, lit OH-corrected 1545 nm trough turns Unlikely into Borderline
     vt = P.get("vote")
@@ -279,8 +403,7 @@ def zooms(wl, E, P, bands, sd_E):
         b = vt["band"]
         rv = float(K.band_value(E, wl, bands[b])[0])
         uv = _u(bands, b, rv)
-        sd = sd_E.get(b)
-        sdu = NAN if sd is None else sd / float(bands[b]["weight"])
+        sdu = _band_sd(sd_E, b) / float(bands[b]["weight"])
         fin = math.isfinite(rv)
         rdv = fin and not (sdu > fr["sd_max_frac_w"] and uv < fr["unreadable_only_if_E_below_frac_w"])
         litv = fin and uv > vt["lit_if_u_above"]
@@ -293,7 +416,29 @@ def zooms(wl, E, P, bands, sd_E):
 
 
 # ====================================================================== Step 8: contamination signs
+def heat_range(P):
+    """(lo, hi) nm the heat check reads: the visible edge from scan_from_nm up to the reference window, R_vis and the
+    two OH sharp indices (450-1446 nm with the shipped parameters)."""
+    e, c = P["charred"]["edge50"], P["calcined"]
+    los = [e["scan_from_nm"], e["reference_nm"][0], c["R_vis"]["range_nm"][0]]
+    his = [e["reference_nm"][1], c["R_vis"]["range_nm"][1]]
+    for k in ("OH1433", "OH979"):
+        cc, _, _, f1 = c[k]["sharp"]
+        los.append(cc - f1)
+        his.append(cc + f1)
+    return float(min(los)), float(max(his))
+
+
 def heat(wl, R_std, N17, P):
+    """Charred by the visible edge alone; calcined. A scan whose grid does not hold the range the check reads (450-1446
+    nm): 'not available on this instrument', never a default."""
+    lo, hi = heat_range(P)
+    wl = np.asarray(wl, float)
+    on = lambda x: bool(np.any(np.abs(wl - x) <= 1e-6))
+    if not (on(lo) and on(hi)):
+        return {"status": f"not assessed: not available on this instrument (the heat sign reads {int(lo)}-{int(hi)} nm)",
+                "edge50_nm": None, "OH1433": None, "OH979": None, "R_vis": None, "charred": None, "calcined": None,
+                "fired": None}
     e = P["charred"]["edge50"]
     ref = K.window_mean(np.atleast_2d(R_std), wl, *e["reference_nm"])[0]
     a = K.idx(wl, e["scan_from_nm"])
@@ -315,17 +460,24 @@ def heat(wl, R_std, N17, P):
             "calcined": bool(calc), "fired": bool(charred or calc)}
 
 
-def signs(wl, R_std, P, Ph, gates, reduced=None):
+def gate_status(reason):
+    """A sign not read because of its B6b gate: 'gated: <reason>'; because the scan does not cover its window: 'not
+    assessed: not available on this instrument (...)'."""
+    return f"not assessed: {reason}" if reason.startswith(UNAVAILABLE) else f"gated: {reason}"
+
+
+def signs(wl, R_std, P, Ph, gates, reduced=None, heat_stream=None):
     """Plaster, wax, ester and burnt (no clay: DECISIONS 41). gates: {sign: B6b gate reason or None} (per sign,
     phase 0c); a gated sign is 'gated: <reason>' and not read, unless reduced names its fallback (plaster 'band_1446':
-    the 1446 nm load alone, status 'assessed: reduced (1446 nm band only; <gate reason>)'). Every sign record ends with
-    gated (bool)."""
+    the 1446 nm load alone, status 'assessed: reduced (1446 nm band only; <gate reason>)'). heat_stream: the spectrum
+    the heat check reads when it is not R_std (the scan as measured, for a correction whose visible levels were not
+    fitted; DECISIONS 137). Every sign record ends with gated (bool)."""
     names = ["plaster", "wax", "ester", "burnt"]
     gates = gates or {}
     reduced = reduced or {}
     out = {}
     if all(gates.get(n) for n in names) and not reduced.get("plaster"):
-        return {n: {"status": f"gated: {gates[n]}", "fired": None, "gated": True} for n in names}
+        return {n: {"status": gate_status(gates[n]), "fired": None, "gated": True} for n in names}
     N = K.derivative(R_std, P["kernel"])
     pl = P["plaster"]
     loads = [(float(K.sharp(N, wl, *b["sharp"])[0]) - b["fauna_median"]) / b["plaster_contrast"] for b in pl["bands"]]
@@ -349,7 +501,10 @@ def signs(wl, R_std, P, Ph, gates, reduced=None):
         out["ester"] = {"status": NA, "sharp": None, "fired": None}
     else:
         out["ester"] = {"status": "assessed", "sharp": v, "fired": bool(v >= es["at_least"])}
-    hb = heat(wl, R_std, N, Ph)
+    if heat_stream is None:
+        hb = heat(wl, R_std, N, Ph)
+    else:
+        hb = heat(wl, heat_stream, K.derivative(heat_stream, P["kernel"]), Ph)
     out["burnt"] = {"status": "assessed", **hb}
     for n in names:
         if n == "plaster" and gates.get(n) and reduced.get(n) == "band_1446":
@@ -361,24 +516,33 @@ def signs(wl, R_std, P, Ph, gates, reduced=None):
                 out[n] = {"status": f"assessed: reduced (1446 nm band only; {gates[n]})", "joint_load": None,
                           "load_1446": v, "fired": bool(v > r["fires_if_load_above"]), "gated": False}
         elif gates.get(n):
-            out[n] = {"status": f"gated: {gates[n]}", "fired": None, "gated": True}
+            out[n] = {"status": gate_status(gates[n]), "fired": None, "gated": True}
         else:
             out[n]["gated"] = False
     return out
 
 
-def soft_tier(Ps, Pc1, instrument_class, n2c, sg, c1r):
+def soft_tier(Ps, Pc1, native, n2c, sg, c1r, wl=None, joins=(1000.0, 1800.0), ops=None, inoise=None):
     """The 'possible thin coating' tier (phase 0c, DECISIONS 74/76): a note only. Fires when no hard contaminant
-    sign fired, the scan is eligible (a class in always_classes, else N2(otherwise_n2_window_nm) <= otherwise_n2_at_most)
-    and a CHECKED sign's statistic reaches its soft line: C1 excess (full or truncated, check.c1), ester sharp, plaster
-    joint load. components = the statistics that crossed (C1 / C1t, ester, plaster), only when it fires."""
+    sign fired, the scan is eligible (the native standard-resolution scan always, also through a near-uncorrected
+    correction; any other stream when the propagated SD of the C1 statistic's SWIR2 term, through its correction, x
+    N2(otherwise_n2_window_nm) is at most
+    otherwise_sd_at_most; DECISIONS 137) and a CHECKED sign's statistic reaches its soft line: C1 excess (full or
+    truncated, check.c1), ester sharp, plaster joint load. components = the statistics that crossed (C1 / C1t, ester,
+    plaster), only when it fires."""
     st = Ps.get("soft_tier")
     if not st:
         return {"status": "not assessed: no soft tier", "eligible": False, "fired": False, "components": []}
     hard = [n for n in st["requires_no_hard_sign"] if (c1r if n == "C1" else sg.get(n, {})).get("fired")]
     el = st["eligibility"]
     lo, hi = el["otherwise_n2_window_nm"]
-    eligible = bool(instrument_class in el["always_classes"] or n2c(lo, hi) <= el["otherwise_n2_at_most"])
+    why = None
+    if native and el.get("native_always", True):
+        eligible = True
+    else:
+        sd, why = stat_sd(el["otherwise_statistic"], n2c, wl, joins, ops, inoise, el.get("correlation_nm", 1.25),
+                          (lo, hi), "check.signs soft_tier")
+        eligible = bool(why is None and sd <= el["otherwise_sd_at_most"])
     comps = []
     if eligible:
         c1s = str(c1r.get("status", ""))
@@ -393,8 +557,13 @@ def soft_tier(Ps, Pc1, instrument_class, n2c, sg, c1r):
         if pl.get("status") == "assessed" and pl["joint_load"] >= st["plaster"]["joint_load_at_least"]:
             comps.append("plaster")
     fired = bool(eligible and not hard and comps)
-    return {"status": "assessed" if eligible else f"not assessed: noise in {int(lo)}-{int(hi)} nm",
-            "eligible": eligible, "fired": fired, "components": comps if fired else []}
+    if eligible:
+        status = "assessed"
+    elif why is not None:
+        status = f"not assessed: {_unavailable(why)}"
+    else:
+        status = f"not assessed: noise in {int(lo)}-{int(hi)} nm"
+    return {"status": status, "eligible": eligible, "fired": fired, "components": comps if fired else []}
 
 
 def c1(wl, E, P, gate, specific_fired, tail_unreliable, longwave_mode="not_assessed", reduced=None):
@@ -405,7 +574,7 @@ def c1(wl, E, P, gate, specific_fired, tail_unreliable, longwave_mode="not_asses
     gated (bool)."""
     nil = {"film": None, "film_fired": None}
     if gate and reduced != "swir1":
-        return {"status": f"gated: {gate}", "excess": None, **nil, "fired": None, "gated": True}
+        return {"status": gate_status(gate), "excess": None, **nil, "fired": None, "gated": True}
     if specific_fired:
         return {"status": "skipped: a specific sign fired", "excess": None, **nil, "fired": None, "gated": False}
     Q, st = P, "assessed"

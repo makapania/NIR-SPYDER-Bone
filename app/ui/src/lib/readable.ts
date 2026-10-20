@@ -2,10 +2,11 @@
 // and the details panel), so the file and the app never disagree. The technical CSV (the core's oracle-identical
 // rows, every value unrounded) is written beside it by the Rust side.
 import { checkRows, assessmentText } from './details';
-import { LEVEL_WORD, MODEL_NAME, formatModel, formatReading, zoomsHeadline } from './display';
+import { MODEL_NAME, formatModel, formatReading, levelWord, zoomsHeadline } from './display';
+import { scanInstrument } from './instrument';
 import { isZoomsLine, pickNotes } from './notes';
 import { isUnscored } from './sort';
-import { NOTE_TEXT, NOT_BONE_TEXT, UNUSABLE_TEXT, flagLabel, flagText, noteText } from './strings';
+import { NOTE_TEXT, NOT_BONE_TEXT, UNUSABLE_TEXT, noteText, shownFlag } from './strings';
 import { verdictMeta, verdictSentence } from './verdict';
 import type { ModelKey, ScanResult } from './types';
 
@@ -34,21 +35,8 @@ function scanned(iso: string): string {
   return m ? `${m[1]} ${m[2]}` : iso;
 }
 
-function instrument(s: ScanResult): string {
-  const cls =
-    s.instrumentClass === 'hires'
-      ? `High-res, transferred to standard resolution${s.transfer ? ` (v${s.transfer.version}, provisional)` : ''}`
-      : 'Standard';
-  const src =
-    s.classSource === 'user'
-      ? 'set by you'
-      : s.classSource === 'default'
-        ? 'default setting'
-        : s.classSource === 'header_preset'
-          ? 'preset from the detector settings'
-          : 'preset from the serial';
-  return `${cls}; ${src}`;
-}
+/** The instrument and the correction the scan was read through (instrument.ts: never assumed from the class). */
+const instrument = (s: ScanResult): string => scanInstrument(s);
 
 /** The sentence(s) under the verdict, exactly as the verdict card builds them. */
 function why(s: ScanResult, headline: { key: string }[]): string {
@@ -128,9 +116,13 @@ export function readableCsv(scans: ScanResult[], meta: ReadableMeta): string {
       shownReading,
       whyText,
       zooms ? noteText(zooms) : '',
-      fired.map((x) => `${flagLabel(x.id)}: ${flagText(x.id, x.heatKind)}`).join(' '),
+      // as on the card: provisional on an instrument not built in (DECISIONS 137)
+      fired
+        .map((x) => shownFlag(s, x.id, x.heatKind))
+        .map((f) => `${f.label}: ${f.text}`)
+        .join(' '),
       also.join(' '),
-      LEVEL_WORD[s.evidence.level],
+      levelWord(s.evidence),
       zoomsHeadline(s.zooms, s.evidence.bands),
       ...models.map((k) => model(s, k)),
       instrument(s),

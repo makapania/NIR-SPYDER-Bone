@@ -9,6 +9,45 @@ use serde::Serialize;
 
 use super::{parse_header, Header, Node, PResult, PluginError, PROFILE_FORMAT};
 
+/// Which scans a profile model (or the second opinion) is for (DECISIONS 137: keyed on the stream, not on class names).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum ShownFor {
+    /// Every scan.
+    EveryScan,
+    /// Only when the stream is not the native standard-resolution scan (a correction applied, unless near-uncorrected,
+    /// or another instrument's scan as measured).
+    NonNative,
+    /// Legacy (before DECISIONS 137): these instrument classes.
+    Classes(Vec<String>),
+}
+
+impl ShownFor {
+    /// Whether it applies to a scan of this class whose stream is (or is not) the native standard-resolution scan.
+    pub fn applies(&self, native: bool, class: &str) -> bool {
+        match self {
+            ShownFor::EveryScan => true,
+            ShownFor::NonNative => !native,
+            ShownFor::Classes(c) => c.iter().any(|x| x == class),
+        }
+    }
+}
+
+/// `shown_for` ("every_scan" | "non_native"), else a legacy class list under `legacy_key`.
+fn shown_for(n: &Node, key: &str, legacy_key: &str) -> PResult<ShownFor> {
+    if let Some(v) = n.opt(key) {
+        return Ok(match v.one_of(&["every_scan", "non_native"])? {
+            "every_scan" => ShownFor::EveryScan,
+            _ => ShownFor::NonNative,
+        });
+    }
+    Ok(ShownFor::Classes(
+        n.opt(legacy_key)
+            .map(|c| c.vec_str())
+            .transpose()?
+            .unwrap_or_default(),
+    ))
+}
+
 /// One model a profile shows.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ProfileModel {
@@ -17,7 +56,9 @@ pub struct ProfileModel {
     pub role: String,
     /// CONS3 component names (verdict input only).
     pub components: Vec<String>,
-    pub shown_for_classes: Vec<String>,
+    pub shown_for: ShownFor,
+    /// The model runs on the scan as measured for any instrument (`reads: "as_measured"`; S1_R2 is transfer-free).
+    pub reads_as_measured: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -267,7 +308,9 @@ pub struct Flags {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SecondOpinion {
-    pub classes: Vec<String>,
+    /// Which scans the note is for (the non-native streams).
+    pub streams: ShownFor,
+    /// The default gap; a correction file may carry its own (`provenance.second_opinion_gap`).
     pub gap_points: f64,
 }
 
@@ -332,11 +375,11 @@ pub fn parse_profile(doc: &Node) -> PResult<AnalysisProfile> {
                     .map(|c| c.vec_str())
                     .transpose()?
                     .unwrap_or_default(),
-                shown_for_classes: m
-                    .opt("shown_for_classes")
-                    .map(|c| c.vec_str())
-                    .transpose()?
-                    .unwrap_or_default(),
+                shown_for: shown_for(m, "shown_for", "shown_for_classes")?,
+                reads_as_measured: match m.opt("reads") {
+                    None => false,
+                    Some(r) => r.one_of(&["as_measured"]).map(|_| true)?,
+                },
             })
         })
         .collect::<PResult<_>>()?;
@@ -373,7 +416,7 @@ pub fn parse_profile(doc: &Node) -> PResult<AnalysisProfile> {
     let second_opinion = match p.opt("second_opinion") {
         None => None,
         Some(s) => Some(SecondOpinion {
-            classes: strs(&s, "classes")?,
+            streams: shown_for(&s, "streams", "classes")?,
             gap_points: s.req("gap_points")?.f64()?,
         }),
     };

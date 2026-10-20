@@ -13,6 +13,7 @@ PLUG = REF.parent / "plugins"
 sys.path.insert(0, str(REF))
 import spyder_ref as SR                      # noqa: E402
 from spyder_ref import tables as TB          # noqa: E402
+from spyder_ref import gains as G            # noqa: E402
 from spyder_ref import golden_gen as GG      # noqa: E402
 from spyder_ref.validate_plugins import validate_folder, _schema_validator   # noqa: E402
 
@@ -34,6 +35,7 @@ def test_ids_versions_status():
             "collagen_nh3_oh_corrected.spyder-model.json": ("collagen.spyder.nh3_oh_corrected", "1.0.0"),
             "collagen_consensus3_median.spyder-model.json": ("collagen.spyder.consensus3_median", "1.0.0"),
             "collagen_1500_snv_transfer_free.spyder-model.json": ("collagen.spyder.1500_snv_transfer_free", "1.0.0"),
+            "hires_to_std_v0_3.spyder-transfer.json": ("transfer.labspec4.hires_to_std", "0.3.0"),
             "hires_to_std_v0_2.spyder-transfer.json": ("transfer.labspec4.hires_to_std", "0.2.0"),
             "hires_to_std_v0_1.spyder-transfer.json": ("transfer.labspec4.hires_to_std", "0.1.0")}
     for f, (i, v) in want.items():
@@ -41,8 +43,15 @@ def test_ids_versions_status():
         assert (d["id"], d["version"], d["status"]) == (i, v, "active"), f
         assert tuple(int(x) for x in d["version"].split("."))                  # integer-parsable
     assert load("collagen_nh3_1500_2045_2175.spyder-model.json")["status"] == "withdrawn"   # F05, replaced by F05c (DECISIONS 78)
-    for f in ("hires_to_std_v0_2.spyder-transfer.json", "hires_to_std_v0_1.spyder-transfer.json"):
+    for f in ("hires_to_std_v0_3.spyder-transfer.json", "hires_to_std_v0_2.spyder-transfer.json",
+              "hires_to_std_v0_1.spyder-transfer.json"):
         assert load(f)["provisional"] is True
+    # superseded files stay as history, marked as v0.1 was when v0.2 arrived (title, summary, superseded_by)
+    for f, new in (("hires_to_std_v0_1.spyder-transfer.json", "0.2.0"), ("hires_to_std_v0_2.spyder-transfer.json", "0.3.0")):
+        d = load(f)
+        assert d["title"].endswith(f"; superseded by {new})") and f"superseded by {new}):" in d["provenance"]["summary"]
+        assert d["provenance"]["superseded_by"] == f"transfer.labspec4.hires_to_std {new}"
+    assert "superseded_by" not in load("hires_to_std_v0_3.spyder-transfer.json")["provenance"]
 
 
 def test_transfer_v02_constants_and_selection():
@@ -55,6 +64,23 @@ def test_transfer_v02_constants_and_selection():
     assert SR.pick_transfer(cons, hi, [t1, t2])["version"] == "0.2.0"            # newest active wins
     assert SR.pick_transfer(cons, SR.ScanContext(), [t1, t2]) == "none"
     assert SR.pick_transfer(load("collagen_1500_snv_transfer_free.spyder-model.json"), hi, [t1, t2]) == "none"
+
+
+def test_transfer_v03_constants_and_selection():
+    """The rebuilt LabSpec high-res file (DECISIONS 137, general method, datasheet blur; REPORT_b1_builder section 9) is
+    the newest active version of the id, so it reads every high-res scan."""
+    t3 = load("hires_to_std_v0_3.spyder-transfer.json")
+    t2, t1 = load("hires_to_std_v0_2.spyder-transfer.json"), load("hires_to_std_v0_1.spyder-transfer.json")
+    assert SR.file_sha256(PLUG / "hires_to_std_v0_3.spyder-transfer.json").startswith("594ee6a6")
+    blur, aff = t3["operator"]
+    assert blur["op"] == "gaussian_blur" and blur["sigma_nm"] == [0.0, 3.3973, 3.3973] and blur["radius"] == "ceil"
+    assert aff["gain"] == [0.5777, 0.6983, 0.5881] and aff["offset"] == [0.2742, 0.2005, 0.3552]
+    assert t3["provenance"]["visible_levels"] == "fitted"
+    assert t3["provenance"]["supersedes"].startswith("transfer.labspec4.hires_to_std 0.2.0")
+    cons = load("collagen_consensus3_median.spyder-model.json")
+    hi = SR.ScanContext((1000.0, 1800.0), "asd.labspec4.hires")
+    assert SR.pick_transfer(cons, hi, [t1, t2, t3])["version"] == "0.3.0"        # newest active wins
+    assert SR.pick_transfer(cons, hi, [t3, t2, t1])["version"] == "0.3.0"
 
 
 def test_consensus_equals_components():
@@ -93,21 +119,32 @@ def test_schema_negative():
     assert sv(d)
     t = json.loads((PLUG / "hires_to_std_v0_2.spyder-transfer.json").read_text(encoding="utf-8")); t.pop("provisional")
     assert sv(t)
-    b = json.loads((PLUG / "bands.json").read_text(encoding="utf-8")); b["bands"]["CH2262"]["readability"]["gain_E_per_N2"]["v0.2"] = 1.0
-    assert sv(b)                                                                  # keys must be 'none' or a sha256
+    b = json.loads((PLUG / "bands.json").read_text(encoding="utf-8")); b["bands"]["CH2262"]["readability"]["gain_E_per_N2"] = {"none": 1.0}
+    assert sv(b)                                                                  # format 2: no per-transfer gains
+    n = json.loads((PLUG / "noise_gains.json").read_text(encoding="utf-8")); n["format_version"] = 1
+    assert sv(n)
 
 
-def test_tables_keys_and_not_assessed():
+def test_tables_compute_gains_and_say_why_not():
+    """Format 2 (DECISIONS 137): the gains are computed for the correction applied; a consensus SD is the factor x the
+    median of its components' SDs; an output the engine cannot compute says why (never a silent default)."""
     ng = load("noise_gains.json"); bj = load("bands.json")
-    k02 = SR.file_sha256(PLUG / "hires_to_std_v0_2.spyder-transfer.json")
+    t02 = load("hires_to_std_v0_2.spyder-transfer.json")
+    ops, inn = G.correction_of(t02)
     wl, x, _ = SPEC["pair10_hires"]
-    sd = TB.implied_sd(ng, "collagen.spyder.consensus3_median", x, k02)
-    comp = [TB.implied_sd(ng, m, x, k02) for m in ng["consensus"]["collagen.spyder.consensus3_median"]["components"].values()]
-    assert abs(sd - ng["consensus"]["collagen.spyder.consensus3_median"]["factor"] * sorted(comp)[1]) < 1e-12
-    assert TB.implied_sd(ng, "collagen.ryder2026.2045", x, "0" * 64) is None   # unknown transfer -> not assessed
-    assert TB.readability_sd(bj, "CH2262", x, "0" * 64) is None
+    n2_of = lambda lo, hi: SR.n2(x, lo, hi)
+    cons = load("collagen_consensus3_median.spyder-model.json")
+    r = TB.implied_sd(ng, cons, wl, (1000.0, 1800.0), ops, inn, n2_of)
+    comp = list(r["component_sd"].values())
+    assert r["status"] == "assessed" and abs(r["sd"] - ng["consensus"][cons["id"]]["factor"] * sorted(comp)[1]) < 1e-12
+    snv = ops + [{"op": "snv", "ddof": 0, "blocks_nm": [[1100.0, 1700.0]]}]
+    ry = load("collagen_2045_ryder2026_n140.spyder-model.json")
+    r = TB.implied_sd(ng, ry, wl, (1000.0, 1800.0), snv, inn, n2_of)
+    assert r["sd"] is None and r["status"] == "not assessed: non-linear correction"
+    sd, st = TB.readability_sd(bj, "CH2262", wl, (1000.0, 1800.0), snv, inn, n2_of)
+    assert sd == float("inf") and st == "not assessed: non-linear correction"     # unknown noise is too noisy
     assert bj["bands"]["CH2262"]["readability"]["noise_window_nm"] == [2220, 2245]
-    bad = copy.deepcopy(ng); bad["models"]["collagen.ryder2026.2045"]["none"]["terms"][0]["gain"] *= 1.01
+    bad = copy.deepcopy(ng); bad["consensus"][cons["id"]]["factor"] *= 1.01
     assert any(not r[-1] for r in TB.run_table_goldens(bad, GS, PLUG))
 
 

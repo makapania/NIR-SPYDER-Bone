@@ -98,6 +98,23 @@ impl Core {
         Some(self.engine()?.analyse_bytes(bytes, name, class, source))
     }
 
+    /// Whether the instrument registry lists this class.
+    pub fn has_class(&self, class: &str) -> bool {
+        self.reg
+            .as_ref()
+            .and_then(|r| r.instruments())
+            .is_some_and(|i| i.has_class(class))
+    }
+
+    /// The registry's display name of a class ("Trek-type handheld", ...), if it lists it.
+    pub fn display_name(&self, class: &str) -> Option<String> {
+        self.reg
+            .as_ref()?
+            .instruments()?
+            .display_name(class)
+            .map(str::to_string)
+    }
+
     /// The class a known serial says (registry `instruments.json`), if any.
     pub fn class_of_serial(&self, serial: u64) -> Option<&str> {
         self.reg.as_ref()?.instruments()?.class_of_serial(serial)

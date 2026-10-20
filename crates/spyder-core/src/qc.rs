@@ -2,7 +2,8 @@
 //!
 //! Every check is a pure function returning a [`CheckResult`]: an assessment status (separate from the
 //! result, PLAN section 3), an outcome when assessed, the numbers behind it, and the plain-words message.
-//! B6 needs noise gains from Phase 0b; it is parameterised by [`NoiseGains`] and never Unusable.
+//! B6 needs the noise gains computed for each model and correction ([`crate::plugins::gains`]); it lives in the
+//! pipeline and is never Unusable.
 
 use std::collections::BTreeMap;
 
@@ -291,7 +292,7 @@ pub fn b5_dark_spot(scan: &Scan) -> CheckResult {
 }
 
 // ---------------------------------------------------------------------------------------------- B6, B6b
-/// B6 lives in the pipeline (`pipeline::b6_noise`, DECISIONS 109: cut-aware, gains from `noise_gains.json`).
+/// B6 lives in the pipeline (`pipeline::b6_noise`, DECISIONS 109: cut-aware; gains computed for the correction applied).
 /// This placeholder serves `spyder read`, which loads no gains.
 pub fn b6_without_gains(reason: &str) -> CheckResult {
     CheckResult::not_assessed("B6", "noise as prediction uncertainty", reason)

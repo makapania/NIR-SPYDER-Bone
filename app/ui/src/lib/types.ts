@@ -2,10 +2,13 @@
 // the JSONL session file and the UI all read the same record. The core (spyder-core) owns the
 // numbers and the rule outcomes; the UI only formats and draws them.
 
-export type InstrumentClass = 'standard' | 'hires';
+/** 'standard' / 'hires': the LabSpec 4 switch; any other value is another instrument's class id from the instrument
+ *  registry (e.g. 'asd.fieldspec3'), shown read-only (DECISIONS 137). */
+export type InstrumentClass = 'standard' | 'hires' | (string & {});
 /** Who set the instrument class: the user's switch, a known serial preset, a preset from the file header's detector
- *  settings (an unlisted serial; a heuristic), or the default (DECISIONS 50). */
-export type ClassSource = 'user' | 'serial_preset' | 'header_preset' | 'default';
+ *  settings (an unlisted serial; a heuristic), the default (DECISIONS 50), or the file itself (another instrument's
+ *  file, known by its format and, for as7, its detector joins; DECISIONS 137). */
+export type ClassSource = 'user' | 'serial_preset' | 'header_preset' | 'default' | 'file_format';
 /** The core's analysis profiles. The app shows ONE verdict (radiocarbon / isotopes) for every analysis, with a
  *  ZooMS line where the ZooMS band check calls a scan better (DECISIONS 80 amended); it only asks for 'radiocarbon'. */
 export type Analysis = 'radiocarbon' | 'zooms' | 'isotopes';
@@ -74,6 +77,8 @@ export interface Zooms {
   verdict?: Verdict;
   /** The OH-corrected 1545 nm band voted Unlikely up to Borderline (DECISIONS 75). */
   vote1545?: boolean;
+  /** Not assessed on an instrument with no built-in correction (DECISIONS 137): no band pattern there. */
+  status?: Assessment;
 }
 
 export type ModelKey = 'cons3' | 'wc2045' | 'wc1500' | 'f05' | 'ryder2045' | 's1r2' | 'lowrange' | 'ch1728';
@@ -154,8 +159,14 @@ export type NoteKey =
   | 'second_opinion_differs'
   | 'serial_class_mismatch'
   | 'header_class_mismatch'
-  | 'no_transfer_available'
-  | 'no_model_reading';
+  // no correction for this instrument is installed: the results are uncalibrated (DECISIONS 137)
+  | 'instrument_uncalibrated'
+  // the correction did not fit its visible levels: the heat sign reads the scan as measured (DECISIONS 137)
+  | 'visible_levels_not_fitted'
+  | 'no_model_reading'
+  // the band noise could not be estimated (a correction the engine cannot propagate noise through, or a band not inside
+  // one detector segment of this instrument): faint bands there are not read (DECISIONS 137)
+  | 'band_noise_unknown';
 
 /** One reader comparison (DECISIONS 119): its value, the value at which the readers-disagree note fires, and how far
  *  along it is (1 = at the line). Names: CH, CHN, GL, SHP, SP3, RAW. */
@@ -202,7 +213,10 @@ export interface ScanResult {
   acquiredAt: string;
   serial: number | null;
   instrumentClass: InstrumentClass;
+  /** The registry's name of another instrument's class ("Trek-type handheld"); absent or null for the LabSpec classes. */
+  instrumentName?: string | null;
   classSource: ClassSource;
+  /** The correction that made the standard-resolution stream (null: the scan as measured). */
   transfer: TransferInfo | null;
   analysis: Analysis;
   profileId: string;
@@ -213,8 +227,9 @@ export interface ScanResult {
   notes: Note[];
   /** The notes shown under the verdict (at most two), as the core chose them. Absent: notes.ts picks. */
   notesShown?: NoteKey[];
-  /** Flag badges from the core ({key, signs}); the fired signs carry the same information. */
-  flags?: { key: string; signs: SignId[] }[];
+  /** Flag badges from the core ({key, signs}); the fired signs carry the same information. provisional: the
+   *  instrument has no built-in correction (DECISIONS 137). */
+  flags?: { key: string; signs: SignId[]; provisional?: boolean }[];
   /** The verdict from the collagen models alone (before flat bands, +D or a lift). */
   modelVerdict?: Verdict | null;
   /** The core's rule step verbatim (exports). */
@@ -243,6 +258,10 @@ export interface ScanResult {
   scoreMs?: number;
   /** The verdict block's panel record (radiocarbon / isotopes; DECISIONS 119, 121): the details panel's numbers. */
   panel?: PanelInfo | null;
+  /** No correction for this scan's instrument is installed (DECISIONS 137): the band calls are off (the evidence level
+   *  and the ZooMS band check are not assessed; the readings set the verdict) and the contaminant and heat signs are
+   *  provisional. */
+  uncalibrated?: boolean;
 
   // Live folder watching (UI-side; not export fields).
   /** Delivery order within the current watch; "newest first" uses it while live. */

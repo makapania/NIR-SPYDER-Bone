@@ -4,7 +4,8 @@
 //! appears in this file.
 //!
 //! Goldens come from `planning/work/other_instruments/gen_private_goldens_instruments.py` (git-ignored), found at
-//! `<SPYDER_PRIVATE_DATA>/../planning/work/other_instruments`.
+//! $SPYDER_PRIVATE_INSTRUMENTS or `<SPYDER_PRIVATE_DATA>/../planning/work/other_instruments` (as the other private
+//! suites' SPYDER_PRIVATE_GOLDENS / _PREDICTIONS / _ORACLE, so a branch can run against its own fixtures).
 //!
 //!   SPYDER_PRIVATE_DATA="<private data folder>" cargo test -p spyder-core --test private_instruments -- --nocapture
 
@@ -27,9 +28,10 @@ fn private(test: &str) -> Option<(PathBuf, Value)> {
         );
         return None;
     };
-    let g = data
-        .join("..")
-        .join("planning/work/other_instruments/private_goldens_instruments.json");
+    let g = std::env::var_os("SPYDER_PRIVATE_INSTRUMENTS")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| data.join("..").join("planning/work/other_instruments"))
+        .join("private_goldens_instruments.json");
     let text = std::fs::read_to_string(&g).unwrap_or_else(|e| {
         panic!(
             "SPYDER_PRIVATE_DATA is set but {} is missing ({e}); run gen_private_goldens_instruments.py",

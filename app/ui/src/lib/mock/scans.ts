@@ -257,7 +257,7 @@ function buildScored(spec: MockScanSpec, analysis: Analysis, cls: InstrumentClas
     serial: live ? null : MOCK_SERIAL,
     instrumentClass: cls,
     classSource: 'serial_preset' as const,
-    transfer: hires ? { id: 'transfer.hires_to_std', version: '0.2.0', provisional: true } : null,
+    transfer: hires ? { id: 'transfer.hires_to_std', version: '0.3.0', provisional: true } : null,
     analysis,
     profileId: `${analysis}@1.0.0`,
     engineVersion: '1.1 (mock)',

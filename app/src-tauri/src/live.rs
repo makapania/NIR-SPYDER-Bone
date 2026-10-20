@@ -117,23 +117,18 @@ impl Live {
     }
 
     /// The switch the user set for this folder before, if any.
-    pub fn remembered_class(&self, folder: &str) -> Option<&'static str> {
+    pub fn remembered_class(&self, folder: &str) -> Option<String> {
         remembered_class(
             lock(&self.settings)
                 .folder(folder)
-                .and_then(|f| f.instrument_class),
+                .and_then(|f| f.instrument_class.clone()),
         )
     }
 
     /// Remember the user's switch for a folder.
     pub fn remember_class(&self, folder: &str, class: &str) {
         let mut s = lock(&self.settings);
-        s.folder_mut(folder).instrument_class =
-            Some(if class == spyder_core::plugins::CLASS_HIRES {
-                InstrumentClass::Hires
-            } else {
-                InstrumentClass::Standard
-            });
+        s.folder_mut(folder).instrument_class = Some(InstrumentClass::from_core(class));
         self.save_settings(&s);
     }
 
@@ -297,7 +292,7 @@ fn start_inner(
     let (include, mode, remembered) = {
         let mut s = lock(&live.settings);
         let f = s.folder_mut(&folder);
-        let remembered = remembered_class(f.instrument_class);
+        let remembered = remembered_class(f.instrument_class.clone());
         if let Some(i) = include_existing {
             f.include_existing = Some(i);
         }

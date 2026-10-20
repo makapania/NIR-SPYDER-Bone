@@ -131,18 +131,44 @@ def _gate(status):
 
 def _reduced(P, rec, ctx):
     """{sign: fallback variant} for the signs the record ran in a reduced form (check.acquisition fallbacks)."""
-    st = P.stream_transfer(ctx["instrument_class"], ctx.get("serial"))
-    key = "none" if st in (None, "none") else st.sha256
-    fb = (P.cp("acquisition")["B6b_signs_gate"].get("fallbacks_by_transfer_key") or {}).get(key) or {}
+    fb = P.cp("acquisition")["B6b_signs_gate"].get("fallbacks") or {}
     return {s: fb[s]["variant"] for s in rec["checks"]["B6b"].get("signs_reduced", []) if s in fb}
+
+
+def _stream(P, ctx):
+    """(correction name for the check goldens: 'none' or the transfer's id@version, its document or None, native)."""
+    st = P.stream_transfer(ctx["instrument_class"], ctx.get("serial"))
+    if st in (None, "none"):
+        return "none", None, ctx["instrument_class"] == "asd.labspec4.std" and st == "none"
+    return st.ref, st.doc, False
+
+
+def _joins(ctx):
+    j = [float(x) for x in ctx.get("splices_nm", [1000.0, 1800.0])]
+    return {} if j == [1000.0, 1800.0] else {"splices_nm": j}
+
+
+def golden_corrections(P, cases):
+    """The corrections the acquisition / long-wave check cases name: operators (and instrument noise) of each."""
+    out = {}
+    for c in cases:
+        name = c["inputs"].get("correction", "none")
+        if name == "none" or name in out:
+            continue
+        doc = next(t.doc for t in P.transfers() if t.ref == name)
+        e = {"operator": [{k: v for k, v in op.items() if k != "note"} for op in doc["operator"]]}
+        inn = (doc.get("provenance") or {}).get("instrument_noise")
+        if inn:
+            e["instrument_noise"] = inn
+        out[name] = e
+    return out
 
 
 def check_inputs(P, chk, rec, ctx):
     """The inputs a check golden needs, read from the end-to-end record (per-sign gates and the per-check long-wave
-    flag since phase 0c)."""
+    flag since phase 0c; the stream's correction since DECISIONS 137)."""
     if chk == "acquisition":
-        st = P.stream_transfer(ctx["instrument_class"], ctx.get("serial"))
-        return {"transfer_key": "none" if st in (None, "none") else st.sha256}
+        return {"correction": _stream(P, ctx)[0], **_joins(ctx)}
     if chk in ("evidence_levels", "zooms_patterns"):
         return {"sd_E": rec["band_noise"]["sd_E"]}
     if chk == "signs":
@@ -159,7 +185,8 @@ def check_inputs(P, chk, rec, ctx):
         return {"truncated": bool(rec["checks"]["longwave"]["tail_unreliable"])
                 and P.cp("longwave")["when_unreliable"]["b9"] == "truncated"}
     if chk == "longwave":
-        return {"instrument_class": ctx["instrument_class"]}
+        name, _, native = _stream(P, ctx)
+        return {"native": native, "correction": name, **_joins(ctx)}
     return {}
 
 
@@ -266,8 +293,9 @@ def main(argv=None):
                 variants.append((f"{name} [longwave mode {other}]", dict(inputs, longwave_mode=other)))
             if chk == "b9" and inputs["truncated"]:
                 variants.append((f"{name} [full windows]", dict(inputs, truncated=False)))
+            gold = {"corrections": golden_corrections(P, [{"inputs": vin} for _, vin in variants])}
             for vn, vin in variants:
-                got = checkgold.compute_check(chk, P, WL, xs, vin)
+                got = checkgold.compute_check(chk, P, WL, xs, vin, gold)
                 chk_cases[chk].append({"name": vn, "spectrum_sha256": si["sha256"], "inputs": vin, "expected": got})
         print(f"  {name:44s} {rec.get('radiocarbon', {}).get('verdict')!s:24s} {rec.get('radiocarbon', {}).get('rule_step')}")
     # ---- 1. end-to-end goldens
@@ -298,6 +326,8 @@ def main(argv=None):
         d = P.check(chk)
         doc = json.loads(d.path.read_text(encoding="utf-8"))
         doc["golden"] = {"spectra_file": sp.name, "tolerance": TOL, "cases": cases}
+        if chk in ("acquisition", "longwave"):
+            doc["golden"]["corrections"] = golden_corrections(P, cases)
         print(f"  check.{chk}: {len(cases)} cases;", _write_if_changed(d.path, doc))
     # ---- 3. profile goldens
     for analysis, cases in C["profile_cases"].items():

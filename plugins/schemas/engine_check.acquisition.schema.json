@@ -102,8 +102,11 @@
       "n2_window_nm",
       "signs",
       "contaminant_signs",
-      "by_transfer_key",
-      "unknown_transfer_key_uses"
+      "uncorrected",
+      "std_like_within",
+      "corrected",
+      "kernels",
+      "statistics"
      ],
      "properties": {
       "n2_window_nm": {
@@ -140,89 +143,221 @@
        },
        "minItems": 1
       },
-      "by_transfer_key": {
+      "uncorrected": {
        "type": "object",
-       "minProperties": 1,
+       "description": "per sign: gated when N2(n2_window_nm) > n2_above (a stream read as measured, or a near-uncorrected correction); a null gate is never gated",
        "propertyNames": {
-        "pattern": "^(none|[0-9a-f]{64})$"
+        "enum": [
+         "plaster",
+         "wax",
+         "ester",
+         "burnt",
+         "C1"
+        ]
+       },
+       "additionalProperties": {
+        "oneOf": [
+         {
+          "type": "null"
+         },
+         {
+          "type": "object",
+          "required": [
+           "n2_window_nm",
+           "n2_above"
+          ],
+          "properties": {
+           "n2_window_nm": {
+            "type": "array",
+            "items": {
+             "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+           },
+           "n2_above": {
+            "type": "number"
+           }
+          }
+         }
+        ]
+       }
+      },
+      "std_like_within": {
+       "type": "number",
+       "minimum": 0,
+       "description": "a correction whose every noise-policy statistic (these gate and fallback statistics, check.longwave's tail reading, check.signs' soft-tier statistic) has a noise gain within this fraction of its uncorrected gain is near-uncorrected: the uncorrected table, and every noise policy treats the stream exactly like a native standard-resolution scan"
+      },
+      "corrected": {
+       "type": "object",
+       "propertyNames": {
+        "enum": [
+         "plaster",
+         "wax",
+         "ester",
+         "burnt",
+         "C1"
+        ]
+       },
+       "additionalProperties": {
+        "oneOf": [
+         {
+          "type": "null"
+         },
+         {
+          "type": "object",
+          "required": [
+           "statistic",
+           "n2_window_nm",
+           "sd_above"
+          ],
+          "properties": {
+           "statistic": {
+            "type": "string"
+           },
+           "n2_window_nm": {
+            "type": "array",
+            "items": {
+             "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+           },
+           "sd_above": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           }
+          }
+         }
+        ]
+       }
+      },
+      "fallbacks": {
+       "type": "object",
+       "propertyNames": {
+        "enum": [
+         "plaster",
+         "C1"
+        ]
        },
        "additionalProperties": {
         "type": "object",
-        "additionalProperties": {
-         "oneOf": [
-          {
-           "type": "null"
+        "required": [
+         "variant",
+         "statistic",
+         "n2_window_nm",
+         "sd_at_most"
+        ],
+        "properties": {
+         "variant": {
+          "enum": [
+           "band_1446",
+           "swir1"
+          ]
+         },
+         "statistic": {
+          "type": "string"
+         },
+         "n2_window_nm": {
+          "type": "array",
+          "items": {
+           "type": "number"
           },
-          {
-           "type": "object",
-           "required": [
-            "n2_window_nm",
-            "n2_above"
-           ],
-           "properties": {
-            "n2_window_nm": {
-             "type": "array",
-             "items": {
-              "type": "number"
-             },
-             "minItems": 2,
-             "maxItems": 2
-            },
-            "n2_above": {
-             "type": "number"
-            }
-           }
-          }
-         ]
+          "minItems": 2,
+          "maxItems": 2
+         },
+         "sd_at_most": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         }
         }
        }
       },
-      "unknown_transfer_key_uses": {
-       "type": "string",
-       "pattern": "^(none|[0-9a-f]{64})$"
+      "correlation_nm": {
+       "type": "number",
+       "minimum": 0
       },
-      "fallbacks_by_transfer_key": {
+      "kernels": {
        "type": "object",
-       "propertyNames": {
-        "pattern": "^[0-9a-f]{64}$"
-       },
        "additionalProperties": {
         "type": "object",
-        "propertyNames": {
-         "enum": [
-          "plaster",
-          "C1"
-         ]
-        },
-        "additionalProperties": {
-         "type": "object",
-         "required": [
-          "variant",
-          "n2_window_nm",
-          "n2_at_most"
-         ],
-         "properties": {
-          "variant": {
-           "enum": [
-            "band_1446",
-            "swir1"
-           ]
-          },
-          "n2_window_nm": {
+        "required": [
+         "absorbance_clip",
+         "savgol",
+         "scale"
+        ],
+        "properties": {
+         "absorbance_clip": {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         "savgol": {
+          "type": "object"
+         },
+         "scale": {
+          "type": "number"
+         }
+        }
+       }
+      },
+      "statistics": {
+       "type": "object",
+       "minProperties": 1,
+       "additionalProperties": {
+        "type": "object",
+        "required": [
+         "kernel",
+         "windows"
+        ],
+        "description": "a linear statistic: sum over windows of weight x mean E over [lo, hi] nm (inclusive), E = scale x Savitzky-Golay derivative of absorbance (the kernel)",
+        "properties": {
+         "kernel": {
+          "oneOf": [
+           {
+            "type": "string"
+           },
+           {
+            "type": "object",
+            "required": [
+             "absorbance_clip",
+             "savgol",
+             "scale"
+            ],
+            "properties": {
+             "absorbance_clip": {
+              "type": "number",
+              "exclusiveMinimum": 0
+             },
+             "savgol": {
+              "type": "object"
+             },
+             "scale": {
+              "type": "number"
+             }
+            }
+           }
+          ]
+         },
+         "windows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
            "type": "array",
            "items": {
             "type": "number"
            },
-           "minItems": 2,
-           "maxItems": 2
-          },
-          "n2_at_most": {
-           "type": "number"
+           "minItems": 3,
+           "maxItems": 3
           }
          },
-         "additionalProperties": false
+         "of": {
+          "type": "string"
+         }
         }
        }
+      },
+      "anchor": {
+       "type": "object"
       }
      }
     },

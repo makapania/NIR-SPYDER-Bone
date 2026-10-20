@@ -3,7 +3,7 @@
  "format_version": 1,
  "analysis": "isotopes",
  "id": "profile.isotopes",
- "version": "2.2.0",
+ "version": "2.3.0",
  "engine_min": "1.1",
  "status": "active",
  "title": "Stable isotopes: verdict profile",
@@ -28,54 +28,38 @@
      "wc1500",
      "F05"
     ],
-    "shown_for_classes": [
-     "asd.labspec4.std",
-     "asd.labspec4.hires"
-    ]
+    "shown_for": "every_scan"
    },
    {
     "key": "ryder2045",
     "model_id": "collagen.ryder2026.2045",
     "role": "published",
-    "shown_for_classes": [
-     "asd.labspec4.std",
-     "asd.labspec4.hires"
-    ]
+    "shown_for": "every_scan"
    },
    {
     "key": "s1_r2",
     "model_id": "collagen.spyder.1500_snv_transfer_free",
     "role": "second_opinion",
-    "shown_for_classes": [
-     "asd.labspec4.hires"
-    ]
+    "shown_for": "non_native",
+    "reads": "as_measured"
    },
    {
     "key": "lowrange",
     "model_id": "collagen.spyder.1545_lowrange",
     "role": "low_range",
-    "shown_for_classes": [
-     "asd.labspec4.std",
-     "asd.labspec4.hires"
-    ]
+    "shown_for": "every_scan"
    },
    {
     "key": "ch1728",
     "model_id": "collagen.spyder.1728_ch",
     "role": "panel",
-    "shown_for_classes": [
-     "asd.labspec4.std",
-     "asd.labspec4.hires"
-    ]
+    "shown_for": "every_scan"
    },
    {
     "key": "nb1545",
     "model_id": "collagen.spyder.1545_narrow",
     "role": "panel",
-    "shown_for_classes": [
-     "asd.labspec4.std",
-     "asd.labspec4.hires"
-    ]
+    "shown_for": "every_scan"
    }
   ],
   "cuts": {
@@ -345,10 +329,9 @@
    }
   },
   "second_opinion": {
-   "classes": [
-    "asd.labspec4.hires"
-   ],
+   "streams": "non_native",
    "gap_points": 4.1,
+   "gap_note": "the default gap on every stream that is not the native standard-resolution scan (a correction applied, unless near-uncorrected (check.acquisition std_like_within), or another instrument's scan as measured; DECISIONS 137); a correction file may carry its own (provenance.second_opinion_gap, estimated from at least 20 scans), which then replaces it",
    "basis": "Phase 0b item 18: |S1_R2 - CONS3| on 36 concordant standard/high-res pairs (high-res side), 95th percentile 4.10 (bootstrap CI 2.96-5.92)"
   },
   "domain_note_ratio_above": 3.0,
@@ -392,7 +375,8 @@
    ],
    "descending": true,
    "unrounded": true
-  }
+  },
+  "models_note": "shown_for: every_scan, or non_native (only when the stream is not the native standard-resolution scan: a correction applied, unless near-uncorrected (check.acquisition std_like_within), or another instrument's scan as measured); reads as_measured: the model runs on the scan as measured for any instrument (S1_R2 is transfer-free; DECISIONS 98, 137)"
  },
  "golden": {
   "tolerance": {

@@ -70,7 +70,7 @@ fn an_open_superseded_by_a_watch_never_mixes_files_or_classes() {
     let gb = shared.new_session(Some("B".into()), true, None, None);
     assert!(gb > ga);
     assert_eq!(
-        shared.open_files(ga, Some("A".into()), Some(CLASS_HIRES), &files),
+        shared.open_files(ga, Some("A".into()), Some(CLASS_HIRES.into()), &files),
         None,
         "a superseded Open must not publish"
     );
@@ -86,11 +86,11 @@ fn an_open_superseded_by_a_watch_never_mixes_files_or_classes() {
     let g1 = shared.reserve();
     let g2 = shared.reserve();
     assert_eq!(
-        shared.open_files(g2, Some("D2".into()), Some(CLASS_STD), &files[..1]),
+        shared.open_files(g2, Some("D2".into()), Some(CLASS_STD.into()), &files[..1]),
         Some(1)
     );
     assert_eq!(
-        shared.open_files(g1, Some("D1".into()), Some(CLASS_HIRES), &files),
+        shared.open_files(g1, Some("D1".into()), Some(CLASS_HIRES.into()), &files),
         None
     );
     let s = lock(&shared.session);
@@ -121,7 +121,7 @@ fn concurrent_opens_publish_exactly_the_newest_one_whole() {
                 (
                     g,
                     k,
-                    sh.open_files(g, Some(format!("F{k}")), Some(class), &fs),
+                    sh.open_files(g, Some(format!("F{k}")), Some(class.into()), &fs),
                 )
             })
         })
@@ -185,7 +185,7 @@ fn header_gains_preset_an_unlisted_serial_and_never_override_the_user() {
     use spyder_bone_app_lib::session::ClassSource;
     let core = core();
     let notes = |s: &Session, i: usize| -> Vec<String> {
-        scan_result(&core, &s.entries[i], "radiocarbon", s.class, s.source)
+        scan_result(&core, &s.entries[i], "radiocarbon", &s.class, s.source)
             .notes
             .into_iter()
             .map(|n| n.key)
@@ -199,27 +199,39 @@ fn header_gains_preset_an_unlisted_serial_and_never_override_the_user() {
     let mut s = Session::new(1, Some("H".into()), false, None);
     s.add(&core, with_header("H/a.asd", 1, 40001, (16, 18)));
     assert_eq!(s.entries[0].swir_gains(), Some((16, 18)));
-    assert_eq!((s.class, s.source), (CLASS_HIRES, ClassSource::Header));
+    assert_eq!(
+        (s.class.as_str(), s.source),
+        (CLASS_HIRES, ClassSource::Header)
+    );
     // A standard-looking file in the same folder keeps the preset and gets a gentle note.
     s.add(&core, with_header("H/b.asd", 2, 40002, (300, 450)));
-    assert_eq!((s.class, s.source), (CLASS_HIRES, ClassSource::Header));
+    assert_eq!(
+        (s.class.as_str(), s.source),
+        (CLASS_HIRES, ClassSource::Header)
+    );
     assert!(!notes(&s, 0).contains(&"header_class_mismatch".to_string()));
     assert!(notes(&s, 1).contains(&"header_class_mismatch".to_string()));
     // A listed serial outranks the header preset.
     s.add(&core, with_header("H/c.asd", 3, 28404, (300, 450)));
-    assert_eq!((s.class, s.source), (CLASS_STD, ClassSource::Preset));
+    assert_eq!(
+        (s.class.as_str(), s.source),
+        (CLASS_STD, ClassSource::Preset)
+    );
 
     // Unlisted serial, standard-like gains: preset to Standard.
     let mut s = Session::new(2, Some("S".into()), false, None);
     s.add(&core, with_header("S/a.asd", 1, 40001, (300, 450)));
-    assert_eq!((s.class, s.source), (CLASS_STD, ClassSource::Header));
+    assert_eq!(
+        (s.class.as_str(), s.source),
+        (CLASS_STD, ClassSource::Header)
+    );
 
     // Gains that fit no class (between the ranges, split, or absent): no preset, no note, no error.
     for (k, g) in [(100, 100), (16, 450), (0, 0)].into_iter().enumerate() {
         let mut s = Session::new(3 + k as u64, Some("U".into()), false, None);
         s.add(&core, with_header("U/a.asd", 1, 40001, g));
         assert_eq!(
-            (s.class, s.source),
+            (s.class.as_str(), s.source),
             (CLASS_STD, ClassSource::Default),
             "{g:?}"
         );
@@ -227,9 +239,9 @@ fn header_gains_preset_an_unlisted_serial_and_never_override_the_user() {
     }
 
     // The user's remembered switch is never preset over.
-    let mut s = Session::new(9, Some("R".into()), false, Some(CLASS_STD));
+    let mut s = Session::new(9, Some("R".into()), false, Some(CLASS_STD.into()));
     s.add(&core, with_header("R/a.asd", 1, 40001, (16, 16)));
-    assert_eq!((s.class, s.source), (CLASS_STD, ClassSource::User));
+    assert_eq!((s.class.as_str(), s.source), (CLASS_STD, ClassSource::User));
     assert!(notes(&s, 0).contains(&"header_class_mismatch".to_string()));
 }
 
@@ -293,7 +305,7 @@ fn every_reanalysis_appends_a_result_revision_and_rewatching_dedups_on_configura
     assert_eq!(m[0]["seq"], 1, "the arrival's file facts are kept");
 
     // The switch re-analyses: a new revision of every scan with the new configuration.
-    s.set_class(&core, CLASS_STD);
+    s.set_class(&core, CLASS_STD.into());
     let r = scans(&log);
     assert_eq!(r.len(), 5);
     let m = mine(&r);
@@ -304,19 +316,19 @@ fn every_reanalysis_appends_a_result_revision_and_rewatching_dedups_on_configura
     assert_eq!(m[1]["sha256"], m[0]["sha256"]);
     assert_ne!(m[1]["resultKey"], m[0]["resultKey"]);
     // The same switch again changes nothing, so nothing is appended.
-    s.set_class(&core, CLASS_STD);
+    s.set_class(&core, CLASS_STD.into());
     assert_eq!(scans(&log).len(), 5);
     drop(s);
 
     // Re-watched under the same configuration: the log already holds this exact result.
-    let mut s = Session::new(2, Some("W".into()), true, Some(CLASS_STD))
+    let mut s = Session::new(2, Some("W".into()), true, Some(CLASS_STD.into()))
         .with_log(Some(SessionLog::open(&log).unwrap()));
     s.add(&core, arrival(path, 7));
     assert_eq!(scans(&log).len(), 5);
     drop(s);
 
     // Re-watched under another configuration: appended as the next revision.
-    let mut s = Session::new(3, Some("W".into()), true, Some(CLASS_HIRES))
+    let mut s = Session::new(3, Some("W".into()), true, Some(CLASS_HIRES.into()))
         .with_log(Some(SessionLog::open(&log).unwrap()));
     s.add(&core, arrival(path, 7));
     let r = scans(&log);

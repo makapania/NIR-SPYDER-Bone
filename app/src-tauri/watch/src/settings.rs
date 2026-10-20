@@ -1,8 +1,8 @@
 //! The settings file (03_architecture section 6.3): a typed, versioned JSON struct, migrated forward on load and
 //! written atomically (temp file, fsync, rename).
 //!
-//! Version 1 holds the watched folders: per folder the Standard / High-res switch (DECISIONS 50: the user's,
-//! remembered per folder), the "include files already there" choice, the watch mode (auto / poll / native) and
+//! Version 1 holds the watched folders: per folder the instrument switch (DECISIONS 50: the user's, remembered per
+//! folder: "standard" / "hires", or an instrument registry class id; DECISIONS 137), the "include files already there" choice, the watch mode (auto / poll / native) and
 //! when it was last used; plus the folder that was being watched when the app closed, so watching resumes there.
 //!
 //! Failure handling never loses the user's file: unreadable JSON is kept as `settings.json.corrupt-<ms>` and
@@ -19,11 +19,41 @@ pub const SETTINGS_VERSION: u32 = 1;
 /// Folders remembered (most recent first); older ones are dropped.
 pub const MAX_FOLDERS: usize = 30;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum InstrumentClass {
-    Standard,
-    Hires,
+/// A folder's remembered instrument class: "standard" or "hires" (the LabSpec 4 switch; every file written before
+/// DECISIONS 137 holds one of these), or a class id from the instrument registry (e.g. "asd.fieldspec3").
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct InstrumentClass(pub String);
+
+impl InstrumentClass {
+    pub const STANDARD: &'static str = "standard";
+    pub const HIRES: &'static str = "hires";
+
+    pub fn standard() -> Self {
+        InstrumentClass(Self::STANDARD.into())
+    }
+
+    pub fn hires() -> Self {
+        InstrumentClass(Self::HIRES.into())
+    }
+
+    /// The core's class name ("standard" / "hires" -> the LabSpec 4 class ids; any other value is a class id).
+    pub fn core_class(&self) -> String {
+        match self.0.as_str() {
+            Self::STANDARD | "std" => "asd.labspec4.std".into(),
+            Self::HIRES | "high-res" => "asd.labspec4.hires".into(),
+            other => other.into(),
+        }
+    }
+
+    /// The value remembered for a core class name.
+    pub fn from_core(class: &str) -> Self {
+        match class {
+            "asd.labspec4.std" => Self::standard(),
+            "asd.labspec4.hires" => Self::hires(),
+            other => InstrumentClass(other.into()),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -260,7 +290,7 @@ mod tests {
         let p = tmp("rt");
         let mut s = SettingsStore::load(&p);
         assert!(s.notice.is_none());
-        s.folder_mut(r"D:\LabSpec\2026").instrument_class = Some(InstrumentClass::Hires);
+        s.folder_mut(r"D:\LabSpec\2026").instrument_class = Some(InstrumentClass::hires());
         s.folder_mut("/Volumes/lab/drop").include_existing = Some(false);
         s.settings.resume_folder = Some("/Volumes/lab/drop".into());
         s.save().unwrap();
@@ -273,10 +303,40 @@ mod tests {
     }
 
     #[test]
+    fn a_remembered_class_can_be_any_registry_class() {
+        // DECISIONS 137: "standard" / "hires" stay as they were written; another class id is kept as it is
+        let p = tmp("cls");
+        let mut s = SettingsStore::load(&p);
+        s.folder_mut("/data/fs3").instrument_class =
+            Some(InstrumentClass::from_core("asd.fieldspec3"));
+        s.folder_mut("/data/hr").instrument_class =
+            Some(InstrumentClass::from_core("asd.labspec4.hires"));
+        s.save().unwrap();
+        let json = fs::read_to_string(&p).unwrap();
+        assert!(
+            json.contains("\"instrumentClass\": \"asd.fieldspec3\""),
+            "{json}"
+        );
+        assert!(json.contains("\"instrumentClass\": \"hires\""), "{json}");
+        let t = SettingsStore::load(&p);
+        let c = |f: &str| {
+            t.folder(f)
+                .unwrap()
+                .instrument_class
+                .clone()
+                .unwrap()
+                .core_class()
+        };
+        assert_eq!(c("/data/fs3"), "asd.fieldspec3");
+        assert_eq!(c("/data/hr"), "asd.labspec4.hires");
+        assert_eq!(InstrumentClass::standard().core_class(), "asd.labspec4.std");
+    }
+
+    #[test]
     fn folder_lookup_ignores_trailing_separators() {
         let p = tmp("key");
         let mut s = SettingsStore::load(&p);
-        s.folder_mut("/data/scans/").instrument_class = Some(InstrumentClass::Standard);
+        s.folder_mut("/data/scans/").instrument_class = Some(InstrumentClass::standard());
         assert!(s.folder("/data/scans").is_some());
         assert_eq!(s.settings.folders.len(), 1);
         s.folder_mut("/data/scans");
@@ -296,7 +356,7 @@ mod tests {
         assert_eq!(s.settings.settings_version, SETTINGS_VERSION);
         assert_eq!(
             s.settings.folders[0].instrument_class,
-            Some(InstrumentClass::Standard)
+            Some(InstrumentClass::standard())
         );
         assert_eq!(s.settings.folders[0].watch_mode, ModeChoice::Auto);
     }

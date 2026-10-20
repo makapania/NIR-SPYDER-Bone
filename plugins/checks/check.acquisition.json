@@ -3,17 +3,18 @@
  "format_version": 1,
  "check": "acquisition",
  "id": "check.acquisition",
- "version": "4.0.0",
+ "version": "5.0.0",
  "engine_min": "1.0",
  "status": "active",
  "title": "Acquisition checks B1-B8 and the per-sign B6b gates (as-measured scan)",
- "description": "Supported-input matrix (B1: LabSpec as8, Trek-type as7, FieldSpec 3 legacy reflectance; per-file detector joins) and the bad-scan checks on the AS-MEASURED reflectance (PLAN v3.2 Step 1-2). Unusable (B1-B4) replaces every verdict with Rescan. B6 is a Check only, raised per model when noise could carry the reading across a verdict cut (DECISIONS 109); never Unusable. B6b gates each contaminant sign (and C1) on the noise in its own window, with cuts keyed by the transfer applied to the stream. N2 is the canonical noise measure (1e-5 absorbance).",
+ "description": "Supported-input matrix (B1: LabSpec as8, Trek-type as7, FieldSpec 3 legacy reflectance; per-file detector joins) and the bad-scan checks on the AS-MEASURED reflectance (PLAN v3.2 Step 1-2). Unusable (B1-B4) replaces every verdict with Rescan. B6 is a Check only, raised per model when noise could carry the reading across a verdict cut (DECISIONS 109); never Unusable. B6b gates each contaminant sign (and C1) on the noise of its own statistic: read as measured, or through a near-uncorrected correction (every statistic the noise policies read keeps its noise within 15% of the uncorrected noise; every noise policy then treats the stream exactly like a native standard-resolution scan), today's standard-resolution table on N2; through any other correction, the statistic's noise SD propagated through that correction against a cut fixed once in SD units (DECISIONS 137). N2 is the canonical noise measure (1e-5 absorbance).",
  "licence": "CC-BY-4.0",
  "created": "2026-10-03",
  "provenance": {
   "basis": "SPYDER Bone planning reports 03 (reader), 07 (warnings), Phase 0a A1-A2 (canonical N2, B6b cut 60, correlated-noise gains). B8 thresholds from the relative splice steps of every file in hand (standard-resolution files <= 1.7%, high-resolution sessions <= 6.8%).",
-  "per_sign_gates": "Phase 0c (high-resolution noise study): clean false alarms of each sign on 1,201 clean standard-resolution scans with high-resolution-like noise injected, after the v0.2 transfer, as a function of the noise in the sign's own window; cut = the largest N2 at which the false-alarm rate stays within +0.25 points of the noiseless rate (model noise shape; measured shape as the pessimistic bound): wax 80 / 59 -> 60, ester 306 / 215 -> 250, plaster 174 / 125 -> 150, C1 125 / 50 -> 125. Burnt (visible-range edge and short-wave OH bands) is ungated on v0.2; the 'none' table keeps the shipped gate so standard-resolution behaviour is unchanged.",
-  "fallbacks": "2026-10-13 (pre-registered): the gates' cut N2(1500-1600) <= 30 (both fallbacks) is the largest noise at which the reduced statistics keep clean false alarms within the noiseless rate on 1,201 clean standard-resolution scans with high-resolution-like noise injected after the v0.2 transfer; 38 of 40 dark high-resolution scans pass it. Not N2(1400-1500) for plaster: the gypsum bands themselves raise it (median 17 -> 46-81 with plaster added), so that gate would close exactly when plaster is present (amendment 1)."
+  "per_sign_gates": "Phase 0c (high-resolution noise study): clean false alarms of each sign on 1,201 clean standard-resolution scans with high-resolution-like noise injected, after the v0.2 transfer, as a function of the noise in the sign's own window; cut = the largest N2 at which the false-alarm rate stays within +0.25 points of the noiseless rate (model noise shape; measured shape as the pessimistic bound): wax 80 / 59 -> 60, ester 306 / 215 -> 250, plaster 174 / 125 -> 150, C1 125 / 50 -> 125. Burnt (visible-range edge and short-wave OH bands) is ungated on v0.2; the uncorrected table keeps the shipped gate so standard-resolution behaviour is unchanged.",
+  "any_correction": "DECISIONS 137 (g2, 2026-10-19): each sign statistic is linear in absorbance, so its noise SD per unit of measured N2 comes from any blur + absorbance-gain correction by the engine's own propagation (the method of the band and model noise gains; Monte Carlo through v0.2 agrees within 3%). One rule reproduces both shipped tables: gate when the propagated SD exceeds c_s, c_s = the v0.2 gain x the v0.2 cut (plaster 150, wax 60, ester 250, C1 125 on their windows; fallbacks 30 on N2(1500-1600)). On the high-resolution sets in hand it reproduces every v0.2 gate and fallback exactly; the standard-resolution plaster and C1 cuts are the same rule within 1-2%. Kept for streams read as measured (and near-uncorrected corrections, which every noise policy treats as a native standard-resolution scan; Matt, 2026-10-19: standard-res never changes): the shipped table, exactly (LabSpec 4 standard never changes; unifying it would move ester on ~0.3% of standard-resolution scans).",
+  "fallbacks": "2026-10-13 (pre-registered): the gates' cut N2(1500-1600) <= 30 (both fallbacks) is the largest noise at which the reduced statistics keep clean false alarms within the noiseless rate on 1,201 clean standard-resolution scans with high-resolution-like noise injected after the v0.2 transfer; 38 of 40 dark high-resolution scans pass it. Not N2(1400-1500) for plaster: the gypsum bands themselves raise it (median 17 -> 46-81 with plaster added), so that gate would close exactly when plaster is present (amendment 1). Since 5.0.0 (DECISIONS 137) the trigger is the reduced statistic's propagated SD at most c (c = the v0.2 gain x 30), the same cut for any correction."
  },
  "parameters": {
   "input_matrix": {
@@ -80,7 +81,7 @@
    ],
    "check_if_cut_within_sd": 2.6,
    "unusable": null,
-   "note": "implied SD (% collagen) = gain x N2, gains keyed by model and transfer (noise_gains.json). Check when a verdict cut lies within check_if_cut_within_sd x SD of the reading: 2 SD, with the SD scaled by 1.3 because same-spot repeat scans (62 spots x 3) scatter 1.1-1.4x the implied SD (DECISIONS 109, work/noise_pred/REPORT_noise_pred.md)."
+   "note": "implied SD (% collagen) = gain x N2, the gains computed for the model and the correction applied (noise_gains.json). Check when a verdict cut lies within check_if_cut_within_sd x SD of the reading: 2 SD, with the SD scaled by 1.3 because same-spot repeat scans (62 spots x 3) scatter 1.1-1.4x the implied SD (DECISIONS 109, work/noise_pred/REPORT_noise_pred.md)."
   },
   "B6b_signs_gate": {
    "n2_window_nm": [
@@ -100,98 +101,290 @@
     "ester",
     "C1"
    ],
-   "by_transfer_key": {
-    "none": {
-     "plaster": {
-      "n2_window_nm": [
-       2000,
-       2100
-      ],
-      "n2_above": 60.0
-     },
-     "wax": {
-      "n2_window_nm": [
-       2000,
-       2100
-      ],
-      "n2_above": 60.0
-     },
-     "ester": {
-      "n2_window_nm": [
-       2000,
-       2100
-      ],
-      "n2_above": 60.0
-     },
-     "burnt": {
-      "n2_window_nm": [
-       2000,
-       2100
-      ],
-      "n2_above": 60.0
-     },
-     "C1": {
-      "n2_window_nm": [
-       2000,
-       2100
-      ],
-      "n2_above": 60.0
-     }
+   "uncorrected": {
+    "plaster": {
+     "n2_window_nm": [
+      2000,
+      2100
+     ],
+     "n2_above": 60.0
     },
-    "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": {
-     "plaster": {
-      "n2_window_nm": [
-       2000,
-       2100
-      ],
-      "n2_above": 150.0
-     },
-     "wax": {
-      "n2_window_nm": [
-       1500,
-       1600
-      ],
-      "n2_above": 60.0
-     },
-     "ester": {
-      "n2_window_nm": [
-       2220,
-       2245
-      ],
-      "n2_above": 250.0
-     },
-     "burnt": null,
-     "C1": {
-      "n2_window_nm": [
-       2000,
-       2100
-      ],
-      "n2_above": 125.0
-     }
+    "wax": {
+     "n2_window_nm": [
+      2000,
+      2100
+     ],
+     "n2_above": 60.0
+    },
+    "ester": {
+     "n2_window_nm": [
+      2000,
+      2100
+     ],
+     "n2_above": 60.0
+    },
+    "burnt": {
+     "n2_window_nm": [
+      2000,
+      2100
+     ],
+     "n2_above": 60.0
+    },
+    "C1": {
+     "n2_window_nm": [
+      2000,
+      2100
+     ],
+     "n2_above": 60.0
     }
    },
-   "unknown_transfer_key_uses": "none",
-   "fallbacks_by_transfer_key": {
-    "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": {
-     "plaster": {
-      "variant": "band_1446",
-      "n2_window_nm": [
-       1500,
-       1600
-      ],
-      "n2_at_most": 30.0
-     },
-     "C1": {
-      "variant": "swir1",
-      "n2_window_nm": [
-       1500,
-       1600
-      ],
-      "n2_at_most": 30.0
-     }
+   "std_like_within": 0.15,
+   "corrected": {
+    "plaster": {
+     "statistic": "plaster_1945",
+     "n2_window_nm": [
+      2000,
+      2100
+     ],
+     "sd_above": 0.02828399202273366
+    },
+    "wax": {
+     "statistic": "wax_1766",
+     "n2_window_nm": [
+      1500,
+      1600
+     ],
+     "sd_above": 2.1095118686937884
+    },
+    "ester": {
+     "statistic": "ester_2254",
+     "n2_window_nm": [
+      2220,
+      2245
+     ],
+     "sd_above": 7.80219477122152
+    },
+    "burnt": null,
+    "C1": {
+     "statistic": "c1",
+     "n2_window_nm": [
+      2000,
+      2100
+     ],
+     "sd_above": 1.8171613293840232
     }
    },
-   "note": "A sign is gated (not checked) when N2 of its own window on the AS-MEASURED scan exceeds its cut; the table is picked by the transfer key of the standard-resolution stream ('none' or the transfer file's sha256); a key with no entry uses the 'none' table; a null gate means the sign is never gated (burnt on v0.2: it reads the visible edge, not the noisy SWIR2). A gated sign with a fallback for the key (fallbacks_by_transfer_key) runs its reduced variant instead when N2 of the fallback window is at most n2_at_most (plaster: the 1446 nm band alone, check.signs plaster.reduced_1446; C1: the variant below 1800 nm, check.c1 swir1); it then counts as checked. The record keeps check.B6b as a summary: n2 = N2(n2_window_nm), signs_gated = the contaminant signs gated with no fallback available (not checked), signs_reduced = the gated signs whose reduced variant is eligible (it runs, except C1 when a specific sign fired: C1 is then skipped as usual), gated = every contaminant sign in signs_gated, outcome Note when either list is non-empty."
+   "fallbacks": {
+    "plaster": {
+     "variant": "band_1446",
+     "statistic": "plaster_1446",
+     "n2_window_nm": [
+      1500,
+      1600
+     ],
+     "sd_at_most": 0.008695836931998813
+    },
+    "C1": {
+     "variant": "swir1",
+     "statistic": "c1_swir1",
+     "n2_window_nm": [
+      1500,
+      1600
+     ],
+     "sd_at_most": 0.7879697644590612
+    }
+   },
+   "correlation_nm": 1.25,
+   "kernels": {
+    "signs": {
+     "absorbance_clip": 0.001,
+     "savgol": {
+      "window": 17,
+      "polyorder": 2,
+      "deriv": 2,
+      "delta": 1.0,
+      "mode": "interp"
+     },
+     "scale": -100000.0
+    },
+    "c1": {
+     "absorbance_clip": 1e-06,
+     "savgol": {
+      "window": 31,
+      "polyorder": 3,
+      "deriv": 2,
+      "delta": 1.0,
+      "mode": "interp"
+     },
+     "scale": -100000.0
+    }
+   },
+   "statistics": {
+    "plaster_1945": {
+     "kernel": "signs",
+     "windows": [
+      [
+       1942,
+       1948,
+       0.006050062389121104
+      ],
+      [
+       1930,
+       1935,
+       -0.003025031194560552
+      ],
+      [
+       1955,
+       1960,
+       -0.003025031194560552
+      ]
+     ],
+     "of": "check.signs plaster: the 1945 nm band's load (sharp index / plaster contrast)"
+    },
+    "wax_1766": {
+     "kernel": "signs",
+     "windows": [
+      [
+       1763,
+       1769,
+       1.0
+      ],
+      [
+       1751,
+       1757,
+       -0.5
+      ],
+      [
+       1775,
+       1781,
+       -0.5
+      ]
+     ],
+     "of": "check.signs wax: the 1766 nm sharp index"
+    },
+    "ester_2254": {
+     "kernel": "signs",
+     "windows": [
+      [
+       2251,
+       2257,
+       1.0
+      ],
+      [
+       2239,
+       2245,
+       -0.5
+      ],
+      [
+       2263,
+       2269,
+       -0.5
+      ]
+     ],
+     "of": "check.signs ester: the 2254 nm sharp index"
+    },
+    "c1": {
+     "kernel": "c1",
+     "windows": [
+      [
+       1726,
+       1730,
+       1.0
+      ],
+      [
+       1760,
+       1764,
+       1.0
+      ],
+      [
+       2260,
+       2264,
+       1.0
+      ],
+      [
+       2348,
+       2352,
+       1.0
+      ],
+      [
+       1508,
+       1512,
+       -0.7237030866308519
+      ],
+      [
+       2042,
+       2046,
+       -0.7237030866308519
+      ],
+      [
+       2173,
+       2177,
+       -0.7237030866308519
+      ]
+     ],
+     "of": "check.c1: the C1 excess (C-H band readings minus b x N-H band readings)"
+    },
+    "plaster_1446": {
+     "kernel": "signs",
+     "windows": [
+      [
+       1444,
+       1448,
+       0.007310342683907804
+      ],
+      [
+       1434,
+       1438,
+       -0.003655171341953902
+      ],
+      [
+       1454,
+       1458,
+       -0.003655171341953902
+      ]
+     ],
+     "of": "check.signs plaster.reduced_1446: the 1446 nm band's load"
+    },
+    "c1_swir1": {
+     "kernel": "c1",
+     "windows": [
+      [
+       1726,
+       1730,
+       1.0
+      ],
+      [
+       1760,
+       1764,
+       1.0
+      ],
+      [
+       1508,
+       1512,
+       -2.368329199992467
+      ]
+     ],
+     "of": "check.c1 swir1: the reduced C1 excess below 1800 nm"
+    }
+   },
+   "anchor": {
+    "correction": "transfer.labspec4.hires_to_std@0.2.0",
+    "sha256": "c5b9a96824556215fe06318057e58621b78e33c0252032a9097f6ad77a45f687",
+    "joins_nm": [
+     1000.0,
+     1800.0
+    ],
+    "n2_cuts": {
+     "plaster": 150.0,
+     "wax": 60.0,
+     "ester": 250.0,
+     "C1": 125.0,
+     "plaster fallback": 30.0,
+     "C1 fallback": 30.0
+    },
+    "note": "sd_above / sd_at_most = the statistic term's noise gain through this correction (spyder_ref.gains.stat_term_gain, correlation 1.25 nm) x its shipped N2 cut: the cuts are fixed once here, in SD units, and apply to every correction"
+   },
+   "note": "A sign is gated (not checked) by the noise of its own statistic on the AS-MEASURED scan. Read as measured, or through a near-uncorrected correction: every statistic the noise policies read (the B6b gate and fallback statistics, check.longwave's tail reading, check.signs' soft-tier statistic) has a noise gain within check.acquisition's std_like_within (15%) of its gain as measured, e.g. a standard-resolution unit's own file (every noise policy then treats the stream exactly like a native standard-resolution scan: this table, long-wave not assessed, the soft tier always eligible, the profiles' non_native models and second opinion off): the 'uncorrected' table (gated when N2 of the sign's window exceeds n2_above; no fallbacks). Through any other correction: gated when SD = the statistic's gain in the detector segment holding its N2 window (propagated through the correction) x that N2 exceeds sd_above; a null gate is never gated (burnt: it reads the visible edge, not the noisy SWIR2). A gated sign with a fallback runs its reduced variant instead when the reduced statistic's SD is at most sd_at_most (plaster: the 1446 nm band alone, check.signs plaster.reduced_1446; C1: the variant below 1800 nm, check.c1 swir1); it then counts as checked. A window the scan does not cover: the sign is not checked, 'not available on this instrument'. statistics: sum over windows of weight x mean E over [lo, hi] nm, E from the named kernel (offsets do not matter for noise). The record keeps check.B6b as a summary: n2 = N2(n2_window_nm), signs_gated = the contaminant signs gated with no fallback available (not checked), signs_reduced = the gated signs whose reduced variant is eligible (it runs, except C1 when a specific sign fired: C1 is then skipped as usual), gated = every contaminant sign in signs_gated, outcome Note when either list is non-empty."
   },
   "B7_above_one": {
    "range_offsets_nm": [
@@ -241,7 +434,7 @@
     "name": "rc_good_positive_all_six",
     "spectrum_sha256": "ea4c88b7008cb8b19f102f52d39d19a2c4a0b1a93cda1f2e30545ecbdd6f407d",
     "inputs": {
-     "transfer_key": "none"
+     "correction": "none"
     },
     "expected": {
      "B2.status": "not assessed: no raw DN (spectrum input)",
@@ -276,7 +469,7 @@
     "name": "rc_lift_blocked_gated",
     "spectrum_sha256": "653e7e22b860a36605b6605d9c33b4ffb433d00daa49cb1b4e122eaf167fba56",
     "inputs": {
-     "transfer_key": "none"
+     "correction": "none"
     },
     "expected": {
      "B2.status": "not assessed: no raw DN (spectrum input)",
@@ -315,7 +508,7 @@
     "name": "rescan_white_panel",
     "spectrum_sha256": "be72fa0b546abd093689c8c79d3b8c3d475cc67501d04821a20aa53f5d5a5300",
     "inputs": {
-     "transfer_key": "none"
+     "correction": "none"
     },
     "expected": {
      "B2.status": "not assessed: no raw DN (spectrum input)",
@@ -354,7 +547,7 @@
     "name": "rescan_impossible_R",
     "spectrum_sha256": "3518cab57b25d180e81be4d9ed0c59f6d9bfe29cb709a831dadbf6ad614cabeb",
     "inputs": {
-     "transfer_key": "none"
+     "correction": "none"
     },
     "expected": {
      "B2.status": "not assessed: no raw DN (spectrum input)",
@@ -389,7 +582,7 @@
     "name": "notes_B7_B8",
     "spectrum_sha256": "2360abff93a20a5bca4d17ea95745f2d189f3af0680b42a5b252c55bbc86be5e",
     "inputs": {
-     "transfer_key": "none"
+     "correction": "none"
     },
     "expected": {
      "B2.status": "not assessed: no raw DN (spectrum input)",
@@ -424,7 +617,7 @@
     "name": "note_B5_dark",
     "spectrum_sha256": "023055a3093c4796caa98f3778a15ac99d89bf41cb52dea7bb5710619f50906a",
     "inputs": {
-     "transfer_key": "none"
+     "correction": "none"
     },
     "expected": {
      "B2.status": "not assessed: no raw DN (spectrum input)",
@@ -459,7 +652,7 @@
     "name": "b6_check_hires_noisy",
     "spectrum_sha256": "869db4130bb23834d9fb0169ab48ca932bfc760c6af210ce056388e2fb355e9a",
     "inputs": {
-     "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
+     "correction": "transfer.labspec4.hires_to_std@0.3.0"
     },
     "expected": {
      "B2.status": "not assessed: no raw DN (spectrum input)",
@@ -496,7 +689,7 @@
     "name": "hires_c1_gated_plaster_checked",
     "spectrum_sha256": "1865023e12546f0d68680522879bde4cb48ee7eceabe3d0953c8cc692e23b67f",
     "inputs": {
-     "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
+     "correction": "transfer.labspec4.hires_to_std@0.3.0"
     },
     "expected": {
      "B2.status": "not assessed: no raw DN (spectrum input)",
@@ -532,7 +725,7 @@
     "name": "hires_fallback_reduced_clean",
     "spectrum_sha256": "6e120a8c5f996f6e85b73e6be1acd3658d3e682607680ce3a59e4640527f3f20",
     "inputs": {
-     "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
+     "correction": "transfer.labspec4.hires_to_std@0.3.0"
     },
     "expected": {
      "B2.status": "not assessed: no raw DN (spectrum input)",
@@ -569,7 +762,7 @@
     "name": "hires_fallback_c1_fires",
     "spectrum_sha256": "4c97dde7a3bebefd0984f14730d9f87adaea98f2a1f9d1f832fd3037617e00d9",
     "inputs": {
-     "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
+     "correction": "transfer.labspec4.hires_to_std@0.3.0"
     },
     "expected": {
      "B2.status": "not assessed: no raw DN (spectrum input)",
@@ -606,7 +799,7 @@
     "name": "hires_fallback_plaster_fires",
     "spectrum_sha256": "0d81b7330629434155c8412000253549c174d031c93fc8f90eadaa98a96adffe",
     "inputs": {
-     "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f"
+     "correction": "transfer.labspec4.hires_to_std@0.3.0"
     },
     "expected": {
      "B2.status": "not assessed: no raw DN (spectrum input)",
@@ -639,6 +832,37 @@
      "B6b.signs_reduced.1": "C1"
     }
    }
-  ]
+  ],
+  "corrections": {
+   "transfer.labspec4.hires_to_std@0.3.0": {
+    "operator": [
+     {
+      "op": "gaussian_blur",
+      "sigma_nm": [
+       0.0,
+       3.3973,
+       3.3973
+      ],
+      "truncate": 4.0,
+      "radius": "ceil",
+      "segments": "from_scan"
+     },
+     {
+      "op": "absorbance_affine",
+      "gain": [
+       0.5777,
+       0.6983,
+       0.5881
+      ],
+      "offset": [
+       0.2742,
+       0.2005,
+       0.3552
+      ],
+      "clip_min": 1e-06
+     }
+    ]
+   }
+  }
  }
 }

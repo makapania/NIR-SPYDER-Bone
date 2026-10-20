@@ -9,6 +9,9 @@ use super::val::{fin, Obj, V};
 use crate::n2::n2;
 use crate::numsum::{np_mean, np_std};
 use crate::plugins::checks::{B8Fit, B9Variant, C1Variant, CheckParams, Sharp};
+use crate::plugins::gains::{
+    self as gains, window_covered, Correction, GainCache, GainError, LinearStat,
+};
 use crate::plugins::tables::{Bands, Kernel};
 
 /// N2 per window on the AS-MEASURED scan, computed once per window; `table()` lists every window used.
@@ -275,31 +278,243 @@ fn gate_reason(lo: f64, hi: f64) -> String {
     format!("noise in {}-{} nm", lo.trunc() as i64, hi.trunc() as i64)
 }
 
-/// B6b, per sign (phase 0c, DECISIONS 76): each sign is gated when N2 of its own window on the AS-MEASURED scan
-/// exceeds its cut, from the table of the stream's transfer key. A gated sign with a fallback for the key (exact key)
-/// runs its reduced variant when N2 of the fallback window is at most its cut (2026-10-13). Returns (summary record,
-/// gates, every contaminant sign gated with no fallback, reduced). Summary: n2 = N2(n2_window_nm), signs_gated = the
-/// contaminant signs gated with no eligible fallback (not checked), signs_reduced = gated signs whose reduced variant
-/// is eligible (it runs, except C1 when a specific sign fired: C1 is then "skipped" as usual), gated = every
-/// contaminant sign in signs_gated, outcome Note when either list is non-empty.
-pub fn b6b(p: &CheckParams, n2c: &mut N2Cache, key: &str) -> (Obj, Gates, bool, Reduced) {
+/// The start of a gate reason / status for a check the scan's range does not allow.
+pub const UNAVAILABLE: &str = "not available on this instrument";
+
+fn unavailable_reason(why: &str) -> String {
+    if why.starts_with(UNAVAILABLE) {
+        why.to_string()
+    } else {
+        format!("{UNAVAILABLE} ({why})")
+    }
+}
+
+/// A gain error's text without its "not assessed: " prefix.
+fn why_of(e: &GainError) -> String {
+    e.0.strip_prefix("not assessed: ")
+        .unwrap_or(&e.0)
+        .to_string()
+}
+
+/// The status of a sign not read because of its gate: "gated: <reason>", or "not assessed: not available on this
+/// instrument (...)" when the scan does not cover its window.
+pub fn gate_status(reason: &str) -> String {
+    if reason.starts_with(UNAVAILABLE) {
+        format!("not assessed: {reason}")
+    } else {
+        format!("gated: {reason}")
+    }
+}
+
+/// What the noise policies need about the stream: the scan's grid and joins, the correction applied (None = as
+/// measured) and the gain cache.
+#[derive(Clone, Copy)]
+pub struct Route<'a> {
+    pub wl: &'a [f64],
+    pub joins: &'a [f64],
+    pub corr: Option<Correction<'a>>,
+    pub cache: Option<&'a GainCache>,
+}
+
+impl Route<'_> {
+    /// The gain of one detector term of a linear statistic through `corr` (cached per name).
+    fn gain(
+        &self,
+        st: &LinearStat,
+        corr: Option<Correction>,
+        correlation_nm: f64,
+        win: (f64, f64),
+        what: &str,
+    ) -> Result<f64, GainError> {
+        match self.cache {
+            Some(c) => c.stat_term_gain(st, self.wl, self.joins, corr, correlation_nm, win, what),
+            None => gains::stat_term_gain(st, self.wl, self.joins, corr, correlation_nm, win, what),
+        }
+    }
+
+    /// (SD of the term on this scan) or why not: gain through the stream's correction x N2(win) as measured.
+    fn sd(
+        &self,
+        st: &LinearStat,
+        correlation_nm: f64,
+        win: (f64, f64),
+        what: &str,
+        n2c: &mut N2Cache,
+    ) -> Result<f64, String> {
+        let g = self
+            .gain(st, self.corr, correlation_nm, win, what)
+            .map_err(|e| why_of(&e))?;
+        Ok(g * n2c.get(win.0, win.1))
+    }
+}
+
+/// The evidence and ZooMS status on an instrument with no built-in correction.
+pub const BANDS_NOT_BUILT_IN: &str = "not assessed: band evidence needs this instrument built in";
+
+/// An instrument with no built-in correction (DECISIONS 137, amended 2026-10-19: uncalibrated instruments): the band
+/// calls are off. The evidence level and the ZooMS band pattern (pattern, verdict, the 1545 nm vote) become "not
+/// assessed: band evidence needs this instrument built in" (null); the band readings themselves (E, u, SD, per-band
+/// state, lit / readable) stay for the close-ups and the export. In place.
+pub fn band_evidence_off(ev: &mut Obj, zo: &mut Obj) {
+    ev.set("status", BANDS_NOT_BUILT_IN);
+    ev.set("level", V::Null);
+    zo.set("status", BANDS_NOT_BUILT_IN);
+    for k in ["pattern", "verdict", "pattern_verdict", "vote_1545"] {
+        zo.set(k, V::Null);
+    }
+}
+
+/// Why the stream counts as the native standard-resolution scan in the long-wave record: read as measured.
+pub const NATIVE_SCAN: &str = "native standard-resolution scan";
+/// ... or through a near-uncorrected correction ([`standard_like`]).
+pub const NEAR_UNCORRECTED: &str =
+    "near-uncorrected correction (read as a native standard-resolution scan)";
+
+/// Whether a correction leaves the stream's noise standard-resolution-like (DECISIONS 137; Matt, 2026-10-19: LabSpec 4
+/// standard never changes): every statistic the noise policies read (check.acquisition's B6b gate and fallback
+/// statistics, check.longwave's tail reading, check.signs' soft-tier statistic) has a noise gain through the correction
+/// within `std_like_within` (check.acquisition) of its gain as measured, e.g. a standard-resolution unit's own file.
+/// Every noise policy then treats the stream exactly like a native standard-resolution scan: the uncorrected B6b
+/// table (no fallbacks), long-wave not assessed, the soft tier always eligible, the profiles' non-native models and
+/// second opinion off. A gain that cannot be computed: not near. No correction (read as measured): false.
+pub fn standard_like(
+    acq: &CheckParams,
+    lw: &CheckParams,
+    signs: &CheckParams,
+    route: &Route,
+) -> bool {
+    let (Some(corr), CheckParams::Acquisition { b6b: g, .. }) = (route.corr, acq) else {
+        return false;
+    };
+    let mut terms: Vec<(&LinearStat, f64, (f64, f64), String)> = g
+        .corrected
+        .values()
+        .flatten()
+        .map(|e| (&e.statistic, e.n2_window_nm))
+        .chain(g.fallbacks.values().map(|f| (&f.statistic, f.n2_window_nm)))
+        .map(|(name, win)| {
+            (
+                &g.statistics[name],
+                g.correlation_nm,
+                win,
+                format!("check.acquisition {name}"),
+            )
+        })
+        .collect();
+    if let CheckParams::Longwave {
+        tail_statistic,
+        n2_window_nm,
+        correlation_nm,
+        ..
+    } = lw
+    {
+        terms.push((
+            tail_statistic,
+            *correlation_nm,
+            *n2_window_nm,
+            "check.longwave tail_statistic".into(),
+        ));
+    }
+    if let CheckParams::Signs {
+        soft_tier: Some(st),
+        ..
+    } = signs
+    {
+        terms.push((
+            &st.otherwise_statistic,
+            st.correlation_nm,
+            st.otherwise_n2_window_nm,
+            "check.signs soft_tier".into(),
+        ));
+    }
+    terms.iter().all(|(st, c, win, what)| {
+        match (
+            route.gain(st, Some(corr), *c, *win, what),
+            route.gain(st, None, *c, *win, what),
+        ) {
+            (Ok(a), Ok(b)) => (a / b - 1.0).abs() <= g.std_like_within,
+            _ => false,
+        }
+    })
+}
+
+/// B6b, per sign (phase 0c, DECISIONS 76; DECISIONS 137: for ANY correction), on the AS-MEASURED N2. Read as measured,
+/// or through a near-uncorrected correction (`near`, [`standard_like`]): the uncorrected table, exactly today's
+/// standard-resolution gates (gated when N2 of the sign's window exceeds its cut; no fallbacks). Through any other
+/// correction: gated when the propagated SD of the sign's statistic term exceeds its cut (fixed once from v0.2, in SD
+/// units); burnt never; a gated sign with a fallback runs its reduced variant when the reduced statistic's SD is at
+/// most its cut (DECISIONS 107). A window the scan does not cover: not checked, "not available on this instrument
+/// (...)". Returns (summary record, gates, every contaminant sign gated with no fallback, reduced). Summary: n2 =
+/// N2(n2_window_nm), signs_gated = the contaminant signs gated with no eligible fallback (not checked), signs_reduced =
+/// gated signs whose reduced variant is eligible (it runs, except C1 when a specific sign fired: C1 is then "skipped"
+/// as usual), gated = every contaminant sign in signs_gated, outcome Note when either list is non-empty.
+pub fn b6b(
+    p: &CheckParams,
+    n2c: &mut N2Cache,
+    route: &Route,
+    near: bool,
+) -> (Obj, Gates, bool, Reduced) {
     let CheckParams::Acquisition { b6b: g, .. } = p else {
         return (Obj::new(), Gates::new(), false, Reduced::new());
     };
-    let tab = g.table(key);
+    let what = |name: &str| format!("check.acquisition {name}");
+    let table = route.corr.is_none() || near;
     let mut gates = Gates::new();
-    for s in &g.signs {
-        let Some(e) = tab.get(s) else { continue };
-        let (lo, hi) = e.n2_window_nm;
-        let gated = n2c.get(lo, hi) > e.n2_above;
-        gates.insert(s.clone(), gated.then(|| gate_reason(lo, hi)));
-    }
     let mut reduced = Reduced::new();
-    if let Some(fb) = g.fallbacks(key) {
+    if table {
+        for s in &g.signs {
+            let reason = match g.uncorrected.get(s).and_then(Option::as_ref) {
+                None => None,
+                Some(e) => {
+                    let (lo, hi) = e.n2_window_nm;
+                    if !window_covered(route.wl, lo, hi) {
+                        Some(format!(
+                            "{UNAVAILABLE} (the N2 window {}-{} nm is not covered by the scan)",
+                            lo.trunc() as i64,
+                            hi.trunc() as i64
+                        ))
+                    } else {
+                        (n2c.get(lo, hi) > e.n2_above).then(|| gate_reason(lo, hi))
+                    }
+                }
+            };
+            gates.insert(s.clone(), reason);
+        }
+    } else {
+        for s in &g.signs {
+            let reason = match g.corrected.get(s).and_then(Option::as_ref) {
+                // never gated (burnt: it reads the visible edge, not the noisy SWIR2)
+                None => None,
+                Some(e) => {
+                    let (lo, hi) = e.n2_window_nm;
+                    match route.sd(
+                        &g.statistics[&e.statistic],
+                        g.correlation_nm,
+                        e.n2_window_nm,
+                        &what(&e.statistic),
+                        n2c,
+                    ) {
+                        Err(why) => Some(unavailable_reason(&why)),
+                        Ok(sd) => (sd > e.sd_above).then(|| gate_reason(lo, hi)),
+                    }
+                }
+            };
+            gates.insert(s.clone(), reason);
+        }
         for s in &g.contaminant_signs {
-            let gated = gates.get(s).is_some_and(Option::is_some);
-            if let (true, Some(f)) = (gated, fb.get(s)) {
-                if n2c.get(f.n2_window_nm.0, f.n2_window_nm.1) <= f.n2_at_most {
+            let gated = gates
+                .get(s)
+                .and_then(Option::as_deref)
+                .is_some_and(|r| !r.starts_with(UNAVAILABLE));
+            if let (true, Some(f)) = (gated, g.fallbacks.get(s)) {
+                let sd = route.sd(
+                    &g.statistics[&f.statistic],
+                    g.correlation_nm,
+                    f.n2_window_nm,
+                    &what(&f.statistic),
+                    n2c,
+                );
+                if matches!(sd, Ok(x) if x <= f.sd_at_most) {
                     reduced.insert(s.clone(), f.variant.clone());
                 }
             }
@@ -338,39 +553,65 @@ pub fn b6b(p: &CheckParams, n2c: &mut N2Cache, key: &str) -> (Obj, Gates, bool, 
     )
 }
 
-/// Step 2c: long-wave eligibility. Returns (record, tail unreliable for B9, tail unreliable for C1). The cut is
-/// per check (phase 0c): C1 (the contaminant check only) has its own, higher cut.
-pub fn longwave(p: &CheckParams, class: &str, n2c: &mut N2Cache) -> (Obj, bool, bool) {
+/// Step 2c: the long-wave tail (DECISIONS 137). On any stream that is not the native standard-resolution scan (a
+/// correction applied, unless near-uncorrected; or another instrument's scan as measured): tail unreliable for B9 / C1
+/// when the propagated SD of the tail reading (through the stream's correction) x N2(window) exceeds its cut (fixed
+/// once from v0.2, in SD units). `native`: why the stream counts as the native standard-resolution scan
+/// ([`NATIVE_SCAN`], [`NEAR_UNCORRECTED`]): not assessed, for that reason. A window or reading the scan does not cover:
+/// not available on this instrument, and the tail counts as unreliable. Returns (record, tail unreliable for B9, for C1).
+pub fn longwave(
+    p: &CheckParams,
+    native: Option<&str>,
+    n2c: &mut N2Cache,
+    route: &Route,
+) -> (Obj, bool, bool) {
     let CheckParams::Longwave {
-        applies_to_classes,
+        tail_statistic,
         n2_window_nm: (lo, hi),
-        tail_unreliable_if_n2_above,
-        c1_tail_unreliable_if_n2_above,
+        correlation_nm,
+        b9_sd_above,
+        c1_sd_above,
         ..
     } = p
     else {
         return (Obj::new(), false, false);
     };
     let v = n2c.get(*lo, *hi);
-    let applies = applies_to_classes.iter().any(|c| c == class);
-    let unrel = applies && v > *tail_unreliable_if_n2_above;
-    let unrel_c1 = applies && v > *c1_tail_unreliable_if_n2_above;
-    (
+    let rec = |st: String, a: bool, b: bool| {
         Obj::new()
-            .with(
-                "status",
-                if applies {
-                    "assessed"
-                } else {
-                    "not assessed: standard-resolution class"
-                },
-            )
+            .with("status", st)
             .with("n2", fin(v))
-            .with("tail_unreliable", unrel)
-            .with("tail_unreliable_c1", unrel_c1),
-        unrel,
-        unrel_c1,
-    )
+            .with("tail_unreliable", a)
+            .with("tail_unreliable_c1", b)
+    };
+    if let Some(why) = native {
+        return (
+            rec(format!("not assessed: {why}"), false, false),
+            false,
+            false,
+        );
+    }
+    match route.sd(
+        tail_statistic,
+        *correlation_nm,
+        (*lo, *hi),
+        "check.longwave tail_statistic",
+        n2c,
+    ) {
+        Err(why) => (
+            rec(
+                format!("not assessed: {}", unavailable_reason(&why)),
+                true,
+                true,
+            ),
+            true,
+            true,
+        ),
+        Ok(sd) => {
+            let (a, b) = (sd > *b9_sd_above, sd > *c1_sd_above);
+            (rec("assessed".into(), a, b), a, b)
+        }
+    }
 }
 
 /// Step 5: B9 "does this look like bone?" (the truncated variant when the long-wave policy says so).
@@ -449,6 +690,15 @@ fn u_sign(bands: &Bands, id: &str) -> f64 {
     bands.bands.get(id).map_or(1.0, |b| b.u_sign)
 }
 
+/// A band's noise SD (E units) for the readability gate: a missing or NaN SD is +infinity (fail safe: unknown noise is
+/// "too noisy", never "readable"; such a band is can't tell unless strong).
+fn band_sd(sd_e: &BTreeMap<String, f64>, id: &str) -> f64 {
+    sd_e.get(id)
+        .copied()
+        .filter(|s| !s.is_nan())
+        .unwrap_or(f64::INFINITY)
+}
+
 fn weight(bands: &Bands, id: &str) -> f64 {
     bands
         .bands
@@ -509,10 +759,7 @@ pub fn evidence(
         .iter()
         .map(|b| (b, u_sign(bands, b) * r[b] / w[b]))
         .collect();
-    let sdu: BTreeMap<&String, f64> = ids
-        .iter()
-        .map(|b| (b, sd_e.get(b).map_or(f64::NAN, |s| s / w[b])))
-        .collect();
+    let sdu: BTreeMap<&String, f64> = ids.iter().map(|b| (b, band_sd(sd_e, b) / w[b])).collect();
     let state = |b: &String, faint: f64| -> &'static str {
         if sdu[b] > *sd_max_u && u[b] < *unreadable_only_if_u_below {
             "can't tell"
@@ -657,7 +904,7 @@ pub fn zooms(
     let mut lit = BTreeMap::new();
     for b in &six {
         let wb = weight(bands, b);
-        let sd = sd_e.get(b).copied().unwrap_or(f64::NAN);
+        let sd = band_sd(sd_e, b);
         rd.insert(
             b.clone(),
             !(sd > sd_max_frac_w * wb && r[b] < unreadable_only_if_e_below_frac_w * wb),
@@ -697,7 +944,7 @@ pub fn zooms(
                 .with("E", r[b])
                 .with("lit", lit[b])
                 .with("readable", rd[b])
-                .with("sd_E", fin(sd_e.get(b).copied().unwrap_or(f64::NAN))),
+                .with("sd_E", fin(band_sd(sd_e, b))),
         );
     }
     // verdict = the ZooMS verdict (after the 1545 vote); pattern_verdict = the band pattern alone, which the
@@ -716,7 +963,7 @@ pub fn zooms(
         let rv = band_value(e, wl, bands, b);
         let wv = weight(bands, b);
         let uv = u_sign(bands, b) * rv / wv;
-        let sdu = sd_e.get(b).map_or(f64::NAN, |s| s / wv);
+        let sdu = band_sd(sd_e, b) / wv;
         let finite = rv.is_finite();
         let rdv = finite && !(sdu > *sd_max_frac_w && uv < *unreadable_only_if_e_below_frac_w);
         let litv = finite && uv > vt.lit_if_u_above;
@@ -751,7 +998,33 @@ fn sharp_of(n: &[f64], wl: &[f64], s: &Sharp) -> f64 {
     )
 }
 
-/// Heat (burnt): charred by the visible edge alone; calcined. `n17` = the signs-kernel derivative.
+/// (lo, hi) nm the heat check reads: the visible edge from its start up to the reference window, R_vis and the two OH
+/// sharp indices (450-1446 nm with the shipped parameters).
+pub fn heat_range(p: &CheckParams) -> Option<(f64, f64)> {
+    let CheckParams::Heat {
+        edge50_scan_from_nm,
+        edge50_reference_nm,
+        oh1433,
+        oh979,
+        r_vis_range_nm,
+        ..
+    } = p
+    else {
+        return None;
+    };
+    let mut lo = edge50_scan_from_nm
+        .min(edge50_reference_nm.0)
+        .min(r_vis_range_nm.0);
+    let mut hi = edge50_reference_nm.1.max(r_vis_range_nm.1);
+    for s in [&oh1433.0, &oh979.0] {
+        lo = lo.min(s.centre_nm - s.flank_to as f64);
+        hi = hi.max(s.centre_nm + s.flank_to as f64);
+    }
+    Some((lo, hi))
+}
+
+/// Heat (burnt): charred by the visible edge alone; calcined. `n17` = the signs-kernel derivative. A scan whose grid
+/// does not hold the range the check reads: "not available on this instrument", never a default.
 pub fn heat(wl: &[f64], r_std: &[f64], n17: &[f64], p: &CheckParams) -> Obj {
     let CheckParams::Heat {
         edge50_scan_from_nm,
@@ -767,6 +1040,26 @@ pub fn heat(wl: &[f64], r_std: &[f64], n17: &[f64], p: &CheckParams) -> Obj {
     else {
         return Obj::new();
     };
+    if let Some((lo, hi)) = heat_range(p) {
+        if idx(wl, lo).is_none() || idx(wl, hi).is_none() {
+            return Obj::new()
+                .with(
+                    "status",
+                    format!(
+                        "not assessed: {UNAVAILABLE} (the heat sign reads {}-{} nm)",
+                        lo.trunc() as i64,
+                        hi.trunc() as i64
+                    ),
+                )
+                .with("edge50_nm", V::Null)
+                .with("OH1433", V::Null)
+                .with("OH979", V::Null)
+                .with("R_vis", V::Null)
+                .with("charred", V::Null)
+                .with("calcined", V::Null)
+                .with("fired", V::Null);
+        }
+    }
     let reference = window_mean(r_std, wl, edge50_reference_nm.0, edge50_reference_nm.1);
     let edge50 = idx(wl, *edge50_scan_from_nm).and_then(|a| {
         (a..r_std.len())
@@ -805,14 +1098,16 @@ pub fn heat(wl: &[f64], r_std: &[f64], n17: &[f64], p: &CheckParams) -> Obj {
 
 fn gated_rec(reason: &str) -> Obj {
     Obj::new()
-        .with("status", format!("gated: {reason}"))
+        .with("status", gate_status(reason))
         .with("fired", V::Null)
         .with("gated", true)
 }
 
 /// The four signs (plaster, wax, ester, burnt; no clay). `gates`: per sign, the B6b gate reason (that sign is
 /// "gated: <reason>" and not read) or None. `reduced`: a gated sign's fallback (plaster "band_1446": the 1446 nm
-/// load alone, status "assessed: reduced (1446 nm band only; <reason>)"). Every sign record ends with `gated` (bool).
+/// load alone, status "assessed: reduced (1446 nm band only; <reason>)"). `heat_stream`: what the heat check reads when
+/// it is not `r_std` (the scan as measured, for a correction whose visible levels were not fitted; DECISIONS 137).
+/// Every sign record ends with `gated` (bool).
 pub fn signs(
     wl: &[f64],
     r_std: &[f64],
@@ -820,6 +1115,7 @@ pub fn signs(
     heat_p: &CheckParams,
     gates: &Gates,
     reduced: &Reduced,
+    heat_stream: Option<&[f64]>,
 ) -> Obj {
     let names = ["plaster", "wax", "ester", "burnt"];
     let reason = |n: &str| gates.get(n).and_then(|g| g.as_deref());
@@ -911,7 +1207,10 @@ pub fn signs(
         },
     );
     let mut b = Obj::new().with("status", "assessed");
-    b.update(heat(wl, r_std, &n, heat_p));
+    match heat_stream {
+        None => b.update(heat(wl, r_std, &n, heat_p)),
+        Some(h) => b.update(heat(wl, h, &derivative(h, kernel), heat_p)),
+    }
     out.set("burnt", b);
     for nm in names {
         let red = match (reason(nm), plaster_reduced_1446) {
@@ -955,15 +1254,18 @@ pub fn signs(
 }
 
 /// The "possible thin coating" tier (phase 0c, DECISIONS 74/76): a note only. Fires when no hard contaminant sign
-/// fired, the scan is eligible (a class in always_classes, else N2(otherwise window) <= otherwise_n2_at_most) and a
+/// fired, the scan is eligible (the native standard-resolution scan always, also through a near-uncorrected correction;
+/// any other stream when the propagated SD of the C1 statistic's term in the window's detector segment x N2(window) is
+/// at most the cut; DECISIONS 137) and a
 /// CHECKED sign's statistic reaches its soft line (C1 / C1t excess, ester sharp, plaster joint load).
 pub fn soft_tier(
     ps: &CheckParams,
     pc1: &CheckParams,
-    class: &str,
+    native: bool,
     n2c: &mut N2Cache,
     sg: &Obj,
     c1r: &Obj,
+    route: &Route,
 ) -> Obj {
     let none = || {
         Obj::new()
@@ -989,8 +1291,24 @@ pub fn soft_tier(
     let fired = |o: Option<&Obj>| o.and_then(|o| o.get("fired")).is_some_and(V::truthy);
     let hard = st.requires_no_hard_sign.iter().any(|n| fired(sign(n)));
     let (lo, hi) = st.otherwise_n2_window_nm;
-    let eligible =
-        st.always_classes.iter().any(|c| c == class) || n2c.get(lo, hi) <= st.otherwise_n2_at_most;
+    let mut why = None;
+    let eligible = if native && st.native_always {
+        true
+    } else {
+        match route.sd(
+            &st.otherwise_statistic,
+            st.correlation_nm,
+            (lo, hi),
+            "check.signs soft_tier",
+            n2c,
+        ) {
+            Ok(sd) => sd <= st.otherwise_sd_at_most,
+            Err(w) => {
+                why = Some(w);
+                false
+            }
+        }
+    };
     let num = |o: Option<&Obj>, k: &str| o.and_then(|o| o.get(k)).and_then(V::as_f64);
     let status = |o: Option<&Obj>| {
         o.and_then(|o| o.get("status"))
@@ -1033,10 +1351,10 @@ pub fn soft_tier(
     Obj::new()
         .with(
             "status",
-            if eligible {
-                "assessed".to_string()
-            } else {
-                format!("not assessed: {}", gate_reason(lo, hi))
+            match (eligible, &why) {
+                (true, _) => "assessed".to_string(),
+                (false, Some(w)) => format!("not assessed: {}", unavailable_reason(w)),
+                (false, None) => format!("not assessed: {}", gate_reason(lo, hi)),
             },
         )
         .with("eligible", eligible)
@@ -1074,7 +1392,7 @@ pub fn c1(
     let swir1 = reduced == Some("swir1");
     if let (Some(g), false) = (gate, swir1) {
         return Obj::new()
-            .with("status", format!("gated: {g}"))
+            .with("status", gate_status(g))
             .with("excess", V::Null)
             .with("film", V::Null)
             .with("film_fired", V::Null)

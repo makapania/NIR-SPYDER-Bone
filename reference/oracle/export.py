@@ -70,6 +70,11 @@ def csv_row(rec, analysis):
                     f"{k}.domain_ratio": m.get("domain_ratio")})
         for c, v in (m.get("components") or {}).items():
             row[f"{k}.{c}"] = v
+        # a correction's per-reader offsets (DECISIONS 137), only when it carries one for this reading
+        if "reader_offset" in m:
+            row[f"{k}.reader_offset"] = m["reader_offset"]
+        for c, v in (m.get("component_offsets") or {}).items():
+            row[f"{k}.{c}.reader_offset"] = v
     ev = rec.get("evidence", {})
     row.update({"evidence.level": ev.get("level"), "evidence.S": ev.get("S"),
                 "evidence.n_readable_core": ev.get("n_readable_core"), "evidence.n_lit_core": ev.get("n_lit_core"),

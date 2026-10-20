@@ -163,3 +163,132 @@ fn usage_errors() {
     assert_eq!(spyder(&["predict", "x.asd", "--class", "medium"]).0, 2);
     assert_eq!(spyder(&["validate", "--pin", "nonsense", "x"]).0, 2);
 }
+
+/// DECISIONS 137: a file another instrument wrote is scored as that instrument's class (the registry names it by its
+/// file format and detector joins), whatever `--class` says, uncorrected and labelled uncalibrated; `--class` takes any
+/// registry class. An as7 file with the LabSpec joins 1000/1800 (a LabSpec 4 on older ASD software) is a LabSpec file:
+/// `--class` decides, as for as8.
+#[test]
+fn other_instruments_are_scored_as_their_own_class() {
+    let d = tmpdir("other");
+    // the Trek-type signature: blank header joins, the SWIR1/SWIR2 step in the white reference after 1785 nm
+    let mut trek = AsdSpec {
+        dark_corrected: 0,
+        splices: [0.0, 0.0],
+        swir_gains: [390, 396],
+        ..Default::default()
+    };
+    trek.serial = 4321;
+    for (w, r) in wl().iter().zip(trek.reference.iter_mut()) {
+        if *w > 1785.0 && *w <= 1800.0 {
+            *r *= 0.6;
+        }
+    }
+    let trek = trek.with_reflectance(&bone_reflectance());
+    std::fs::write(d.join("trek.asd"), trek.build_as7(1)).unwrap();
+    let lab7 = AsdSpec {
+        dark_corrected: 0,
+        ..Default::default()
+    };
+    std::fs::write(d.join("lab7.asd"), lab7.build_as7(1)).unwrap();
+    let fs3 = AsdSpec {
+        swir_gains: [633, 206],
+        ..Default::default()
+    };
+    std::fs::write(d.join("fs3.001"), fs3.build_legacy(&bone_reflectance())).unwrap();
+    let plugins = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
+    let p = plugins.to_str().unwrap();
+    for class in ["hires", "std", "asd.fieldspec3"] {
+        let (code, out, err) = spyder(&[
+            "predict",
+            d.to_str().unwrap(),
+            "--class",
+            class,
+            "--json",
+            "--plugins",
+            p,
+        ]);
+        assert_eq!(code, 0, "{err}");
+        let v: Value = serde_json::from_str(&out).unwrap();
+        let resolved = match class {
+            "hires" => "asd.labspec4.hires",
+            "std" => "asd.labspec4.std",
+            c => c,
+        };
+        assert_eq!(v["files"].as_array().unwrap().len(), 3);
+        for f in v["files"].as_array().unwrap() {
+            let want = match f["file_name"].as_str().unwrap() {
+                "trek.asd" => "asd.trek",
+                "lab7.asd" => resolved,
+                _ => "asd.fieldspec3",
+            };
+            assert_eq!(f["instrument_class"], want, "{class} {}", f["file_name"]);
+            if f["file_name"] == "lab7.asd" {
+                // a LabSpec file: the high-res correction on the High-res switch, as for as8
+                let corrected = f["models"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|m| !m["transfer"].is_null());
+                assert_eq!(corrected, class == "hires", "{class}");
+                continue;
+            }
+            for m in f["models"].as_array().unwrap() {
+                assert!(m["transfer"].is_null(), "{m}");
+            }
+        }
+    }
+    let (code, out, err) = spyder(&[
+        "analyse",
+        d.to_str().unwrap(),
+        "--class",
+        "hires",
+        "--json",
+        "--plugins",
+        p,
+    ]);
+    assert_eq!(code, 0, "{err}");
+    let v: Value = serde_json::from_str(&out).unwrap();
+    for f in v["files"].as_array().unwrap() {
+        let ins = &f["record"]["instrument"];
+        if f["path"].as_str().unwrap().ends_with("lab7.asd") {
+            assert_eq!(ins["class"], "asd.labspec4.hires", "{ins}");
+            assert_eq!(ins["class_source"], "user", "{ins}");
+            assert!(
+                ins["notes"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|n| n["key"] != "instrument_uncalibrated"),
+                "{ins}"
+            );
+            assert_ne!(f["record"]["stream"]["transfer"], "none");
+            continue;
+        }
+        assert_eq!(ins["class_source"], "file_format", "{ins}");
+        assert!(
+            ins["notes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|n| n["key"] == "instrument_uncalibrated"),
+            "{ins}"
+        );
+        assert_eq!(f["record"]["stream"]["transfer"], "none");
+        // S1_R2 (transfer-free) is shown on another instrument's scans
+        assert!(f["record"]["models"]["s1_r2"].is_object());
+    }
+    assert_eq!(
+        spyder(&[
+            "predict",
+            d.to_str().unwrap(),
+            "--class",
+            "asd.nothing",
+            "--plugins",
+            p
+        ])
+        .0,
+        2
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}

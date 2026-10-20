@@ -3,6 +3,7 @@
   import BandCloseUps from './lib/components/BandCloseUps.svelte';
   import DetailsPanel from './lib/components/DetailsPanel.svelte';
   import HelpDialog from './lib/components/HelpDialog.svelte';
+  import { instrumentName, statusInstrument } from './lib/instrument';
   import ScanList from './lib/components/ScanList.svelte';
   import SpectraCard, { type Mode } from './lib/components/SpectraCard.svelte';
   import SpectrumPlot, { type PlotSeries } from './lib/components/SpectrumPlot.svelte';
@@ -97,7 +98,7 @@
   let smoothing = $state(31);
   let bandsDown = $state(has('bandsdown') || loadBandsDown());
   let lens = $state<'ohc' | 'raw'>(has('asmeasured') ? 'raw' : 'ohc');
-  /** High-res main plot: transferred (what the models read) or as measured. */
+  /** Main plot of a corrected scan: transferred (what the models read) or as measured. */
   let stream = $state<'std' | 'meas'>('std');
   let display = $state<DisplayInfo | null>(null);
   let refsOn = $state<Record<string, boolean>>({ '0%': true, '1%': true, '3%': true, '6%': true, '10%': true });
@@ -525,8 +526,12 @@
       {#if info?.coreError}
         <div class="coreerror card" role="alert" data-testid="core-error">
           <b>No verdict model available:</b> {info.coreError}
-          <span class="muted">Files are listed but not scored. Reinstalling the app restores the bundled models; a file in your plug-in
-            folder{info.userPlugins ? ` (${info.userPlugins})` : ''} never replaces a working bundled model.</span>
+          <span class="muted">Files are listed but not scored. Reinstalling the app restores the bundled models. A file in your plug-in
+            folder{info.userPlugins ? ` (${info.userPlugins})` : ''} replaces a bundled one only under the same id with a higher version;
+            one that reuses a bundled file's id and version is not used.</span>
+          {#if info.pluginNotes?.length}
+            <ul class="muted plugin-notes" data-testid="plugin-notes">{#each info.pluginNotes as n (n)}<li>{n}</li>{/each}</ul>
+          {/if}
         </div>
       {/if}
       {#if selected && isUnscored(selected)}
@@ -574,10 +579,9 @@
 
   <footer class="statusbar">
     {#if session}
-      <span>{session.instrumentClass === 'hires' ? 'High-res · transferred to standard resolution (blur + gain, provisional)' : 'Standard resolution'}
-        · {session.classSource === 'user' ? 'set by you' : session.classSource === 'default' ? 'default; flip it if this unit is high-res' : session.classSource === 'header_preset' ? 'preset from the detector settings; flip it if wrong' : `preset from serial ${session.serial}`}</span>
+      <span data-testid="instrument-line">{statusInstrument(session, selected ?? null)}</span>
       {#if session.serialClass && session.serialClass !== session.instrumentClass}
-        <span class="sep"></span><span class="gentle">Serial {session.serial} is a known {session.serialClass === 'hires' ? 'high-res' : 'standard'} unit</span>
+        <span class="sep"></span><span class="gentle">Serial {session.serial} is a known {instrumentName(session.serialClass).toLowerCase()} unit</span>
       {/if}
       <span class="sep"></span>
     {/if}
@@ -601,7 +605,8 @@
   </footer>
 </div>
 
-<HelpDialog open={helpOpen} version={info?.version ?? null} onClose={() => (helpOpen = false)} />
+<HelpDialog open={helpOpen} version={info?.version ?? null} pluginNotes={info?.pluginNotes ?? []} userPlugins={info?.userPlugins ?? null}
+  onClose={() => (helpOpen = false)} />
 
 {#if dropHover}
   <div class="drophint" aria-hidden="true"><div>Drop scan files (.asd, .sco, .000) or a folder to open them</div></div>

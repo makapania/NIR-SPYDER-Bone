@@ -15,12 +15,11 @@ use spyder_core::pipeline::export::{csv_text, manifest};
 use spyder_core::pipeline::val::{Obj, V};
 use spyder_core::pipeline::{Engine, ANALYSES};
 use spyder_core::plugins::registry::{Location, Origin, Pins, Registry};
-use spyder_core::plugins::{CLASS_HIRES, CLASS_STD};
 
-use crate::plugin_opts::{add_pin, bundled_dir, user_dir};
+use crate::plugin_opts::{add_pin, bundled_dir, class_arg, resolve_class, user_dir};
 use crate::read_cmd::{collect_inputs, write_stdout};
 
-pub const USAGE: &str = "usage: spyder analyse <file.asd | folder> --class std|hires
+pub const USAGE: &str = "usage: spyder analyse <file.asd | folder> --class std|hires|CLASS
                       [--profile radiocarbon|isotopes|zooms] [--csv out.csv] [--json]
                       [--sort] [--recursive] [--plugins DIR] [--user-plugins DIR] [--pin id@version]...
 
@@ -30,7 +29,10 @@ pub const USAGE: &str = "usage: spyder analyse <file.asd | folder> --class std|h
   ZooMS line where the ZooMS band check calls the scan better) and the flags
   (contaminant / burnt flags never change the verdict).
 
-  --class std|hires   the instrument class (the Standard / High-res switch)
+  --class std|hires   the instrument class (the Standard / High-res switch for LabSpec 4 files, or a
+                      class of the instrument registry); a file another instrument wrote (Trek-type
+                      as7, whose detector joins are not 1000/1800 nm; FieldSpec 3 legacy) is scored
+                      as that instrument's class, uncalibrated unless a correction for it is installed
   --profile NAME      radiocarbon (default), isotopes or zooms
   --csv FILE          write one CSV row per scan (UTF-8 with BOM; every number unrounded)
   --json              one JSON document: every scan's full record and its analysis manifest
@@ -85,15 +87,21 @@ fn text_of(v: Option<&V>) -> String {
                 V::Str(s) => s.clone(),
                 V::Map(m) => {
                     let k = m.get("key").and_then(V::as_str).unwrap_or("");
+                    // a flag on an instrument with no built-in correction is provisional (DECISIONS 137)
+                    let prov = if m.get("provisional").is_some_and(V::truthy) {
+                        " provisional"
+                    } else {
+                        ""
+                    };
                     match m.get("signs") {
                         Some(V::List(sg)) => format!(
-                            "{k}({})",
+                            "{k}({}){prov}",
                             sg.iter()
                                 .filter_map(V::as_str)
                                 .collect::<Vec<_>>()
                                 .join(",")
                         ),
-                        _ => k.to_string(),
+                        _ => format!("{k}{prov}"),
                     }
                 }
                 other => format!("{other:?}"),
@@ -101,6 +109,42 @@ fn text_of(v: Option<&V>) -> String {
             .collect::<Vec<_>>()
             .join(", "),
         Some(other) => format!("{other:?}"),
+    }
+}
+
+/// The evidence level or ZooMS pattern, or "not assessed (<why>)" when the band calls are off (an instrument with no
+/// built-in correction, DECISIONS 137).
+fn band_text(rec: &Obj, block: &str, key: &str) -> String {
+    match s(rec, &[block, "status"]).and_then(V::as_str) {
+        Some(st) if st.starts_with("not assessed: ") => {
+            format!("not assessed ({})", &st["not assessed: ".len()..])
+        }
+        _ => text_of(s(rec, &[block, key])),
+    }
+}
+
+/// The notes shown (keys); a soft contaminant note on an instrument with no built-in correction says "provisional",
+/// as its flags do (DECISIONS 137: the record marks it in notes_all).
+fn notes_text(rec: &Obj, a: &str) -> String {
+    let prov: Vec<&str> = match s(rec, &[a, "notes_all"]) {
+        Some(V::List(l)) => l
+            .iter()
+            .filter_map(V::as_obj)
+            .filter(|n| n.get("provisional").is_some_and(V::truthy))
+            .filter_map(|n| n.get("key").and_then(V::as_str))
+            .collect(),
+        _ => Vec::new(),
+    };
+    match s(rec, &[a, "notes_shown"]) {
+        Some(V::List(l)) => l
+            .iter()
+            .map(|k| match k.as_str() {
+                Some(k) if prov.contains(&k) => format!("{k} provisional"),
+                _ => text_of(Some(k)),
+            })
+            .collect::<Vec<_>>()
+            .join(", "),
+        other => text_of(other),
     }
 }
 
@@ -113,13 +157,13 @@ fn line(o: &mut String, path: &str, rec: &Obj, a: &str) {
         v(&[a, "verdict"]),
         v(&[a, "rule_step"]),
         v(&["models", "cons3", "value"]),
-        v(&["evidence", "level"]),
-        v(&["zooms_pattern", "pattern"]),
+        band_text(rec, "evidence", "level"),
+        band_text(rec, "zooms_pattern", "pattern"),
     );
     if let Some(r) = s(rec, &["checks", "B1", "reason"]) {
         let _ = writeln!(o, "   {}", text_of(Some(r)));
     }
-    let notes = v(&[a, "notes_shown"]);
+    let notes = notes_text(rec, a);
     if !notes.is_empty() && notes != "-" {
         let _ = writeln!(o, "   notes: {notes}");
     }
@@ -131,16 +175,28 @@ fn line(o: &mut String, path: &str, rec: &Obj, a: &str) {
     if !inst.is_empty() && inst != "-" {
         let _ = writeln!(o, "   instrument: {inst}");
     }
+    if s(rec, &["instrument", "class_source"]).and_then(V::as_str) == Some("file_format") {
+        let _ = writeln!(
+            o,
+            "   instrument class {} (identified from the file)",
+            v(&["instrument", "class"])
+        );
+    }
     if let Some(V::Str(t)) = s(rec, &["stream", "transfer"]) {
         if t != "none" {
-            let _ = writeln!(o, "   transfer {t} (provisional)");
+            let prov = s(rec, &["stream", "provisional"]).and_then(V::as_bool) == Some(true);
+            let _ = writeln!(
+                o,
+                "   correction {t}{}",
+                if prov { " (provisional)" } else { "" }
+            );
         }
     }
 }
 
 pub fn run(args: &[OsString]) -> Result<(), (u8, String)> {
     let (mut json, mut recursive, mut sort) = (false, false, false);
-    let mut class: Option<&'static str> = None;
+    let mut class: Option<String> = None;
     let mut profile = "radiocarbon".to_string();
     let mut csv: Option<PathBuf> = None;
     let mut pins = Pins::new();
@@ -152,13 +208,7 @@ pub fn run(args: &[OsString]) -> Result<(), (u8, String)> {
             "--json" => json = true,
             "--sort" => sort = true,
             "--recursive" | "-r" => recursive = true,
-            "--class" => {
-                class = Some(match it.next().and_then(|c| c.to_str()) {
-                    Some("std" | "standard" | CLASS_STD) => CLASS_STD,
-                    Some("hires" | "high-res" | CLASS_HIRES) => CLASS_HIRES,
-                    _ => return Err((2, format!("--class must be std or hires\n\n{USAGE}"))),
-                })
-            }
+            "--class" => class = Some(class_arg(it.next(), USAGE)?),
             "--profile" => {
                 profile = match it.next().and_then(|c| c.to_str()) {
                     Some(p) if ANALYSES.contains(&p) => p.to_string(),
@@ -228,6 +278,8 @@ pub fn run(args: &[OsString]) -> Result<(), (u8, String)> {
             ),
         ));
     }
+    let class = resolve_class(&reg, &class, USAGE)?;
+    let class = class.as_str();
     let eng = Engine::new(&reg).map_err(|e| (1, format!("startup error: {e}")))?;
     for n in &reg.notes {
         eprintln!("note: {n}");
@@ -321,4 +373,46 @@ pub fn run(args: &[OsString]) -> Result<(), (u8, String)> {
         o
     };
     write_stdout(&out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rec(provisional: bool) -> Obj {
+        let mut soft = Obj::new()
+            .with("key", "possible_thin_coating")
+            .with("components", V::List(vec![]));
+        if provisional {
+            soft.set("provisional", true);
+        }
+        let above = Obj::new().with("key", "above_bone_range").with("m", 30.0);
+        Obj::new().with(
+            "radiocarbon",
+            Obj::new()
+                .with("notes_all", V::List(vec![V::Map(above), V::Map(soft)]))
+                .with(
+                    "notes_shown",
+                    V::List(vec![
+                        V::Str("above_bone_range".into()),
+                        V::Str("possible_thin_coating".into()),
+                    ]),
+                ),
+        )
+    }
+
+    /// The soft contaminant note says "provisional" in the text output when the record marks it (an instrument not built
+    /// in), as the flags do (Astra's whole-branch review).
+    #[test]
+    fn a_provisional_soft_note_says_so() {
+        assert_eq!(
+            notes_text(&rec(true), "radiocarbon"),
+            "above_bone_range, possible_thin_coating provisional"
+        );
+        assert_eq!(
+            notes_text(&rec(false), "radiocarbon"),
+            "above_bone_range, possible_thin_coating"
+        );
+        assert_eq!(notes_text(&Obj::new(), "radiocarbon"), "-");
+    }
 }

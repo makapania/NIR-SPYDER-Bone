@@ -155,7 +155,7 @@ fn predict_runs_every_active_model_with_identities() {
         assert!(s1["transfer"].is_null());
         if class == "hires" {
             assert_eq!(ryder["transfer"]["id"], "transfer.labspec4.hires_to_std");
-            assert_eq!(ryder["transfer"]["version"], "0.2.0");
+            assert_eq!(ryder["transfer"]["version"], "0.3.0");
             assert_eq!(ryder["transfer"]["provisional"], true);
         } else {
             assert!(ryder["transfer"].is_null());
@@ -351,7 +351,7 @@ fn analyse_gives_verdicts_csv_and_manifest() {
     assert!(rec["models"]["cons3"]["value"].is_number());
     assert_eq!(
         rec["stream"]["transfer"],
-        "transfer.labspec4.hires_to_std@0.2.0"
+        "transfer.labspec4.hires_to_std@0.3.0"
     );
     assert_eq!(bone["manifest"]["format"], "spyder-bone/analysis_manifest");
     assert_eq!(

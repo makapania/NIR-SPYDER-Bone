@@ -1,10 +1,55 @@
-//! Options shared by `validate` and `predict`: plug-in folders and pins.
+//! Options shared by `validate`, `predict` and `analyse`: plug-in folders, pins and the instrument class.
 
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-use spyder_core::plugins::registry::Pins;
-use spyder_core::plugins::Version;
+use spyder_core::plugins::registry::{Pins, Registry};
+use spyder_core::plugins::{Version, CLASS_HIRES, CLASS_STD};
+
+/// A `--class` value as given on the command line: a switch alias, or a registry class id (`maker.model...`); checked
+/// against the loaded registry later by [`resolve_class`].
+pub fn class_arg(arg: Option<&OsString>, usage: &str) -> Result<String, (u8, String)> {
+    match arg.and_then(|c| c.to_str()) {
+        Some(c @ ("std" | "standard" | "hires" | "high-res")) => Ok(c.to_string()),
+        Some(c) if c.contains('.') && !c.starts_with('-') => Ok(c.to_string()),
+        _ => Err((
+            2,
+            format!(
+                "--class must be std, hires or an instrument class id
+
+{usage}"
+            ),
+        )),
+    }
+}
+
+/// The instrument class a `--class` value names: `std` / `standard` or `hires` / `high-res` (the LabSpec 4 switch),
+/// or any class the loaded instrument registry lists (DECISIONS 137). A file another instrument wrote is scored as
+/// that instrument's class whatever this says (the registry names it by file format and detector joins).
+pub fn resolve_class(reg: &Registry, raw: &str, usage: &str) -> Result<String, (u8, String)> {
+    let c = match raw {
+        "std" | "standard" => CLASS_STD,
+        "hires" | "high-res" => CLASS_HIRES,
+        other => other,
+    };
+    let known =
+        c == CLASS_STD || c == CLASS_HIRES || reg.instruments().is_some_and(|i| i.has_class(c));
+    if known {
+        Ok(c.to_string())
+    } else {
+        let listed: Vec<String> = reg
+            .instruments()
+            .map(|i| i.classes.keys().cloned().collect())
+            .unwrap_or_default();
+        Err((
+            2,
+            format!(
+                "--class {raw:?}: use std, hires or a class of the instrument registry ({})\n\n{usage}",
+                listed.join(", ")
+            ),
+        ))
+    }
+}
 
 /// Parse `id@MAJOR.MINOR.PATCH` into the pin map.
 pub fn add_pin(pins: &mut Pins, arg: Option<&OsString>) -> Result<(), (u8, String)> {

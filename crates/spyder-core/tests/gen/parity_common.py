@@ -6,7 +6,8 @@ spectra, predictions within 1e-9).
   also records the spectrum's content hash, which the Rust test checks first.
 * `Engine`: the plug-in folder loaded with the frozen Python reference `reference/spyder_ref` (numpy only), and
   `predict_all()`: every active model on one scan for one instrument class, with the transfer chosen by
-  spyder_ref.pick_transfer (the PLAN Step 4 rule).
+  spyder_ref.pick_reader_transfer (the PLAN Step 4 rule and the pipeline's per-reader stream policy: a model an active
+  analysis profile lists as reading the scan as measured, S1_R2, never goes through a correction; Rust predict_scan).
 """
 from __future__ import annotations
 
@@ -69,11 +70,17 @@ def perturb(wl, x, k: int):
 
 
 class Engine:
-    """The plug-in folder as spyder_ref sees it: active models and active transfers."""
+    """The plug-in folder as spyder_ref sees it: active models and active transfers, and the models the active
+    analysis profiles (profiles/) list as reading the scan as measured."""
 
     def __init__(self, folder: Path):
         self.folder = Path(folder)
         self.models, self.transfers, self.files = [], [], {}
+        self.as_measured = set()
+        for p in sorted((self.folder / "profiles").glob("*.json")):
+            d = SR.load_json(p)
+            if d.get("status", "active") == "active":
+                self.as_measured |= {s["model_id"] for s in d["parameters"]["models"] if s.get("reads") == "as_measured"}
         for p in sorted(self.folder.glob("*.spyder-model.json")):
             d = SR.load_json(p)
             self.files[p.name] = SR.file_sha256(p)
@@ -97,7 +104,7 @@ class Engine:
         for m in self.models:
             rec = {}
             try:
-                t = SR.pick_transfer(m, ctx, self.transfers)
+                t = SR.pick_reader_transfer(m, ctx, self.transfers, m["id"] in self.as_measured)
                 if isinstance(t, dict):
                     rec["transfer"] = t["_sha256"]
                     if t["_sha256"] not in cache:

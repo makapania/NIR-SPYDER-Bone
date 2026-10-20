@@ -1,7 +1,7 @@
 {
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "https://spyder-bone.org/schemas/spyder-bands.schema.json",
- "title": "SPYDER Bone shared band table (bands.json)",
+ "title": "SPYDER Bone shared band table (bands.json, format 2: readability gains computed for each correction)",
  "type": "object",
  "required": [
   "format",
@@ -11,12 +11,13 @@
   "engine_min",
   "status",
   "kernels",
+  "noise_model",
   "bands",
   "golden"
  ],
  "properties": {
   "format_version": {
-   "const": 1
+   "const": 2
   },
   "id": {
    "type": "string"
@@ -58,9 +59,6 @@
   "n2": {
    "type": "object"
   },
-  "transfer_keys": {
-   "type": "object"
-  },
   "golden": {
    "type": "object",
    "required": [
@@ -74,6 +72,44 @@
     "tolerance": {
      "type": "object"
     },
+    "corrections": {
+     "type": "object",
+     "description": "named corrections the cases use: an operator list (as a transfer file's) and optional instrument_noise",
+     "propertyNames": {
+      "not": {
+       "const": "none"
+      }
+     },
+     "additionalProperties": {
+      "type": "object",
+      "required": [
+       "operator"
+      ],
+      "properties": {
+       "operator": {
+        "type": "array",
+        "minItems": 1
+       },
+       "instrument_noise": {
+        "type": "object",
+        "description": "an instrument's own noise, measured on its scans; overrides the noise tables' defaults for outputs read through this correction",
+        "properties": {
+         "correlation_nm": {
+          "type": "number",
+          "minimum": 0
+         },
+         "ch_envelope_factors": {
+          "type": "object",
+          "additionalProperties": {
+           "type": "number",
+           "exclusiveMinimum": 0
+          }
+         }
+        }
+       }
+      }
+     }
+    },
     "cases": {
      "type": "array",
      "minItems": 3,
@@ -81,7 +117,7 @@
       "type": "object",
       "required": [
        "spectrum_sha256",
-       "transfer_key",
+       "correction",
        "expected"
       ],
       "properties": {
@@ -89,10 +125,15 @@
         "type": "string",
         "pattern": "^[0-9a-f]{64}$"
        },
-       "transfer_key": {
+       "correction": {
         "type": "string",
-        "pattern": "^(none|[0-9a-f]{64})$",
-        "description": "'none' or the sha256 of a transfer FILE"
+        "description": "'none' or a name in the golden block's corrections"
+       },
+       "splices_nm": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        }
        },
        "expected": {
         "type": "object",
@@ -239,8 +280,7 @@
      "readability": {
       "type": "object",
       "required": [
-       "noise_window_nm",
-       "gain_E_per_N2"
+       "noise_window_nm"
       ],
       "properties": {
        "noise_window_nm": {
@@ -251,24 +291,50 @@
          "type": "number"
         }
        },
-       "gain_E_per_N2": {
-        "type": "object",
-        "minProperties": 1,
-        "propertyNames": {
-         "type": "string",
-         "pattern": "^(none|[0-9a-f]{64})$",
-         "description": "'none' or the sha256 of a transfer FILE"
-        },
-        "additionalProperties": {
-         "type": "number",
-         "exclusiveMinimum": 0
-        }
+       "envelope_factor": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "description": "the within-detector noise envelope at the band (default 1)"
        },
-       "n2_cut_equivalent": {
-        "type": "object"
+       "envelope_provenance": {
+        "type": "string"
+       },
+       "provisional": {
+        "type": "boolean"
+       },
+       "note": {
+        "type": "string"
+       },
+       "window_choice": {
+        "type": "string"
+       },
+       "gain_source": {
+        "type": "string"
        }
+      },
+      "not": {
+       "required": [
+        "gain_E_per_N2"
+       ],
+       "description": "per-transfer gains are format 1"
       }
      }
+    }
+   }
+  },
+  "noise_model": {
+   "type": "object",
+   "required": [
+    "correlation_nm"
+   ],
+   "description": "the noise model of the computed gains: white noise in absorbance smoothed by a Gaussian of correlation_nm (sigma, nm), independent between detector segments",
+   "properties": {
+    "correlation_nm": {
+     "type": "number",
+     "minimum": 0
+    },
+    "description": {
+     "type": "string"
     }
    }
   }

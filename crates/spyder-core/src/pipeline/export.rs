@@ -119,6 +119,13 @@ pub fn csv_row(rec: &Obj, analysis: &str) -> Obj {
         for (c, v) in &obj(m, "components").0 {
             row.set(&format!("{k}.{c}"), v.clone());
         }
+        // a correction's per-reader offsets (DECISIONS 137), only when it carries one for this reading
+        if let Some(v) = m.get("reader_offset") {
+            row.set(&format!("{k}.reader_offset"), v.clone());
+        }
+        for (c, v) in &obj(m, "component_offsets").0 {
+            row.set(&format!("{k}.{c}.reader_offset"), v.clone());
+        }
     }
     let ev = obj(rec, "evidence");
     for k in ["level", "S", "n_readable_core", "n_lit_core", "guard_max_E"] {

@@ -1122,7 +1122,8 @@
           "type": "number"
          }
         }
-       ]
+       ],
+       "description": "absorbance gain, one value or one per detector segment; finite and non-zero (a zero gain erases the spectrum)"
       },
       "offset": {
        "oneOf": [
@@ -1135,7 +1136,8 @@
           "type": "number"
          }
         }
-       ]
+       ],
+       "description": "absorbance offset, one value or one per detector segment. Not display-only: with the gains it sets the visible levels the heat check reads (the corrected stream's VNIR level and its 1250-1300 nm reference); a correction whose levels were not fitted from paired scans says so (transfer provenance.visible_levels)."
       },
       "clip_min": {
        "type": "number",

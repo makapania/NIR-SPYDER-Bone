@@ -35,7 +35,7 @@
     type LabelWindow,
     type Placement,
   } from '../bands';
-  import { LEVEL_WORD, keepRanges, zoomsHeadline } from '../display';
+  import { LEVEL_WORD, bandsOffReason, keepRanges, zoomsHeadline } from '../display';
   import { flagLabel } from '../strings';
   import { verdictMeta } from '../verdict';
   import type { BandId, BandReading, ReferenceSpectrum, ScanResult, SpectrumViews } from '../types';
@@ -278,6 +278,9 @@
   const placeOf = (w: CloseUpWindow, items: Item[]): Placement => labels?.at[wkey(w)] ?? { shift: items.map(() => 0), sepAt: null };
 
   const zcall = $derived(scan.zooms.verdict ?? 'cant_tell');
+  /** An instrument with no built-in correction (DECISIONS 137): no evidence level and no ZooMS call; the close-ups
+   *  still show the band readings. */
+  const bandsOff = $derived(bandsOffReason(scan.evidence.status));
   const headline = $derived(zoomsHeadline(scan.zooms, scan.evidence.bands));
   const LEVEL_EXPLAIN: Record<string, string> = {
     none: 'No protein signal detected. Significant collagen is very unlikely at this spot.',
@@ -294,17 +297,27 @@
   <div class="head">
     <h2>Collagen bands</h2>
     <span class="spacer"></span>
-    {#if readable}
+    {#if readable && bandsOff}
+      <span class="level" title="Not assessed: {bandsOff}. The band readings below still show." data-testid="bands-off">
+        <span class="muted lw">Protein bands</span><b>Not assessed</b>
+      </span>
+    {:else if readable}
       <span class="level" title="{LEVEL_EXPLAIN[scan.evidence.level]} The level comes from the band rules; it is not a percentage.">
         <span class="muted lw">Protein bands</span><EvidenceGlyph state={scan.evidence.level} size={16} /><b>{LEVEL_WORD[scan.evidence.level]}</b>
       </span>
     {/if}
   </div>
   {#if readable}
-    <div class="zrow" data-testid="zooms-check" title={ZOOMS_EXPLAIN}>
-      <VerdictGlyph verdict={zcall} size={14} />
-      <span><b>ZooMS band check: {verdictMeta(zcall).short}</b> <span class="zh">· {headline}</span></span>
-    </div>
+    {#if bandsOff}
+      <div class="zrow" data-testid="zooms-check" title={ZOOMS_EXPLAIN}>
+        <span><b>ZooMS band check: not assessed</b> <span class="zh">· {bandsOff}</span></span>
+      </div>
+    {:else}
+      <div class="zrow" data-testid="zooms-check" title={ZOOMS_EXPLAIN}>
+        <VerdictGlyph verdict={zcall} size={14} />
+        <span><b>ZooMS band check: {verdictMeta(zcall).short}</b> <span class="zh">· {headline}</span></span>
+      </div>
+    {/if}
     {#if flagged}
       <div class="cuflag"><FlagMark size={13} /><span><b>{flagLabel(fired[0].id)}:</b> lit bands may come from {fired[0].id === 'wax' ? 'a lipid (such as wax)' : 'the coating'}, not collagen.</span></div>
     {/if}

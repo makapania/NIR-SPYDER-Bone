@@ -9,7 +9,7 @@
   let { evidence }: { evidence: Evidence } = $props();
 
   const LEAD = 'One bar per band, left to right 1545 | 1689 1728 | 2044 2175 | 2262 2284: taller = stronger, a stub = flat, dotted = too noisy.';
-  const title = $derived(`${LEAD} ${bandSummaryTitle(evidence.level, evidence.bands)}`);
+  const title = $derived(`${LEAD} ${bandSummaryTitle(evidence.level, evidence.bands, evidence.status)}`);
   const groups = $derived(bandsByCloseUp(evidence.bands));
   const BAR: Record<BandState, number> = { strong: 12, clear: 8.5, trace: 5, flat: 1.6, cant_tell: 12 };
   /** Each bar's x: 4 px a bar, 3 px more between close-ups. */

@@ -19,10 +19,10 @@ use crate::session::{ui_class, Input, NewScan, Session};
 pub struct SessionInfo {
     pub folder: String,
     pub watching: bool,
-    pub instrument_class: &'static str,
+    pub instrument_class: String,
     pub class_source: &'static str,
     pub serial: Option<u64>,
-    pub serial_class: Option<&'static str>,
+    pub serial_class: Option<String>,
     pub example: bool,
     pub count: usize,
 }
@@ -32,7 +32,7 @@ pub fn session_info(core: &Core, s: &Session, watching: bool) -> SessionInfo {
     SessionInfo {
         folder: s.folder.clone().unwrap_or_default(),
         watching,
-        instrument_class: ui_class(s.class),
+        instrument_class: ui_class(&s.class),
         class_source: s.source.ui_str(),
         serial,
         serial_class,
@@ -111,7 +111,7 @@ pub fn results(core: &Core, s: &Session, analysis: &str) -> Vec<ScanResult> {
     };
     s.entries
         .iter()
-        .map(|e| scan_result(core, e, a, s.class, s.source))
+        .map(|e| scan_result(core, e, a, &s.class, s.source))
         .collect()
 }
 
@@ -135,13 +135,11 @@ pub fn scan_views(core: &Core, s: &Session, id: &str, smoothing: u32) -> Result<
     let reg = core.registry().ok_or("no verdict model is loaded")?;
     let eng = core.engine().ok_or("no verdict model is loaded")?;
     let d = e.draw().ok_or("this file cannot be drawn")?;
-    Ok(core.display.scan_views(
-        reg,
-        &eng,
-        &d.as_input(),
-        s.class,
-        clamp_smoothing(smoothing),
-    ))
+    // the class the scan was scored as (another instrument's file keeps its own; no correction: as measured)
+    let class = e.class().unwrap_or(&s.class).to_string();
+    Ok(core
+        .display
+        .scan_views(reg, &eng, &d.as_input(), &class, clamp_smoothing(smoothing)))
 }
 
 /// The reference spectra's meta and their views.

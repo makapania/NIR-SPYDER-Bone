@@ -5,7 +5,8 @@
 //!   [`Node`] accessor used for hand-written schema validation (every error names its JSON path).
 //! * [`npy`]: the `.npy` reader (little-endian float64, C order, 1-D/2-D, never pickles).
 //! * [`golden`]: golden spectra files and the golden runner for models, consensus files and transfers.
-//! * [`tables`]: `bands.json`, `noise_gains.json` (with their goldens) and the instrument registry.
+//! * [`tables`]: `bands.json`, `noise_gains.json` (with their goldens) and the instrument registry; [`gains`]: the
+//!   noise and band-readability gains, computed for any linear correction and the scan's own detector segments.
 //! * [`checks`], [`profiles`], [`refset`]: engine-check parameter files, analysis profiles and reference sets
 //!   (loaded and validated; their evaluation is Phase 3).
 //! * [`registry`]: discovery over the bundled and user folders, cross-file checks, precedence, pins and the
@@ -17,6 +18,7 @@
 #![allow(clippy::neg_cmp_op_on_partial_ord)]
 
 pub mod checks;
+pub mod gains;
 pub mod golden;
 pub mod json;
 pub mod npy;
@@ -34,8 +36,11 @@ pub use json::Node;
 
 /// Engine (operator-set) version this crate implements; files declare `engine_min`.
 pub const ENGINE_VERSION: (u32, u32) = crate::preprocess::ENGINE_VERSION;
-/// Every plug-in kind is at `format_version` 1.
+/// Every plug-in kind is at `format_version` 1, except the two shared tables below.
 pub const FORMAT_VERSION: u64 = 1;
+/// `bands.json` and `noise_gains.json` are at `format_version` 2 (DECISIONS 137): their gains are computed from the
+/// correction applied and the scan's segments, no longer listed per transfer file SHA-256 (format 1).
+pub const TABLE_FORMAT_VERSION: u64 = 2;
 /// Sidecars above this size are refused (dense DS matrices, about 24 MB, are never bundled).
 pub const SIDECAR_MAX_BYTES: u64 = 16 * 1024 * 1024;
 /// Plug-in JSON files above this size are refused before parsing (the largest shipped file is about 1.5 MB).
@@ -218,6 +223,11 @@ impl Header {
 /// Parse and check the common header: format, integer `format_version` 1, id (non-empty, optional pattern
 /// check by the caller), semver version, `engine_min` not above this engine, status.
 pub fn parse_header(doc: &Node, format: &str) -> PResult<Header> {
+    parse_header_v(doc, format, FORMAT_VERSION)
+}
+
+/// [`parse_header`] for a kind at another `format_version`.
+pub fn parse_header_v(doc: &Node, format: &str, format_version: u64) -> PResult<Header> {
     let f = doc.req("format")?.str()?;
     if f != format {
         return Err(PluginError::schema(format!(
@@ -226,9 +236,9 @@ pub fn parse_header(doc: &Node, format: &str) -> PResult<Header> {
         )));
     }
     let fv = doc.req("format_version")?;
-    if fv.v.as_u64() != Some(FORMAT_VERSION) {
+    if fv.v.as_u64() != Some(format_version) {
         return Err(PluginError::schema(format!(
-            "unsupported format_version {} (this engine reads format_version 1)",
+            "unsupported format_version {} (this engine reads format_version {format_version})",
             fv.v
         )));
     }

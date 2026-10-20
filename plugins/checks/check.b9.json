@@ -3,7 +3,7 @@
  "format_version": 1,
  "check": "b9",
  "id": "check.b9",
- "version": "1.0.0",
+ "version": "1.0.1",
  "engine_min": "1.1",
  "status": "active",
  "title": "B9: does this look like bone?",
@@ -111,25 +111,25 @@
    },
    {
     "name": "hires_longwave_not_assessed",
-    "spectrum_sha256": "4b41f6f40c740d17d3e5d796fae5babb1d0a8c01c6e9da38552f25ad4924636f",
+    "spectrum_sha256": "56c8e3dd2b0ab8c31c8fce1bdd3ab62234072b1eca780a5e23a7c957c23dedac",
     "inputs": {
      "truncated": true
     },
     "expected": {
      "status": "assessed: truncated (long-wave region too noisy)",
-     "score": 0.9651594798726878,
+     "score": 0.96385432906584,
      "outcome": "pass"
     }
    },
    {
     "name": "hires_longwave_not_assessed [full windows]",
-    "spectrum_sha256": "4b41f6f40c740d17d3e5d796fae5babb1d0a8c01c6e9da38552f25ad4924636f",
+    "spectrum_sha256": "56c8e3dd2b0ab8c31c8fce1bdd3ab62234072b1eca780a5e23a7c957c23dedac",
     "inputs": {
      "truncated": false
     },
     "expected": {
      "status": "assessed",
-     "score": 0.9652867035007253,
+     "score": 0.964004041164572,
      "outcome": "pass"
     }
    },
@@ -159,25 +159,25 @@
    },
    {
     "name": "hires_longwave_300_c1_truncated",
-    "spectrum_sha256": "27fafdc3918d78f06150f70f55453f722ca25d4590a9b62ff400b54b742fd3dd",
+    "spectrum_sha256": "1ac98c845c5ab843695b97f94f663d18b6b666db9c3eac732ed7dda932e59928",
     "inputs": {
      "truncated": true
     },
     "expected": {
      "status": "assessed: truncated (long-wave region too noisy)",
-     "score": 0.9651514834433551,
+     "score": 0.9638465917861759,
      "outcome": "pass"
     }
    },
    {
     "name": "hires_longwave_300_c1_truncated [full windows]",
-    "spectrum_sha256": "27fafdc3918d78f06150f70f55453f722ca25d4590a9b62ff400b54b742fd3dd",
+    "spectrum_sha256": "1ac98c845c5ab843695b97f94f663d18b6b666db9c3eac732ed7dda932e59928",
     "inputs": {
      "truncated": false
     },
     "expected": {
      "status": "assessed",
-     "score": 0.9652070310687346,
+     "score": 0.963926163741801,
      "outcome": "pass"
     }
    }

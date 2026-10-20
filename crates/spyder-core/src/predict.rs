@@ -1,11 +1,12 @@
 //! Model predictions for one scan (PLAN section 3 Steps 3, 4 and 6): for every selected model, pick the
-//! transfer by the Step 4 rule, run the model on the standard-resolution-equivalent stream (the scan itself, or
-//! the transferred spectrum), check grid eligibility, and record the result with the model's id@version and
-//! file SHA-256 and the transfer's id@version, SHA-256 and "provisional" flag. Transferred spectra are cached
-//! per transfer, since several models share one.
+//! transfer by the Step 4 rule and the pipeline's per-reader stream policy (a model a profile lists as reading the scan
+//! as measured, S1_R2, never goes through a correction), run the model on the standard-resolution-equivalent stream
+//! (the scan itself, or the transferred spectrum), check grid eligibility, and record the result with the model's
+//! id@version and file SHA-256 and the transfer's id@version, SHA-256 and "provisional" flag. Transferred spectra are
+//! cached per transfer, since several models share one.
 //!
-//! The noise SD of each reading (`noise_gains.json`, keyed by model id and the transfer FILE SHA-256 actually
-//! applied) is reported as a number; the B6 rule itself belongs to the Phase 3 pipeline.
+//! The noise SD of each reading (computed from the model, the transfer actually applied and the scan's own detector
+//! segments under `noise_gains.json`'s noise model) is reported as a number; the B6 rule belongs to the pipeline.
 
 use std::collections::BTreeMap;
 
@@ -13,11 +14,10 @@ use serde::Serialize;
 
 use crate::model::{Model, ModelKind, Prediction};
 use crate::plugins::registry::Registry;
-use crate::plugins::tables::NO_TRANSFER;
 use crate::plugins::{ScanContext, MODEL_FORMAT};
 use crate::preprocess::Spectrum;
 use crate::status::Status;
-use crate::transfer::{select_pinned, Selection, Transfer};
+use crate::transfer::{select_for_reader, Selection, Transfer};
 
 /// The transfer applied before a model.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -37,15 +37,25 @@ pub struct ModelResult {
     pub kind: ModelKind,
     pub role: String,
     pub short_name: Option<String>,
-    /// None = the scan as measured (same class, `also_valid_for`, or no transfer available).
+    /// None = the scan as measured (same class, `also_valid_for`, a reader that reads as measured, or no transfer
+    /// available).
     pub transfer: Option<TransferRef>,
     /// Plain-words note about the stream (e.g. "no transfer available for this instrument").
     pub transfer_note: Option<String>,
     /// assessed / not assessed: reason (grid eligibility, a chain that cannot run on this scan...).
     pub assessment: Status,
     pub prediction: Option<Prediction>,
-    /// Implied SD of the reading (wt%) from the noise gains for this stream; None = not assessed.
+    /// Implied SD of the reading (wt%) computed for this stream; None = not assessed (see `noise_status`).
     pub noise_sd_pct: Option<f64>,
+    /// "assessed" or why the noise SD could not be computed (a non-linear correction, not available on this
+    /// instrument, ...).
+    pub noise_status: String,
+    /// The correction's additive offset (wt%) for this reader (`reader_offsets`), when it carries one; for a consensus,
+    /// its components' offsets (added before the median) by component name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reader_offset: Option<f64>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub component_offsets: BTreeMap<String, f64>,
 }
 
 impl ModelResult {
@@ -82,16 +92,31 @@ pub fn predict_scan(reg: &Registry, wl: &[f64], r: &[f64], ctx: &ScanContext) ->
             assessment: Status::Assessed,
             prediction: None,
             noise_sd_pct: None,
+            noise_status: "not assessed: no noise table loaded".to_string(),
+            reader_offset: None,
+            component_offsets: BTreeMap::new(),
         };
-        let (stream, key): (Result<Spectrum, String>, Option<String>) = match select_pinned(
-            m, ctx, &transfers, &pinned,
-        ) {
-            Selection::NotNeeded => (Ok(raw.clone()), Some(NO_TRANSFER.to_string())),
+        // the pipeline's per-reader stream policy: S1_R2 (reads as measured) never goes through a correction, not even
+        // a unit file or another instrument's file
+        let sel = select_for_reader(
+            reg.reads_as_measured(&m.header.id),
+            m,
+            ctx,
+            &transfers,
+            &pinned,
+        );
+        let offsets = match sel {
+            Selection::Apply(t) => Some(&t.reader_offsets),
+            _ => None,
+        };
+        let (stream, corr) = match sel {
+            Selection::NotNeeded => (Ok(raw.clone()), None),
             Selection::Missing => {
                 res.transfer_note = Some(format!(
-                        "no transfer available for this instrument ({} to {}); the model runs on the scan as measured",
-                        ctx.instrument_class, m.trained_on_class
-                    ));
+                    "no correction for this instrument is installed ({} to {}); the model runs on the scan as \
+                     measured (uncalibrated)",
+                    ctx.instrument_class, m.trained_on_class
+                ));
                 (Ok(raw.clone()), None)
             }
             Selection::Apply(t) => {
@@ -102,19 +127,28 @@ pub fn predict_scan(reg: &Registry, wl: &[f64], r: &[f64], ctx: &ScanContext) ->
                     provisional: t.provisional,
                 });
                 if t.provisional {
-                    res.transfer_note = Some("high-res transfer applied (provisional)".to_string());
+                    res.transfer_note =
+                        Some(format!("correction {} applied (provisional)", t.key()));
                 }
-                let s = streams
+                let s: Result<Spectrum, String> = streams
                     .entry(t.file_sha256.clone())
                     .or_insert_with(|| t.apply(&raw, ctx).map_err(|e| e.to_string()))
                     .clone();
-                (s, Some(t.file_sha256.clone()))
+                (s, Some(t.correction()))
             }
         };
-        res.noise_sd_pct = match (&key, noise) {
-            (Some(k), Some(ng)) => ng.implied_sd(&m.header.id, &raw, k),
-            _ => None,
-        };
+        if let Some(ng) = noise {
+            let isd = ng.implied_sd(
+                Some(&reg.gain_cache),
+                m,
+                wl,
+                &ctx.splices_nm,
+                corr,
+                &mut |lo, hi| crate::n2::n2(r, wl, lo, hi).unwrap_or(f64::NAN),
+            );
+            res.noise_sd_pct = isd.sd;
+            res.noise_status = isd.status;
+        }
         match stream {
             Err(e) => {
                 res.assessment =
@@ -126,7 +160,14 @@ pub fn predict_scan(reg: &Registry, wl: &[f64], r: &[f64], ctx: &ScanContext) ->
                     res.assessment = el;
                 } else {
                     match m.predict(&s, ctx) {
-                        Ok(p) if p.value.is_finite() => res.prediction = Some(p),
+                        Ok(mut p) if p.value.is_finite() => {
+                            if let Some(o) = offsets.filter(|o| !o.is_empty()) {
+                                let (own, comps) = m.add_reader_offsets(&mut p, o);
+                                res.reader_offset = own;
+                                res.component_offsets = comps.into_iter().collect();
+                            }
+                            res.prediction = Some(p)
+                        }
                         Ok(_) => {
                             res.assessment = Status::not_assessed(
                                 "the model gives no finite reading on this scan",

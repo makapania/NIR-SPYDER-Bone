@@ -26,6 +26,20 @@ describe('the reduced contaminant checks (SWIR1 fallbacks) say which ran and wha
   });
 });
 
+describe('band noise unknown (DECISIONS 137): plain words, faint bands not read', () => {
+  it('all bands (a correction without noise propagation) or the bands named, by wavelength', () => {
+    const seven = ['ch1689', 'ch1728', 'nh2044', 'amide2175', 'ch2262', 'ch2284', 'nh1545'];
+    expect(NOTE_TEXT.band_noise_unknown({ bands: seven })).toBe(
+      'Band noise could not be estimated for this correction, so faint bands are not read; only strong bands count.',
+    );
+    expect(NOTE_TEXT.band_noise_unknown({ bands: ['ch1728'] })).toBe(
+      'Band noise could not be estimated at 1728 nm on this instrument, so a faint band there is not read; only a strong band counts.',
+    );
+    expect(NOTE_TEXT.band_noise_unknown({ bands: ['ch2284', 'ch1689', 'ch1728'] })).toContain('at 1689, 1728 and 2284 nm');
+    expect(NOTE_TEXT.band_noise_unknown({})).toContain('for this correction');
+  });
+});
+
 describe('the faint protein sign names what shows', () => {
   it('2175 alone, one other band, or two bands at a very low reading', () => {
     expect(NOTE_TEXT.zooms_faint_protein({ lit: ['amide2175'] })).toContain('only the 2175 nm protein band');

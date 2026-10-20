@@ -1,8 +1,9 @@
-//! `spyder predict`: read .asd files, apply the transfer for high-res (Step 4 rule), run every selected active
-//! model and CONS3, and print the predictions with id@version and file SHA-256 (and the transfer's).
+//! `spyder predict`: read .asd files, apply the correction a model needs (Step 4 rule), run every selected active
+//! model and CONS3, and print the predictions with id@version and file SHA-256 (and the correction's).
 //!
-//! The instrument class is the user's switch (`--class std|hires`, DECISIONS 50); a serial listed under the
-//! other class only adds a gentle note. Exit codes: 0 done (rejected files are a result, not an error);
+//! The instrument class is the user's switch (`--class std|hires`, DECISIONS 50), or a class of the instrument
+//! registry; a file another instrument wrote is predicted as that instrument's class (DECISIONS 137); a serial listed
+//! under the other class only adds a gentle note. Exit codes: 0 done (rejected files are a result, not an error);
 //! 1 path or plug-in folder problem, or the startup-error state (no scan is scored); 2 usage.
 
 use std::ffi::OsString;
@@ -11,23 +12,26 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use spyder_core::plugins::registry::{Location, Origin, Pins, Registry};
-use spyder_core::plugins::{short, ScanContext, CLASS_HIRES, CLASS_STD};
+use spyder_core::plugins::{short, ScanContext};
 use spyder_core::predict::{predict_scan, ModelResult};
 use spyder_core::read;
 
-use crate::plugin_opts::{add_pin, bundled_dir, user_dir};
+use crate::plugin_opts::{add_pin, bundled_dir, class_arg, resolve_class, user_dir};
 use crate::read_cmd::{collect_inputs, write_stdout};
 
 pub const USAGE: &str =
-    "usage: spyder predict <file.asd | folder> --class std|hires [--json] [--recursive]
+    "usage: spyder predict <file.asd | folder> --class std|hires|CLASS [--json] [--recursive]
                       [--plugins DIR] [--user-plugins DIR] [--pin id@version]...
 
-  Reads ASD LabSpec 4 .asd files, applies the high-res -> standard-res transfer
-  where a model needs it (provisional), and runs every active model and CONS3.
+  Reads ASD .asd files (LabSpec 4, Trek-type handheld, FieldSpec 3 legacy), applies
+  the correction a model needs for the scan's instrument (high-res -> standard-res
+  for LabSpec 4 high-res, provisional), and runs every active model and CONS3.
   Prints each prediction (signed, unrounded) with the model's id@version and
-  file SHA-256, the transfer used, and the reading's noise SD.
+  file SHA-256, the correction used, and the reading's noise SD.
 
-  --class std|hires   the instrument class (the Standard / High-res switch)
+  --class std|hires   the instrument class (the Standard / High-res switch for LabSpec 4 files, or a
+                      class of the instrument registry); a file another instrument wrote (known by its
+                      file format and detector joins) is predicted as that instrument's class
   --json              one JSON document (schema spyder-bone/predict v1)
   --recursive         include sub-folders (links and junctions are not followed)
   --plugins DIR       bundled plug-in folder (default: $SPYDER_PLUGINS_DIR or the shipped plugins/)
@@ -46,6 +50,9 @@ struct FileOut {
     splices_nm: Option<Vec<f64>>,
     /// Gentle note when the serial is listed under the other class.
     class_note: Option<String>,
+    /// The class the file was predicted as: --class, or the class of the instrument that wrote it (known by its file
+    /// format and detector joins).
+    instrument_class: String,
     models: Vec<ModelResult>,
 }
 
@@ -84,6 +91,7 @@ fn one(reg: &Registry, path: &Path, class: &str) -> FileOut {
         serial: None,
         splices_nm: None,
         class_note: None,
+        instrument_class: class.to_string(),
         models: Vec::new(),
     };
     let scan = match read::read_file(path) {
@@ -101,6 +109,13 @@ fn one(reg: &Registry, path: &Path, class: &str) -> FileOut {
         f.reason = Some(scan.kind.label().to_string());
         return f;
     }
+    // another instrument's file (named by its format and detector joins) is predicted as that instrument's class
+    // (DECISIONS 137); an as7 file with the LabSpec joins 1000/1800 is a LabSpec 4 file, like as8
+    let class = reg
+        .instruments()
+        .and_then(|i| i.class_of_file(scan.format.as_str(), scan.found_joins()))
+        .unwrap_or(class);
+    f.instrument_class = class.to_string();
     f.class_note = reg
         .instruments()
         .and_then(|i| i.mismatch(u64::from(scan.header.serial), class));
@@ -127,6 +142,7 @@ fn text(o: &mut String, f: &FileOut) {
     if let Some(n) = &f.class_note {
         let _ = writeln!(o, "   note: {n}");
     }
+    let _ = writeln!(o, "   instrument class {}", f.instrument_class);
     for m in &f.models {
         let name = m.short_name.clone().unwrap_or_else(|| m.id.clone());
         let tr = match &m.transfer {
@@ -190,7 +206,7 @@ fn text(o: &mut String, f: &FileOut) {
 pub fn run(args: &[OsString]) -> Result<(), (u8, String)> {
     let mut json = false;
     let mut recursive = false;
-    let mut class: Option<&'static str> = None;
+    let mut class: Option<String> = None;
     let mut pins = Pins::new();
     let mut plugins: Option<PathBuf> = None;
     let mut user: Option<PathBuf> = None;
@@ -200,13 +216,7 @@ pub fn run(args: &[OsString]) -> Result<(), (u8, String)> {
         match a.to_str().unwrap_or("") {
             "--json" => json = true,
             "--recursive" | "-r" => recursive = true,
-            "--class" => {
-                class = Some(match it.next().and_then(|c| c.to_str()) {
-                    Some("std" | "standard" | CLASS_STD) => CLASS_STD,
-                    Some("hires" | "high-res" | CLASS_HIRES) => CLASS_HIRES,
-                    _ => return Err((2, format!("--class must be std or hires\n\n{USAGE}"))),
-                })
-            }
+            "--class" => class = Some(class_arg(it.next(), USAGE)?),
             "--plugins" => {
                 plugins = Some(PathBuf::from(
                     it.next()
@@ -273,6 +283,8 @@ pub fn run(args: &[OsString]) -> Result<(), (u8, String)> {
     for n in &reg.notes {
         eprintln!("note: {n}");
     }
+    let class = resolve_class(&reg, &class, USAGE)?;
+    let class = class.as_str();
     let outs: Vec<FileOut> = files.iter().map(|p| one(&reg, p, class)).collect();
     let out = if json {
         let doc = Doc {

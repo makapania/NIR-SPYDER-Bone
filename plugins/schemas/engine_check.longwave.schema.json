@@ -65,9 +65,11 @@
   "parameters": {
    "type": "object",
    "required": [
-    "applies_to_classes",
+    "applies_to",
     "n2_window_nm",
-    "tail_unreliable_if_n2_above",
+    "tail_statistic",
+    "b9_sd_above",
+    "c1_sd_above",
     "when_unreliable"
    ],
    "properties": {
@@ -78,12 +80,6 @@
      },
      "minItems": 2,
      "maxItems": 2
-    },
-    "tail_unreliable_if_n2_above": {
-     "type": "number"
-    },
-    "c1_tail_unreliable_if_n2_above": {
-     "type": "number"
     },
     "when_unreliable": {
      "type": "object",
@@ -106,6 +102,77 @@
       }
      },
      "additionalProperties": false
+    },
+    "applies_to": {
+     "const": "non_native",
+     "description": "every stream that is not the native standard-resolution scan (read as measured, or through a near-uncorrected correction: check.acquisition std_like_within)"
+    },
+    "tail_statistic": {
+     "type": "object",
+     "required": [
+      "kernel",
+      "windows"
+     ],
+     "description": "a linear statistic: sum over windows of weight x mean E over [lo, hi] nm (inclusive), E = scale x Savitzky-Golay derivative of absorbance (the kernel)",
+     "properties": {
+      "kernel": {
+       "oneOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "object",
+         "required": [
+          "absorbance_clip",
+          "savgol",
+          "scale"
+         ],
+         "properties": {
+          "absorbance_clip": {
+           "type": "number",
+           "exclusiveMinimum": 0
+          },
+          "savgol": {
+           "type": "object"
+          },
+          "scale": {
+           "type": "number"
+          }
+         }
+        }
+       ]
+      },
+      "windows": {
+       "type": "array",
+       "minItems": 1,
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 3,
+        "maxItems": 3
+       }
+      },
+      "of": {
+       "type": "string"
+      }
+     }
+    },
+    "correlation_nm": {
+     "type": "number",
+     "minimum": 0
+    },
+    "b9_sd_above": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "c1_sd_above": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "anchor": {
+     "type": "object"
     }
    }
   },

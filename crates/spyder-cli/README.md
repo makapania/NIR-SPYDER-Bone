@@ -3,9 +3,9 @@
 ```
 spyder read     <file.asd | folder> [--json] [--recursive]
 spyder validate <plug-in file | folder> [--json] [--user] [--pin id@version]...
-spyder predict  <file.asd | folder> --class std|hires [--json] [--recursive]
+spyder predict  <file.asd | folder> --class std|hires|CLASS [--json] [--recursive]
                 [--plugins DIR] [--user-plugins DIR] [--pin id@version]...
-spyder analyse  <file.asd | folder> --class std|hires [--profile radiocarbon|isotopes|zooms]
+spyder analyse  <file.asd | folder> --class std|hires|CLASS [--profile radiocarbon|isotopes|zooms]
                 [--csv out.csv] [--json] [--sort] [--recursive] [--plugins DIR] [--user-plugins DIR] [--pin ...]
 ```
 
@@ -127,8 +127,8 @@ Loads plug-in files exactly as the app does: strict JSON (finite numbers only), 
 path inside the plug-in folder, <= 16 MiB, SHA-256 of the file, little-endian float64, C order, finite), schema-level
 validation per kind, goldens run on load (>= 3 cases, at least one with the feature vector for regressions, required
 outputs per kind, no unknown outputs, tolerance <= 1e-9 abs and rel, zero-comparison runs rejected), cross-file
-rules (consensus components by id, version and file SHA-256; transfer keys of `bands.json` / `noise_gains.json`;
-bands named by engine checks; models named by profiles; catalog entries), then precedence and pins. Engine-check and
+rules (consensus components by id, version and file SHA-256; the models the `noise_gains.json` goldens name by file
+SHA-256; bands named by engine checks; models named by profiles; catalog entries), then precedence and pins. Engine-check and
 profile goldens are checked for content and run by the Phase 3 engine. A folder is validated as the bundled folder
 (a failing `active` file is a startup error) unless `--user` is given; a single file is validated in the context
 of its own folder. Exit codes: `0` everything loads, `1` otherwise, `2` usage. `--json`: schema
@@ -139,12 +139,20 @@ of its own folder. Exit codes: `0` everything loads, `1` otherwise, `2` usage. `
 ## `spyder predict`
 
 Reads `.asd` files and runs every selected active model and CONS3 on each scan. `--class` is the user's
-Standard / High-res switch (DECISIONS 50); a serial listed under the other class only adds a gentle note. For each
-model the transfer follows the Step 4 rule (same class or `also_valid_for`: none; else the most specific active
-transfer, serial-specific before class-wide, then the highest version; none available: the model runs on the scan
-as measured, with a note). Each result carries the model's `id`, `version` and file `sha256`, the transfer's `id`,
-`version`, `sha256` and `provisional` flag, the assessment status (grid eligibility), the signed unrounded
-prediction (`value`, `linear`, `T2`, `Q`, `domain_ratio`, `domain_level`, CONS3 `components`) and `noise_sd_pct`.
+Standard / High-res switch for LabSpec 4 files (`std` / `hires`; DECISIONS 50), or any class the instrument registry
+lists (`plugins/instruments.json`); a file another instrument wrote (Trek-type `as7`, whose detector joins are not
+1000/1800 nm, unlike a LabSpec 4's `as7` or `as8`; FieldSpec 3 legacy reflectance) is predicted as that instrument's
+class, whatever `--class` says (each file reports its `instrument_class`;
+DECISIONS 137). A serial listed under the other class only adds a gentle note. For each model the correction follows
+the Step 4 rule over the registry's selection (one version per id, bundled files before user files, then by id; the
+first match wins, so versions are never compared across ids): a file for this unit (`source_serial`, compared as
+text) wins, even for the model's own class (a lab's own standard-resolution unit file); else same class or
+`also_valid_for`: none; else the first class-wide correction; none available: the model runs on the scan as measured,
+with a note that it is uncalibrated. A correction's `reader_offsets` are added to the readings it makes (a consensus:
+to its components before the median; reported as `reader_offset` / `component_offsets`). Each result carries the
+model's `id`, `version` and file `sha256`, the correction's `id`, `version`, `sha256` and `provisional` flag, the assessment status (grid eligibility), the signed unrounded
+prediction (`value`, `linear`, `T2`, `Q`, `domain_ratio`, `domain_level`, CONS3 `components`), `noise_sd_pct` (computed
+for the transfer applied and the scan's own detector joins) and `noise_status` (`assessed`, or why not).
 The bundled plug-in folder is `--plugins`, else `$SPYDER_PLUGINS_DIR`, else `plugins/` next to (or up to four levels
 above) the executable, else the repository's `plugins/`; the user folder is `--user-plugins` or
 `$SPYDER_USER_PLUGINS_DIR`. `--json`: schema `spyder-bone/predict` v1.
@@ -153,8 +161,16 @@ above) the executable, else the repository's `plugins/`; the user folder is `--u
 
 The full per-scan pipeline (PLAN Steps 1-10, Step 3 order), a port of the frozen Python oracle
 (`reference/oracle`): acquisition checks B1-B8 and B6b on the as-measured scan; the instrument class from `--class`
-(a serial listed under the other class adds the note key `serial_class_mismatch`); the stream transfer
-(high-res -> standard-res, provisional); long-wave eligibility; band readability; B9 (or its truncated variant);
+(as for `predict`: another instrument's file is scored as its own class, `class_source` `file_format`, and with no
+correction installed for it carries the note key `instrument_uncalibrated` and has the band calls off: evidence and
+the ZooMS band check "not assessed: band evidence needs this instrument built in", the model verdict stands, flags carry
+`provisional`, no `second_opinion_differs`; a serial listed under the other class adds the note key
+`serial_class_mismatch`); the stream correction (for LabSpec 4 high-res the shipped high-res ->
+standard-res file, provisional); the noise policies for the correction applied (DECISIONS 137: per-sign B6b gates, the
+reduced fallbacks, long-wave and soft-tier eligibility from each statistic's noise after the correction, in SD units;
+the native standard-resolution scan keeps today's table and behaviour, and so does a near-uncorrected correction,
+one that keeps every noise-policy statistic's noise within 15% of uncorrected, such as a standard-resolution unit's own
+file); band readability; B9 (or its truncated variant);
 the profile's models with B6; organic evidence; the ZooMS band pattern; the signs (plaster, wax, ester, burnt) and
 C1; then the verdict of the chosen profile (rule L2 with flat-bands-lead, +D, lift / blocked lift; ZooMS by
 pattern). Flags never change a verdict. The app shows the radiocarbon / isotopes verdict for every analysis: where the

@@ -289,6 +289,16 @@
          }
         }
        }
+      },
+      "models": {
+       "type": "array",
+       "minItems": 1,
+       "items": {
+        "$ref": "#/$defs/profile_model"
+       }
+      },
+      "second_opinion": {
+       "$ref": "#/$defs/second_opinion"
       }
      }
     },
@@ -331,10 +341,98 @@
          }
         }
        }
+      },
+      "models": {
+       "type": "array",
+       "minItems": 1,
+       "items": {
+        "$ref": "#/$defs/profile_model"
+       }
+      },
+      "second_opinion": {
+       "$ref": "#/$defs/second_opinion"
       }
      }
     }
    ]
+  }
+ },
+ "$defs": {
+  "profile_model": {
+   "type": "object",
+   "required": [
+    "key",
+    "model_id",
+    "role"
+   ],
+   "properties": {
+    "key": {
+     "type": "string"
+    },
+    "model_id": {
+     "type": "string"
+    },
+    "role": {
+     "type": "string"
+    },
+    "components": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "shown_for": {
+     "enum": [
+      "every_scan",
+      "non_native"
+     ],
+     "description": "non_native: only when the stream is not the native standard-resolution scan (a correction applied, unless near-uncorrected (check.acquisition std_like_within), or another instrument's scan as measured)"
+    },
+    "shown_for_classes": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "legacy (before DECISIONS 137): instrument classes"
+    },
+    "reads": {
+     "enum": [
+      "as_measured"
+     ],
+     "description": "the model runs on the scan as measured for any instrument"
+    }
+   }
+  },
+  "second_opinion": {
+   "type": "object",
+   "required": [
+    "gap_points"
+   ],
+   "properties": {
+    "streams": {
+     "enum": [
+      "every_scan",
+      "non_native"
+     ]
+    },
+    "classes": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "legacy (before DECISIONS 137): instrument classes"
+    },
+    "gap_points": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "gap_note": {
+     "type": "string"
+    },
+    "basis": {
+     "type": "string"
+    }
+   }
   }
  }
 }

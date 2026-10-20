@@ -118,13 +118,15 @@ pub struct Timestamps {
     pub reference_age_s: Option<f64>,
 }
 
-/// Which ASD file layout the scan came from (DECISIONS 87-88).
+/// Which ASD file layout the scan came from (DECISIONS 87-88). A layout is ASD's file version, not an instrument:
+/// the instrument registry tells instruments apart by format and detector joins.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FileFormat {
     /// `as8`: LabSpec 4 (raw DN + white reference).
     As8,
-    /// `as7`: Trek-type handheld (raw DN + white reference).
+    /// `as7` (ASD file version 7: raw DN + white reference): the Trek-type handheld, or a LabSpec 4 on older ASD
+    /// software (told apart by the detector joins).
     As7,
     /// Legacy v1 `ASD`: FieldSpec 3 `.NNN` / ViewSpec `.sco` (reflectance only).
     Legacy,
@@ -176,5 +178,11 @@ impl Scan {
     /// Index of the channel at `nm` (|diff| <= 1e-6), if on the grid.
     pub fn index_of(&self, nm: f64) -> Option<usize> {
         crate::grid::index_of(&self.wavelengths_nm, nm)
+    }
+
+    /// The detector joins found in the file (its header, else its white-reference DN), or `None` when neither gave
+    /// them and the reader fell back to the default joins: a fallback says nothing about the instrument.
+    pub fn found_joins(&self) -> Option<&[f64]> {
+        (self.joins_source != "default").then_some(self.splices_nm.as_slice())
     }
 }

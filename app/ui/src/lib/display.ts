@@ -8,7 +8,7 @@
 // A displayed number never crosses a screening line: 2.96 shows "≈ 2.9%", not "≈ 3.0%", so the text
 // cannot contradict a Borderline verdict.
 
-import type { BandReading, EvidenceLevel, ModelKey, Zooms } from './types';
+import type { Assessment, BandReading, Evidence, EvidenceLevel, ModelKey, Zooms } from './types';
 
 export const LO = 0.5;
 export const HI = 3;
@@ -54,10 +54,23 @@ export const LEVEL_WORD: Record<EvidenceLevel, string> = {
   cant_tell: "Can't tell",
 };
 
+/** Why the band calls are off on this scan ("band evidence needs this instrument built in": an instrument with no
+ *  built-in correction, DECISIONS 137), or null. */
+export function bandsOffReason(status: Assessment | undefined): string | null {
+  return status?.status === 'not_assessed' && status.reason.startsWith('band evidence') ? status.reason : null;
+}
+
+/** "Not assessed" for the evidence level when the band calls are off, else the level's word. */
+export function levelWord(e: Evidence): string {
+  return bandsOffReason(e.status) ? 'Not assessed' : LEVEL_WORD[e.level];
+}
+
 /** The ZooMS band check in words (no pattern letters; PLAN v3.2 Changes 12): the close-ups' caption and the details
  *  row. With the core's call (desktop app) it never contradicts the check: Can't tell says which bands are too
- *  noisy. */
+ *  noisy; on an instrument with no built-in correction it is not assessed, and says why. */
 export function zoomsHeadline(z: Zooms, bands: BandReading[] = []): string {
+  const off = bandsOffReason(z.status);
+  if (off) return `Not assessed: ${off}`;
   if (z.verdict === 'cant_tell') {
     const protein = bands.filter((b) => b.id === 'nh2044' || b.id === 'amide2175');
     return protein.some((b) => !b.readable) || protein.length === 0

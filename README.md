@@ -4,7 +4,10 @@ A light desktop app (Windows and macOS) that scores ASD LabSpec 4 near-infrared 
 to help decide whether destructive sampling (radiocarbon, ZooMS, isotopes) is worth it. It brings the published
 Ryder et al. 2026 collagen model and related models, with clear spectral visuals, to anyone with a LabSpec 4,
 standard- or high-resolution. It also reads other ASD instruments' files (FieldSpec 3 `.000`/`.sco`, Trek-type handheld
-`.asd`); results from those are provisional (USER_GUIDE section 4).
+`.asd`) and scores them as those instruments; no correction is built in for them yet, so their results are labelled
+uncalibrated, the verdict follows the readings alone (band evidence needs the instrument built in) and the contaminant
+and heat signs are provisional (USER_GUIDE section 4). To have an instrument built in, contact Matt Sponheimer
+(makapania@gmail.com).
 
 **Download:** https://github.com/makapania/NIR-SPYDER-Bone/releases/latest (Windows installer `.exe`; macOS `.dmg` for
 Apple Silicon and Intel, macOS 13 or newer).
@@ -22,7 +25,8 @@ How to use it: [USER_GUIDE.md](USER_GUIDE.md) (also inside the app: **?** or F1)
 - `crates/spyder-core`: all the maths (ASD reader, preprocessing operators, models, checks, verdicts). No UI.
 - `crates/spyder-cli`: the `spyder` command-line tool.
 - `app/`: the desktop app (Tauri 2 shell + Svelte 5 UI).
-- `plugins/`: bundled model, transfer and parameter files (CC-BY-4.0).
+- `plugins/`: bundled model, correction (transfer) and parameter files (CC-BY-4.0). The engine works for any correction
+  file: noise checks follow the correction applied, not a list of known files.
 - `reference/`: the frozen Python reference implementation used for parity tests.
 - `testdata/scans/`: 40 paired real scans of archaeological bone (the same bone on a standard and a high-res LabSpec 4),
   for testing and for checking the high-res transfer.

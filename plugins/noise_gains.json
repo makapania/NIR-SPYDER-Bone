@@ -1,213 +1,37 @@
 {
  "format": "spyder-bone/noise_gains",
- "format_version": 1,
+ "format_version": 2,
  "id": "noise_gains.core",
- "version": "1.0.0",
+ "version": "2.0.0",
  "engine_min": "1.0",
  "status": "active",
  "provisional": true,
  "licence": "CC-BY-4.0",
- "created": "2026-10-03",
- "title": "Noise-propagation gains for B6, keyed by model id and transfer",
- "description": "Implied SD of a collagen reading (wt%) = sqrt(sum over terms of (gain x N2(window_nm))^2), N2 on the AS-MEASURED scan. Pick the entry by the model id and the transfer key actually applied to the scan before the model ('none' = no transfer, e.g. a standard-res scan, or a model valid on the scan's class as measured; otherwise the sha256 of the transfer FILE). A consensus model's SD = factor x median of its components' SDs (each component looked up with the same transfer key). No matching key: B6 is 'not assessed: no noise gains for this transfer'. Provisional: never calibrated on same-spot repeats; B6 raises a Check only. Band readability gains live in bands.json.",
+ "created": "2026-10-19",
+ "title": "Noise propagation for B6: the implied SD of each model reading, computed from the model and the correction",
+ "description": "Implied SD of a collagen reading (wt%) = sqrt(sum over the kernel's detector parts of (gain x N2(window))^2), N2 on the AS-MEASURED scan. The engine computes each gain (format 2) from the model's own linear kernel (its Savitzky-Golay steps and coefficients folded onto absorbance), the correction actually applied before the model (its blur and absorbance gain per detector segment, linearised; none for a scan read as measured) and the scan's own detector joins, under noise_model; each detector part uses the window of model_noise_windows_nm that lies in its segment. A consensus model's SD = factor x median of its components' SDs (each component folded from the consensus file itself). Not assessed, with the reason: a non-linear correction (block SNV), a non-linear model without a recorded gain, a kernel or noise window not inside one detector segment of the scan (not available on this instrument), a non-finite N2. 'models' holds per-model settings: b6 false = the SD is reported but B6 is not applied to that reader; recorded = the gain of a non-linear model, for the scan as measured only. Provisional: never calibrated on same-spot repeats; B6 raises a Check only. Band readability lives in bands.json.",
  "n2": {
   "definition": "canonical N2 (reference/spyder_ref/n2.py): A = log10(1/max(R, 1e-4)) on the full as-measured grid; second difference centred on each channel; centres lo <= lambda < hi; 1.4826 x MAD; units 1e-5",
   "measured_on": "the AS-MEASURED scan, never the transferred stream"
  },
- "transfer_keys": {
-  "none": {
-   "label": "no transfer (the output is computed on the scan as measured)"
-  },
-  "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": {
-   "id": "transfer.labspec4.hires_to_std",
-   "version": "0.2.0",
-   "file": "hires_to_std_v0_2.spyder-transfer.json"
-  },
-  "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": {
-   "id": "transfer.labspec4.hires_to_std",
-   "version": "0.1.0",
-   "file": "hires_to_std_v0_1.spyder-transfer.json"
-  }
+ "noise_model": {
+  "correlation_nm": 1.25,
+  "description": "white noise in absorbance smoothed by a Gaussian of this sigma (nm), independent between detector segments (the ASD files' own residual autocorrelation); taps to +-8 sigma. A correction file may give its instrument's own value in provenance.instrument_noise.correlation_nm, measured on that instrument's scans (another instrument, or a resampled grid, has its own)."
  },
+ "model_noise_windows_nm": [
+  [
+   1500,
+   1550
+  ],
+  [
+   2000,
+   2100
+  ]
+ ],
+ "model_noise_windows_note": "one N2 window per detector segment a model kernel may read (on the LabSpec SWIR1 1500-1550 nm and SWIR2 2000-2100 nm, the windows of format 1); the kernel's part in a segment uses the window in that segment; a part in a segment with no window is not available on this instrument",
  "models": {
-  "collagen.ryder2026.2045": {
-   "none": {
-    "terms": [
-     {
-      "detector": "SWIR2",
-      "window_nm": [
-       2000,
-       2100
-      ],
-      "gain": 0.006102
-     }
-    ]
-   },
-   "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": {
-    "terms": [
-     {
-      "detector": "SWIR2",
-      "window_nm": [
-       2000,
-       2100
-      ],
-      "gain": 0.003281
-     }
-    ]
-   },
-   "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": {
-    "terms": [
-     {
-      "detector": "SWIR2",
-      "window_nm": [
-       2000,
-       2100
-      ],
-      "gain": 0.003326
-     }
-    ]
-   }
-  },
-  "collagen.spyder.2045_oh_corrected": {
-   "none": {
-    "terms": [
-     {
-      "detector": "SWIR2",
-      "window_nm": [
-       2000,
-       2100
-      ],
-      "gain": 0.019809
-     }
-    ]
-   },
-   "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": {
-    "terms": [
-     {
-      "detector": "SWIR2",
-      "window_nm": [
-       2000,
-       2100
-      ],
-      "gain": 0.009377
-     }
-    ]
-   },
-   "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": {
-    "terms": [
-     {
-      "detector": "SWIR2",
-      "window_nm": [
-       2000,
-       2100
-      ],
-      "gain": 0.009504
-     }
-    ]
-   }
-  },
-  "collagen.spyder.1500_oh_corrected": {
-   "none": {
-    "terms": [
-     {
-      "detector": "SWIR1",
-      "window_nm": [
-       1500,
-       1550
-      ],
-      "gain": 0.030097
-     }
-    ]
-   },
-   "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": {
-    "terms": [
-     {
-      "detector": "SWIR1",
-      "window_nm": [
-       1500,
-       1550
-      ],
-      "gain": 0.017465
-     }
-    ]
-   },
-   "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": {
-    "terms": [
-     {
-      "detector": "SWIR1",
-      "window_nm": [
-       1500,
-       1550
-      ],
-      "gain": 0.015714
-     }
-    ]
-   }
-  },
-  "collagen.spyder.nh3_oh_corrected": {
-   "none": {
-    "terms": [
-     {
-      "detector": "SWIR1",
-      "window_nm": [
-       1500,
-       1550
-      ],
-      "gain": 0.003606
-     },
-     {
-      "detector": "SWIR2",
-      "window_nm": [
-       2000,
-       2100
-      ],
-      "gain": 0.009948
-     }
-    ]
-   },
-   "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f": {
-    "terms": [
-     {
-      "detector": "SWIR1",
-      "window_nm": [
-       1500,
-       1550
-      ],
-      "gain": 0.001966
-     },
-     {
-      "detector": "SWIR2",
-      "window_nm": [
-       2000,
-       2100
-      ],
-      "gain": 0.004579
-     }
-    ]
-   },
-   "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff": {
-    "terms": [
-     {
-      "detector": "SWIR1",
-      "window_nm": [
-       1500,
-       1550
-      ],
-      "gain": 0.001769
-     },
-     {
-      "detector": "SWIR2",
-      "window_nm": [
-       2000,
-       2100
-      ],
-      "gain": 0.004641
-     }
-    ]
-   }
-  },
   "collagen.spyder.1500_snv_transfer_free": {
-   "none": {
+   "recorded": {
     "terms": [
      {
       "detector": "SWIR1",
@@ -218,24 +42,33 @@
       "gain": 0.020064
      }
     ],
-    "note": "block SNV is nonlinear: Monte Carlo per scan. S1_R2 is shown on high-res scans only, so the gain is the 90th percentile of the per-scan effective gain over high-res scans as measured (median 0.0150); standard-res scans have a larger effective gain (median 0.0208, p90 0.0301) and their SDs stay below 0.5%"
-   }
+    "applies_to": "the scan as measured (no correction): the model is transfer-free"
+   },
+   "note": "block SNV is nonlinear: Monte Carlo per scan. S1_R2 is shown on high-res scans only, so the gain is the 90th percentile of the per-scan effective gain over high-res scans as measured (median 0.0150); standard-res scans have a larger effective gain (median 0.0208, p90 0.0301) and their SDs stay below 0.5%"
+  },
+  "collagen.spyder.1545_lowrange": {
+   "b6": false,
+   "note": "a panel reader (DECISIONS 116, 119): its implied SD is computed and exported; B6 (a verdict cut within noise reach) is not applied to it, so it raises no check"
+  },
+  "collagen.spyder.1545_narrow": {
+   "b6": false,
+   "note": "a panel reader (DECISIONS 116, 119): its implied SD is computed and exported; B6 (a verdict cut within noise reach) is not applied to it, so it raises no check"
+  },
+  "collagen.spyder.1728_ch": {
+   "b6": false,
+   "note": "a panel reader (DECISIONS 116, 119): its implied SD is computed and exported; B6 (a verdict cut within noise reach) is not applied to it, so it raises no check; its SD uses the SWIR1 window 1500-1550 nm without the C-H envelope factor (bands.json), so it is a calibrated noise index, not the local SD at 1728 nm"
   }
  },
  "consensus": {
   "collagen.spyder.consensus3_median": {
    "factor": 1.0,
-   "components": {
-    "wc2045": "collagen.spyder.2045_oh_corrected",
-    "wc1500": "collagen.spyder.1500_oh_corrected",
-    "F05": "collagen.spyder.nh3_oh_corrected"
-   },
+   "components": "the consensus file's own folded components (wc2045, wc1500, F05)",
    "basis": "Monte Carlo through the consensus (phase 0c re-derivation for wc2045, wc1500 and the OH-corrected N-H set; A19 recipe: 40 correlated-noise draws per scan, high-res through transfer v0.2): 1.0 x median of the component SDs matches the Monte Carlo median on the 40 noisy high-res scans of the pair set (median ratio 0.98; Checks 25 vs 25 by Monte Carlo, agreement 36/40); provisional"
   }
  },
  "provenance": {
-  "method": "detector-local correlated noise (white noise in absorbance smoothed by a 1.25 nm Gaussian, matching the files' own residual autocorrelation) propagated exactly through each output's linear kernel on absorbance; transfers enter as blur (sigma 3.3973 nm, ceil(4 sigma)) x the detector's absorbance gain, linearised. Each detector's part of a kernel uses that detector's own N2 window (independent noise).",
-  "checks": "Monte Carlo through the engine (transfer v0.2 + model chain): Ryder 2045 ratio 1.015; bands 1.000-1.001. Standard and v0.1 gains reproduce the Phase 0a values (Ryder 0.006102 / 0.003326; OH-corrected 2045 0.019809 / 0.009504; OH-corrected 1500 0.030097 / 0.015714). Earlier N-H set (F05) gains (0.008748 / 0.004337 standard) came from a least-squares split of Monte Carlo SDs between two collinear windows; the per-detector analytic gains here give the same total SD within ~10% on standard and noisy high-res scans and are separable.",
+  "method": "computed by the engine (format 2; DECISIONS 137): detector-local correlated noise (white noise in absorbance smoothed by a 1.25 nm Gaussian, matching the files' own residual autocorrelation) propagated exactly through each output's linear kernel on absorbance and the correction applied (each detector segment's blur matrix transposed, times its absorbance gain), linearised. Each detector's part of a kernel uses that detector's own N2 window (independent noise).",
+  "checks": "Monte Carlo through the engine (transfer v0.2 + model chain): Ryder 2045 ratio 1.015; bands 1.000-1.001. Standard and v0.1 gains reproduce the Phase 0a values (Ryder 0.006102 / 0.003326; OH-corrected 2045 0.019809 / 0.009504; OH-corrected 1500 0.030097 / 0.015714). Earlier N-H set (F05) gains (0.008748 / 0.004337 standard) came from a least-squares split of Monte Carlo SDs between two collinear windows; the per-detector analytic gains here give the same total SD within ~10% on standard and noisy high-res scans and are separable. Format 2 reproduces every format-1 gain (no transfer, v0.1, v0.2) within its 6-decimal rounding (max relative 2.0e-4); Monte Carlo through the engine tracks the analytic SD within 0.3% on composed corrections and other joins (DECISIONS 137 g1).",
   "data": "noise model only; checked against within-bone scatter of a high-res variation set (statistics only)"
  },
  "golden": {
@@ -244,359 +77,614 @@
    "abs": 1e-09,
    "rel": 1e-09
   },
+  "corrections": {
+   "v0.2": {
+    "operator": [
+     {
+      "op": "gaussian_blur",
+      "sigma_nm": [
+       0.0,
+       3.3973,
+       3.3973
+      ],
+      "truncate": 4.0,
+      "radius": "ceil",
+      "segments": "from_scan"
+     },
+     {
+      "op": "absorbance_affine",
+      "gain": [
+       0.6343,
+       0.705,
+       0.6258
+      ],
+      "offset": [
+       0.2312,
+       0.2073,
+       0.2453
+      ],
+      "clip_min": 1e-06
+     }
+    ]
+   },
+   "v0.1": {
+    "operator": [
+     {
+      "op": "gaussian_blur",
+      "sigma_nm": [
+       0.0,
+       3.3973,
+       3.3973
+      ],
+      "truncate": 4.0,
+      "radius": "ceil",
+      "segments": "from_scan"
+     },
+     {
+      "op": "absorbance_affine",
+      "gain": 0.6343,
+      "offset": 0.2312,
+      "clip_min": 1e-06
+     }
+    ]
+   },
+   "v0.2_lab_noise": {
+    "operator": [
+     {
+      "op": "gaussian_blur",
+      "sigma_nm": [
+       0.0,
+       3.3973,
+       3.3973
+      ],
+      "truncate": 4.0,
+      "radius": "ceil",
+      "segments": "from_scan"
+     },
+     {
+      "op": "absorbance_affine",
+      "gain": [
+       0.6343,
+       0.705,
+       0.6258
+      ],
+      "offset": [
+       0.2312,
+       0.2073,
+       0.2453
+      ],
+      "clip_min": 1e-06
+     }
+    ],
+    "instrument_noise": {
+     "correlation_nm": 1.4,
+     "ch_envelope_factors": {
+      "CH1689": 1.6,
+      "CH1728": 1.8,
+      "CH2262": 1.2,
+      "CH2284": 1.5
+     },
+     "note": "test values only (exercises a correction that carries its instrument's own noise)"
+    }
+   }
+  },
+  "models": {
+   "collagen.ryder2026.2045": "e1ebe4b6eb557bd3c4e14e70260d8329e1e3a93906568c40a9dfb373a1e37ba5",
+   "collagen.spyder.2045_oh_corrected": "b3ad281dab292156c484476da3b67848092c96ada131febe3422d2a6008b23b1",
+   "collagen.spyder.1500_oh_corrected": "07b4709f825b89c1f56cad44d22f35d47a55183ab9554f540f484712154b5541",
+   "collagen.spyder.nh3_oh_corrected": "61760e82a243ccb30a33c9dac90334ca3b6a91b232e37b924beaa398c53f520b",
+   "collagen.spyder.consensus3_median": "fb9f2281d7e8b2d4c8030d891114ab189da89aaa424bda2a47a9c4dbaafbbf30",
+   "collagen.spyder.1500_snv_transfer_free": "4ad952093e9a8e15d0e02661ba28ad0ce1a09c188bcaf349252bf2594df14db9",
+   "collagen.spyder.1545_lowrange": "e9927811b58ec7cd809a2aaa9264fc1a49d0c153858aa683cbeed99c1e0284b1",
+   "collagen.spyder.1545_narrow": "b1966f40593c489e0910895192dcc6f302f9a4971227eede298fb58e266f9fcd",
+   "collagen.spyder.1728_ch": "60586e434e99595e7624765360d701ecd0b46d183d3dfc4ce37ece02c15353f2"
+  },
   "cases": [
    {
     "name": "mmc2_Reference_Sample_1 [none]",
     "spectrum_sha256": "ef8ddf9e2c7d95bc6ca3d426aca0859ecb56e566fc930cb047d336251ebf75ea",
-    "transfer_key": "none",
+    "correction": "none",
     "expected": {
      "N2:1500-1550": 0.6609801767442701,
      "N2:1500-1600": 0.7178828187285097,
      "N2:2000-2100": 1.92914748998389,
      "N2:2220-2245": 1.6018260233194614,
      "N2:2300-2400": 11.456437930023954,
-     "SD:collagen.ryder2026.2045": 0.011771657983881696,
-     "SD:collagen.spyder.2045_oh_corrected": 0.03821448262909088,
-     "SD:collagen.spyder.1500_oh_corrected": 0.0198935203794723,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.01933860488037363,
+     "SD:collagen.ryder2026.2045": 0.011771367080863383,
+     "SD:collagen.spyder.2045_oh_corrected": 0.03821494395475776,
+     "SD:collagen.spyder.1500_oh_corrected": 0.019893503961324267,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.019338465405141024,
+     "SD:collagen.spyder.consensus3_median": 0.019893503961324707,
      "SD:collagen.spyder.1500_snv_transfer_free": 0.013261906266197035,
-     "SD:collagen.spyder.consensus3_median": 0.0198935203794723
+     "SD:collagen.spyder.1545_lowrange": 0.029487968917514304,
+     "SD:collagen.spyder.1545_narrow": 0.039409557468231035,
+     "SD:collagen.spyder.1728_ch": 0.02361415976733322
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
     "name": "mmc2_Reference_Sample_79 [none]",
     "spectrum_sha256": "2b0379847078cea3a05aa8c409bf74dbafdfe68f7bd676cb7c67ce13fd4922bb",
-    "transfer_key": "none",
+    "correction": "none",
     "expected": {
      "N2:1500-1550": 1.4824100925498485,
      "N2:1500-1600": 1.1665535085463752,
      "N2:2000-2100": 4.241951121429681,
      "N2:2220-2245": 6.726202652138376,
      "N2:2300-2400": 26.881945684148477,
-     "SD:collagen.ryder2026.2045": 0.025884385742963912,
-     "SD:collagen.spyder.2045_oh_corrected": 0.08402880976440055,
-     "SD:collagen.spyder.1500_oh_corrected": 0.04461609655547279,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.0425361587318504,
+     "SD:collagen.ryder2026.2045": 0.025883746084051792,
+     "SD:collagen.spyder.2045_oh_corrected": 0.08402982416114321,
+     "SD:collagen.spyder.1500_oh_corrected": 0.04461605973375075,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.04253585285128742,
+     "SD:collagen.spyder.consensus3_median": 0.04461605973375173,
      "SD:collagen.spyder.1500_snv_transfer_free": 0.029743076096920156,
-     "SD:collagen.spyder.consensus3_median": 0.04461609655547279
+     "SD:collagen.spyder.1545_lowrange": 0.06613399958140026,
+     "SD:collagen.spyder.1545_narrow": 0.08838559428754515,
+     "SD:collagen.spyder.1728_ch": 0.05296054253639582
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
     "name": "mmc2_Zafarraya_30 [none]",
     "spectrum_sha256": "510d5bca138e112c8bd55869901c9c60e7f06c05601557701a1bd18fa3f2dce4",
-    "transfer_key": "none",
+    "correction": "none",
     "expected": {
      "N2:1500-1550": 4.044596638166267,
      "N2:1500-1600": 3.3788893194806464,
      "N2:2000-2100": 10.80023974069766,
      "N2:2220-2245": 11.394750045726678,
      "N2:2300-2400": 34.14984021212154,
-     "SD:collagen.ryder2026.2045": 0.06590306289773712,
-     "SD:collagen.spyder.2045_oh_corrected": 0.21394194902347993,
-     "SD:collagen.spyder.1500_oh_corrected": 0.12173022501889012,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.10842619199772267,
+     "SD:collagen.ryder2026.2045": 0.06590143429113478,
+     "SD:collagen.spyder.2045_oh_corrected": 0.21394453173311034,
+     "SD:collagen.spyder.1500_oh_corrected": 0.12173012455477839,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.10842542107326715,
+     "SD:collagen.spyder.consensus3_median": 0.12173012455478108,
      "SD:collagen.spyder.1500_snv_transfer_free": 0.08115078694816798,
-     "SD:collagen.spyder.consensus3_median": 0.12173022501889012
+     "SD:collagen.spyder.1545_lowrange": 0.18043951111755277,
+     "SD:collagen.spyder.1545_narrow": 0.2411505961233947,
+     "SD:collagen.spyder.1728_ch": 0.14449714918610834
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
     "name": "synthetic_noise_N2_above60 [none]",
     "spectrum_sha256": "48924bd678ca86c006f8f12c2b4c1ae19e7cad75a5e088721b273cbaee800bdd",
-    "transfer_key": "none",
+    "correction": "none",
     "expected": {
      "N2:1500-1550": 68.61004324924437,
      "N2:1500-1600": 66.312801632542,
      "N2:2000-2100": 62.5300000000021,
      "N2:2220-2245": 79.44899685120835,
      "N2:2300-2400": 64.7936407599496,
-     "SD:collagen.ryder2026.2045": 0.3815580600000128,
-     "SD:collagen.spyder.2045_oh_corrected": 1.2386567700000415,
-     "SD:collagen.spyder.1500_oh_corrected": 2.0649564716725077,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.6694437161576478,
+     "SD:collagen.ryder2026.2045": 0.3815486308786887,
+     "SD:collagen.spyder.2045_oh_corrected": 1.2386717230785904,
+     "SD:collagen.spyder.1500_oh_corrected": 2.064954767461268,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.6694417469342127,
+     "SD:collagen.spyder.consensus3_median": 1.2386717230786086,
      "SD:collagen.spyder.1500_snv_transfer_free": 1.376591907752839,
-     "SD:collagen.spyder.consensus3_median": 1.2386567700000415
+     "SD:collagen.spyder.1545_lowrange": 3.0608645976773134,
+     "SD:collagen.spyder.1545_narrow": 4.09073000592427,
+     "SD:collagen.spyder.1728_ch": 2.4511605339083165
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
     "name": "synthetic_noise_N2_15p6 [none]",
     "spectrum_sha256": "7ada546edaee373a0b6833e7d87b221bb483d96faef4ab7b4bee43d1a0d1c24b",
-    "transfer_key": "none",
+    "correction": "none",
     "expected": {
      "N2:1500-1550": 19.990965977629802,
      "N2:1500-1600": 18.44326019409157,
      "N2:2000-2100": 15.600000000014571,
      "N2:2220-2245": 21.626130701606375,
      "N2:2300-2400": 32.88825972460142,
-     "SD:collagen.ryder2026.2045": 0.0951912000000889,
-     "SD:collagen.spyder.2045_oh_corrected": 0.30902040000028863,
-     "SD:collagen.spyder.1500_oh_corrected": 0.6016681030287241,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.17111446533162827,
+     "SD:collagen.ryder2026.2045": 0.09518884762054859,
+     "SD:collagen.spyder.2045_oh_corrected": 0.3090241304980555,
+     "SD:collagen.spyder.1500_oh_corrected": 0.6016676064712626,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.171114208167264,
+     "SD:collagen.spyder.consensus3_median": 0.30902413049806005,
      "SD:collagen.spyder.1500_snv_transfer_free": 0.4010987413751643,
-     "SD:collagen.spyder.consensus3_median": 0.30902040000028863
+     "SD:collagen.spyder.1545_lowrange": 0.891846690899333,
+     "SD:collagen.spyder.1545_narrow": 1.1919194406425635,
+     "SD:collagen.spyder.1728_ch": 0.7141967052995514
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
     "name": "pair10_std [none]",
     "spectrum_sha256": "59e894856873cf0808e936c7439573263e474c3b21381f840f6fc60547edb1c2",
-    "transfer_key": "none",
+    "correction": "none",
     "expected": {
      "N2:1500-1550": 3.155197204147945,
      "N2:1500-1600": 2.6359777105632127,
      "N2:2000-2100": 8.958468059426547,
      "N2:2220-2245": 6.741151722425699,
      "N2:2300-2400": 15.670913247983647,
-     "SD:collagen.ryder2026.2045": 0.05466457209862079,
-     "SD:collagen.spyder.2045_oh_corrected": 0.17745829378918046,
-     "SD:collagen.spyder.1500_oh_corrected": 0.0949619702532407,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.08984218611454778,
+     "SD:collagen.ryder2026.2045": 0.054663221219327485,
+     "SD:collagen.spyder.2045_oh_corrected": 0.1774604360677119,
+     "SD:collagen.spyder.1500_oh_corrected": 0.09496189188100415,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.08984154082578259,
+     "SD:collagen.spyder.consensus3_median": 0.09496189188100625,
      "SD:collagen.spyder.1500_snv_transfer_free": 0.06330587670402436,
-     "SD:collagen.spyder.consensus3_median": 0.0949619702532407
+     "SD:collagen.spyder.1545_lowrange": 0.14076119127024814,
+     "SD:collagen.spyder.1545_narrow": 0.18812201926076635,
+     "SD:collagen.spyder.1728_ch": 0.1127224892631223
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
     "name": "pair22_std [none]",
     "spectrum_sha256": "28431d2a7330915c7d70dcfab578247421b37bf7f056f57d081d3b7a83c478fd",
-    "transfer_key": "none",
+    "correction": "none",
     "expected": {
      "N2:1500-1550": 2.529334644924932,
      "N2:1500-1600": 2.6029559744574646,
      "N2:2000-2100": 12.389865719422623,
      "N2:2220-2245": 5.823366017444158,
      "N2:2300-2400": 19.99574578984911,
-     "SD:collagen.ryder2026.2045": 0.07560296061991684,
-     "SD:collagen.spyder.2045_oh_corrected": 0.24543085003604276,
-     "SD:collagen.spyder.1500_oh_corrected": 0.07612538480830568,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.12359139071927157,
+     "SD:collagen.ryder2026.2045": 0.07560109230795367,
+     "SD:collagen.spyder.2045_oh_corrected": 0.24543381288004262,
+     "SD:collagen.spyder.1500_oh_corrected": 0.0761253219819274,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.12359045697498712,
+     "SD:collagen.spyder.consensus3_median": 0.12359045697498801,
      "SD:collagen.spyder.1500_snv_transfer_free": 0.05074857031577383,
-     "SD:collagen.spyder.consensus3_median": 0.12359139071927157
+     "SD:collagen.spyder.1545_lowrange": 0.11283990657467934,
+     "SD:collagen.spyder.1545_narrow": 0.1508062761224419,
+     "SD:collagen.spyder.1728_ch": 0.09036294054158434
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
     "name": "pair10_hires [none]",
     "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
-    "transfer_key": "none",
+    "correction": "none",
     "expected": {
      "N2:1500-1550": 12.025831105940103,
      "N2:1500-1600": 8.631485560371175,
      "N2:2000-2100": 99.01811055361746,
      "N2:2220-2245": 205.37410915738744,
      "N2:2300-2400": 501.49982535243663,
-     "SD:collagen.ryder2026.2045": 0.6042085105981737,
-     "SD:collagen.spyder.2045_oh_corrected": 1.9614497519566083,
-     "SD:collagen.spyder.1500_oh_corrected": 0.36194143879547924,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.9859862573419665,
+     "SD:collagen.ryder2026.2045": 0.6041935793047515,
+     "SD:collagen.spyder.2045_oh_corrected": 1.9614734306002173,
+     "SD:collagen.spyder.1500_oh_corrected": 0.36194114008474293,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.9859786863105361,
+     "SD:collagen.spyder.consensus3_median": 0.9859786863105431,
      "SD:collagen.spyder.1500_snv_transfer_free": 0.24128627530958222,
-     "SD:collagen.spyder.consensus3_median": 0.9859862573419665
+     "SD:collagen.spyder.1545_lowrange": 0.5365022225113387,
+     "SD:collagen.spyder.1545_narrow": 0.7170149707169645,
+     "SD:collagen.spyder.1728_ch": 0.4296345141081372
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
-    "name": "pair10_hires [0.2.0]",
+    "name": "pair10_hires [v0.2]",
     "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
-    "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f",
+    "correction": "v0.2",
     "expected": {
      "N2:1500-1550": 12.025831105940103,
      "N2:1500-1600": 8.631485560371175,
      "N2:2000-2100": 99.01811055361746,
      "N2:2220-2245": 205.37410915738744,
      "N2:2300-2400": 501.49982535243663,
-     "SD:collagen.ryder2026.2045": 0.32487842072641887,
-     "SD:collagen.spyder.2045_oh_corrected": 0.928492822661271,
-     "SD:collagen.spyder.1500_oh_corrected": 0.21003114026524392,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.4540199371866644,
-     "SD:collagen.spyder.consensus3_median": 0.4540199371866644
+     "SD:collagen.ryder2026.2045": 0.32489996270893506,
+     "SD:collagen.spyder.2045_oh_corrected": 0.9284959696329504,
+     "SD:collagen.spyder.1500_oh_corrected": 0.21003184671758993,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.45403950616925537,
+     "SD:collagen.spyder.consensus3_median": 0.4540395061692595,
+     "SD:collagen.spyder.1545_lowrange": 0.2778300443076968,
+     "SD:collagen.spyder.1545_narrow": 0.37130936783652574,
+     "SD:collagen.spyder.1728_ch": 0.2224881297453653
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
-    "name": "pair10_hires [0.1.0]",
+    "name": "pair10_hires [v0.1]",
     "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
-    "transfer_key": "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff",
+    "correction": "v0.1",
     "expected": {
      "N2:1500-1550": 12.025831105940103,
      "N2:1500-1600": 8.631485560371175,
      "N2:2000-2100": 99.01811055361746,
      "N2:2220-2245": 205.37410915738744,
      "N2:2300-2400": 501.49982535243663,
-     "SD:collagen.ryder2026.2045": 0.3293342357013317,
-     "SD:collagen.spyder.2045_oh_corrected": 0.9410681227015804,
-     "SD:collagen.spyder.1500_oh_corrected": 0.18897390999874278,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.4600352007226118,
-     "SD:collagen.spyder.consensus3_median": 0.4600352007226118
+     "SD:collagen.ryder2026.2045": 0.32931295357347,
+     "SD:collagen.spyder.2045_oh_corrected": 0.9411073722246409,
+     "SD:collagen.spyder.1500_oh_corrected": 0.18896907854321598,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.46007416762317976,
+     "SD:collagen.spyder.consensus3_median": 0.460074167623184,
+     "SD:collagen.spyder.1545_lowrange": 0.24996822284308093,
+     "SD:collagen.spyder.1545_narrow": 0.3340730950619975,
+     "SD:collagen.spyder.1728_ch": 0.20017619957090105
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
     "name": "pair22_hires [none]",
     "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
-    "transfer_key": "none",
+    "correction": "none",
     "expected": {
      "N2:1500-1550": 36.07483662965385,
      "N2:1500-1600": 31.27640920295945,
      "N2:2000-2100": 507.20307616198676,
      "N2:2220-2245": 606.7920957602734,
      "N2:2300-2400": 1273.7549985464364,
-     "SD:collagen.ryder2026.2045": 3.094953170740443,
-     "SD:collagen.spyder.2045_oh_corrected": 10.047185735692796,
-     "SD:collagen.spyder.1500_oh_corrected": 1.085744358042692,
-     "SD:collagen.spyder.nh3_oh_corrected": 5.047332843844063,
+     "SD:collagen.ryder2026.2045": 3.0948766877828056,
+     "SD:collagen.spyder.2045_oh_corrected": 10.04730702543273,
+     "SD:collagen.spyder.1500_oh_corrected": 1.0857434619764728,
+     "SD:collagen.spyder.nh3_oh_corrected": 5.0472938616697345,
+     "SD:collagen.spyder.consensus3_median": 5.047293861669772,
      "SD:collagen.spyder.1500_snv_transfer_free": 0.7238055221373748,
-     "SD:collagen.spyder.consensus3_median": 5.047332843844063
+     "SD:collagen.spyder.1545_lowrange": 1.6093881460702382,
+     "SD:collagen.spyder.1545_narrow": 2.150886512688013,
+     "SD:collagen.spyder.1728_ch": 1.288808629555433
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
-    "name": "pair22_hires [0.2.0]",
+    "name": "pair22_hires [v0.2]",
     "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
-    "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f",
+    "correction": "v0.2",
     "expected": {
      "N2:1500-1550": 36.07483662965385,
      "N2:1500-1600": 31.27640920295945,
      "N2:2000-2100": 507.20307616198676,
      "N2:2220-2245": 606.7920957602734,
      "N2:2300-2400": 1273.7549985464364,
-     "SD:collagen.ryder2026.2045": 1.6641332928874786,
-     "SD:collagen.spyder.2045_oh_corrected": 4.756043245170949,
-     "SD:collagen.spyder.1500_oh_corrected": 0.6300470217369045,
-     "SD:collagen.spyder.nh3_oh_corrected": 2.323565545617898,
-     "SD:collagen.spyder.consensus3_median": 2.323565545617898
+     "SD:collagen.ryder2026.2045": 1.6642436379520102,
+     "SD:collagen.spyder.2045_oh_corrected": 4.756059364986886,
+     "SD:collagen.spyder.1500_oh_corrected": 0.6300491409378766,
+     "SD:collagen.spyder.nh3_oh_corrected": 2.323665042636322,
+     "SD:collagen.spyder.consensus3_median": 2.323665042636344,
+     "SD:collagen.spyder.1545_lowrange": 0.833428756059862,
+     "SD:collagen.spyder.1545_narrow": 1.1138460756484725,
+     "SD:collagen.spyder.1728_ch": 0.6674152382396896
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
-    "name": "pair22_hires [0.1.0]",
+    "name": "pair22_hires [v0.1]",
     "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
-    "transfer_key": "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff",
+    "correction": "v0.1",
     "expected": {
      "N2:1500-1550": 36.07483662965385,
      "N2:1500-1600": 31.27640920295945,
      "N2:2000-2100": 507.20307616198676,
      "N2:2220-2245": 606.7920957602734,
      "N2:2300-2400": 1273.7549985464364,
-     "SD:collagen.ryder2026.2045": 1.686957431314768,
-     "SD:collagen.spyder.2045_oh_corrected": 4.820458035843522,
-     "SD:collagen.spyder.1500_oh_corrected": 0.5668799827983806,
-     "SD:collagen.spyder.nh3_oh_corrected": 2.3547943670957148,
-     "SD:collagen.spyder.consensus3_median": 2.3547943670957148
+     "SD:collagen.ryder2026.2045": 1.6868484173105787,
+     "SD:collagen.spyder.2045_oh_corrected": 4.820659084709461,
+     "SD:collagen.spyder.1500_oh_corrected": 0.566865489499142,
+     "SD:collagen.spyder.nh3_oh_corrected": 2.3549937401999275,
+     "SD:collagen.spyder.consensus3_median": 2.3549937401999492,
+     "SD:collagen.spyder.1545_lowrange": 0.7498494467642133,
+     "SD:collagen.spyder.1545_narrow": 1.0021454833813137,
+     "SD:collagen.spyder.1728_ch": 0.6004843767594824
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
     "name": "pair29_hires [none]",
     "spectrum_sha256": "17e9ad8ea4576c88b0a02412672cff5119a44404e6ff433fb0cc6990ed2ebf0d",
-    "transfer_key": "none",
+    "correction": "none",
     "expected": {
      "N2:1500-1550": 23.199865985064456,
      "N2:1500-1600": 25.87468592595541,
      "N2:2000-2100": 258.37094927896214,
      "N2:2220-2245": 158.29671520382502,
      "N2:2300-2400": 779.3415110323681,
-     "SD:collagen.ryder2026.2045": 1.576579532500227,
-     "SD:collagen.spyder.2045_oh_corrected": 5.1180701342669614,
-     "SD:collagen.spyder.1500_oh_corrected": 0.6982463665524848,
-     "SD:collagen.spyder.nh3_oh_corrected": 2.5716353282862316,
+     "SD:collagen.ryder2026.2045": 1.5765405718249133,
+     "SD:collagen.spyder.2045_oh_corrected": 5.118131919667558,
+     "SD:collagen.spyder.1500_oh_corrected": 0.6982457902888578,
+     "SD:collagen.spyder.nh3_oh_corrected": 2.5716155023685405,
+     "SD:collagen.spyder.consensus3_median": 2.571615502368559,
      "SD:collagen.spyder.1500_snv_transfer_free": 0.4654821111243332,
-     "SD:collagen.spyder.consensus3_median": 2.5716353282862316
+     "SD:collagen.spyder.1545_lowrange": 1.035003697732314,
+     "SD:collagen.spyder.1545_narrow": 1.3832433769755743,
+     "SD:collagen.spyder.1728_ch": 0.8288377794482483
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
-    "name": "pair29_hires [0.2.0]",
+    "name": "pair29_hires [v0.2]",
     "spectrum_sha256": "17e9ad8ea4576c88b0a02412672cff5119a44404e6ff433fb0cc6990ed2ebf0d",
-    "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f",
+    "correction": "v0.2",
     "expected": {
      "N2:1500-1550": 23.199865985064456,
      "N2:1500-1600": 25.87468592595541,
      "N2:2000-2100": 258.37094927896214,
      "N2:2220-2245": 158.29671520382502,
      "N2:2300-2400": 779.3415110323681,
-     "SD:collagen.ryder2026.2045": 0.8477150845842748,
-     "SD:collagen.spyder.2045_oh_corrected": 2.422744391388828,
-     "SD:collagen.spyder.1500_oh_corrected": 0.40518565942915075,
-     "SD:collagen.spyder.nh3_oh_corrected": 1.1839594624015162,
-     "SD:collagen.spyder.consensus3_median": 1.1839594624015162
+     "SD:collagen.ryder2026.2045": 0.8477712947304888,
+     "SD:collagen.spyder.2045_oh_corrected": 2.4227526028771673,
+     "SD:collagen.spyder.1500_oh_corrected": 0.40518702229543485,
+     "SD:collagen.spyder.nh3_oh_corrected": 1.1840102636943088,
+     "SD:collagen.spyder.consensus3_median": 1.1840102636943197,
+     "SD:collagen.spyder.1545_lowrange": 0.5359812338774076,
+     "SD:collagen.spyder.1545_narrow": 0.7163186890718424,
+     "SD:collagen.spyder.1728_ch": 0.42921730297796323
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
-    "name": "pair29_hires [0.1.0]",
+    "name": "pair29_hires [v0.1]",
     "spectrum_sha256": "17e9ad8ea4576c88b0a02412672cff5119a44404e6ff433fb0cc6990ed2ebf0d",
-    "transfer_key": "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff",
+    "correction": "v0.1",
     "expected": {
      "N2:1500-1550": 23.199865985064456,
      "N2:1500-1600": 25.87468592595541,
      "N2:2000-2100": 258.37094927896214,
      "N2:2220-2245": 158.29671520382502,
      "N2:2300-2400": 779.3415110323681,
-     "SD:collagen.ryder2026.2045": 0.859341777301828,
-     "SD:collagen.spyder.2045_oh_corrected": 2.4555575019472564,
-     "SD:collagen.spyder.1500_oh_corrected": 0.3645626940893028,
-     "SD:collagen.spyder.nh3_oh_corrected": 1.1998017002898012,
-     "SD:collagen.spyder.consensus3_median": 1.1998017002898012
+     "SD:collagen.ryder2026.2045": 0.8592862452022197,
+     "SD:collagen.spyder.2045_oh_corrected": 2.4556599169143287,
+     "SD:collagen.spyder.1500_oh_corrected": 0.3645533733928997,
+     "SD:collagen.spyder.nh3_oh_corrected": 1.199903297642476,
+     "SD:collagen.spyder.consensus3_median": 1.199903297642487,
+     "SD:collagen.spyder.1545_lowrange": 0.4822310590758008,
+     "SD:collagen.spyder.1545_narrow": 0.6444836091890349,
+     "SD:collagen.spyder.1728_ch": 0.3861738089062725
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
     "name": "synthetic_hireslike_RS79 [none]",
     "spectrum_sha256": "604808f4d0a5727f1d1f6f10b31c7a6684c9d9e492e1a1caa30426941b5dd9a2",
-    "transfer_key": "none",
+    "correction": "none",
     "expected": {
      "N2:1500-1550": 2.3370803918615484,
      "N2:1500-1600": 1.839119515294689,
      "N2:2000-2100": 6.6876101551285245,
      "N2:2220-2245": 10.604134718794617,
      "N2:2300-2400": 42.38049138287043,
-     "SD:collagen.ryder2026.2045": 0.04080779716659425,
-     "SD:collagen.spyder.2045_oh_corrected": 0.13247486956294094,
-     "SD:collagen.spyder.1500_oh_corrected": 0.07033910855385701,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.0670600011533053,
+     "SD:collagen.ryder2026.2045": 0.04080678871804922,
+     "SD:collagen.spyder.2045_oh_corrected": 0.1324764688010659,
+     "SD:collagen.spyder.1500_oh_corrected": 0.07033905050289999,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.06705951892003562,
+     "SD:collagen.spyder.consensus3_median": 0.07033905050290155,
      "SD:collagen.spyder.1500_snv_transfer_free": 0.046891180982310106,
-     "SD:collagen.spyder.consensus3_median": 0.07033910855385701
+     "SD:collagen.spyder.1545_lowrange": 0.10426296639090984,
+     "SD:collagen.spyder.1545_narrow": 0.13934351929373806,
+     "SD:collagen.spyder.1728_ch": 0.0834944703400271
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
-    "name": "synthetic_hireslike_RS79 [0.2.0]",
+    "name": "synthetic_hireslike_RS79 [v0.2]",
     "spectrum_sha256": "604808f4d0a5727f1d1f6f10b31c7a6684c9d9e492e1a1caa30426941b5dd9a2",
-    "transfer_key": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f",
+    "correction": "v0.2",
     "expected": {
      "N2:1500-1550": 2.3370803918615484,
      "N2:1500-1600": 1.839119515294689,
      "N2:2000-2100": 6.6876101551285245,
      "N2:2220-2245": 10.604134718794617,
      "N2:2300-2400": 42.38049138287043,
-     "SD:collagen.ryder2026.2045": 0.02194204891897669,
-     "SD:collagen.spyder.2045_oh_corrected": 0.06270972042464018,
-     "SD:collagen.spyder.1500_oh_corrected": 0.040817109043861946,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.03096534953974435,
-     "SD:collagen.spyder.consensus3_median": 0.040817109043861946
+     "SD:collagen.ryder2026.2045": 0.021943503848587356,
+     "SD:collagen.spyder.2045_oh_corrected": 0.06270993296878632,
+     "SD:collagen.spyder.1500_oh_corrected": 0.04081724633465799,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.03096677848289409,
+     "SD:collagen.spyder.consensus3_median": 0.04081724633465899,
+     "SD:collagen.spyder.1545_lowrange": 0.05399303741267572,
+     "SD:collagen.spyder.1545_narrow": 0.07215965659592671,
+     "SD:collagen.spyder.1728_ch": 0.04323798005054331
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    },
    {
-    "name": "synthetic_hireslike_RS79 [0.1.0]",
+    "name": "synthetic_hireslike_RS79 [v0.1]",
     "spectrum_sha256": "604808f4d0a5727f1d1f6f10b31c7a6684c9d9e492e1a1caa30426941b5dd9a2",
-    "transfer_key": "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff",
+    "correction": "v0.1",
     "expected": {
      "N2:1500-1550": 2.3370803918615484,
      "N2:1500-1600": 1.839119515294689,
      "N2:2000-2100": 6.6876101551285245,
      "N2:2220-2245": 10.604134718794617,
      "N2:2300-2400": 42.38049138287043,
-     "SD:collagen.ryder2026.2045": 0.022242991375957474,
-     "SD:collagen.spyder.2045_oh_corrected": 0.0635590469143415,
-     "SD:collagen.spyder.1500_oh_corrected": 0.03672488127771237,
-     "SD:collagen.spyder.nh3_oh_corrected": 0.03131134142626942,
-     "SD:collagen.spyder.consensus3_median": 0.03672488127771237
+     "SD:collagen.ryder2026.2045": 0.022241553996738512,
+     "SD:collagen.spyder.2045_oh_corrected": 0.06356169779818019,
+     "SD:collagen.spyder.1500_oh_corrected": 0.03672394234052988,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.03131400634622899,
+     "SD:collagen.spyder.consensus3_median": 0.03672394234053078,
+     "SD:collagen.spyder.1545_lowrange": 0.04857841649767405,
+     "SD:collagen.spyder.1545_narrow": 0.06492322011176782,
+     "SD:collagen.spyder.1728_ch": 0.03890191595185762
     },
-    "generated_by": "research: scipy savgol_filter, explicit transfer loop and N2 loop (spyder_ref.golden_gen)"
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_hires [v0.2] joins 1000/1785",
+    "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
+    "correction": "v0.2",
+    "splices_nm": [
+     1000.0,
+     1785.0
+    ],
+    "expected": {
+     "N2:1500-1550": 12.025831105940103,
+     "N2:1500-1600": 8.631485560371175,
+     "N2:2000-2100": 99.01811055361746,
+     "N2:2220-2245": 205.37410915738744,
+     "N2:2300-2400": 501.49982535243663,
+     "SD:collagen.ryder2026.2045": 0.3248999627089351,
+     "SD:collagen.spyder.2045_oh_corrected": 0.9284959696329504,
+     "SD:collagen.spyder.1500_oh_corrected": 0.21003184671758993,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.45403950616925537,
+     "SD:collagen.spyder.consensus3_median": 0.4540395061692595,
+     "SD:collagen.spyder.1545_lowrange": 0.2778300443076968,
+     "SD:collagen.spyder.1545_narrow": 0.37130936783652574,
+     "SD:collagen.spyder.1728_ch": 0.2224881297453653
+    },
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair10_hires [v0.2] joins 1000/1765",
+    "spectrum_sha256": "ea132d3e8154f8813bf11994c4552e59ea05b52f278293569564fe67191c1851",
+    "correction": "v0.2",
+    "splices_nm": [
+     1000.0,
+     1765.0
+    ],
+    "expected": {
+     "N2:1500-1550": 12.025831105940103,
+     "N2:1500-1600": 8.631485560371175,
+     "N2:2000-2100": 99.01811055361746,
+     "N2:2220-2245": 205.37410915738744,
+     "N2:2300-2400": 501.49982535243663,
+     "SD:collagen.ryder2026.2045": 0.3248999627089351,
+     "SD:collagen.spyder.2045_oh_corrected": 0.9284959696329504,
+     "SD:collagen.spyder.1500_oh_corrected": 0.21003184671758993,
+     "SD:collagen.spyder.nh3_oh_corrected": 0.45403950616925537,
+     "SD:collagen.spyder.consensus3_median": 0.4540395061692595,
+     "SD:collagen.spyder.1545_lowrange": 0.2778300443076968,
+     "SD:collagen.spyder.1545_narrow": 0.37130936783652574,
+     "SD:collagen.spyder.1728_ch": 0.22249310294692634
+    },
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair29_hires [v0.2] joins 1000/1830",
+    "spectrum_sha256": "17e9ad8ea4576c88b0a02412672cff5119a44404e6ff433fb0cc6990ed2ebf0d",
+    "correction": "v0.2",
+    "splices_nm": [
+     1000.0,
+     1830.0
+    ],
+    "expected": {
+     "N2:1500-1550": 23.199865985064456,
+     "N2:1500-1600": 25.87468592595541,
+     "N2:2000-2100": 258.37094927896214,
+     "N2:2220-2245": 158.29671520382502,
+     "N2:2300-2400": 779.3415110323681,
+     "SD:collagen.ryder2026.2045": 0.847771294730489,
+     "SD:collagen.spyder.2045_oh_corrected": 2.4227526028771673,
+     "SD:collagen.spyder.1500_oh_corrected": 0.40518702229543485,
+     "SD:collagen.spyder.nh3_oh_corrected": 1.1840102636943088,
+     "SD:collagen.spyder.consensus3_median": 1.1840102636943197,
+     "SD:collagen.spyder.1545_lowrange": 0.5359812338774076,
+     "SD:collagen.spyder.1545_narrow": 0.7163186890718424,
+     "SD:collagen.spyder.1728_ch": 0.42921730297796323
+    },
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
+   },
+   {
+    "name": "pair22_hires [v0.2_lab_noise]",
+    "spectrum_sha256": "b85f3d518240fc295ccf755e5814d690c50e7dbb761b55269fcf96d48e56f049",
+    "correction": "v0.2_lab_noise",
+    "expected": {
+     "N2:1500-1550": 36.07483662965385,
+     "N2:1500-1600": 31.27640920295945,
+     "N2:2000-2100": 507.20307616198676,
+     "N2:2220-2245": 606.7920957602734,
+     "N2:2300-2400": 1273.7549985464364,
+     "SD:collagen.ryder2026.2045": 2.1433208285130907,
+     "SD:collagen.spyder.2045_oh_corrected": 6.100596099399655,
+     "SD:collagen.spyder.1500_oh_corrected": 0.8103445031698706,
+     "SD:collagen.spyder.nh3_oh_corrected": 2.9790583437618463,
+     "SD:collagen.spyder.consensus3_median": 2.979058343761873,
+     "SD:collagen.spyder.1545_lowrange": 1.0684728048180947,
+     "SD:collagen.spyder.1545_narrow": 1.4279735753421374,
+     "SD:collagen.spyder.1728_ch": 0.8556400608873134
+    },
+    "generated_by": "research: scipy savgol_filter / savgol_coeffs, explicit transfer and blur-matrix loops, N2 loop (spyder_ref.golden_gen)"
    }
   ]
  }

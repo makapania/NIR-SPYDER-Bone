@@ -6,7 +6,7 @@
  "version": "0.2.0",
  "status": "active",
  "provisional": true,
- "title": "ASD LabSpec 4 high-res -> standard-res, v0.2 (blur per detector, then absorbance gain per detector; provisional)",
+ "title": "ASD LabSpec 4 high-res -> standard-res, v0.2 (blur per detector, then absorbance gain per detector; provisional; superseded by 0.3.0)",
  "source_class": "asd.labspec4.hires",
  "source_serial": null,
  "target_class": "asd.labspec4.std",
@@ -43,11 +43,11 @@
     0.2453
    ],
    "clip_min": 1e-06,
-   "note": "A = log10(1/max(R, 1e-6)); A' = g*A + c per detector segment (VNIR, SWIR1, SWIR2); R' = 10^(-A'). The offsets only keep the displayed absorbance continuous at the training joins; every derivative-based output ignores them."
+   "note": "A = log10(1/max(R, 1e-6)); A' = g*A + c per detector segment (VNIR, SWIR1, SWIR2); R' = 10^(-A'). The offsets keep the absorbance continuous at the training joins. Derivative-based outputs (models, bands, contaminant signs) ignore them; the heat check reads reflectance levels (visible reflectance and the visible edge against 1250-1300 nm), so the offsets matter there: they are not display-only."
   }
  ],
  "provenance": {
-  "summary": "Transfer v0.2 (provisional): nominal Gaussian blur per detector, then a per-detector absorbance gain. The high-res instrument records collagen-related second-derivative features about 1.6x deeper than the standard instrument (an absorbance gain, not resolution); the two SWIR detectors need different gains.",
+  "summary": "Transfer v0.2 (provisional, superseded by 0.3.0): nominal Gaussian blur per detector, then a per-detector absorbance gain. The high-res instrument records collagen-related second-derivative features about 1.6x deeper than the standard instrument (an absorbance gain, not resolution); the two SWIR detectors need different gains.",
   "fitted_on": "40 paired scans of the same archaeological bones on a high-resolution and a standard-resolution LabSpec 4 (two unit pairs, 20 pairs each; spots not marked, so pairs are not same-spot); 4 discordant pairs excluded from every fit and statistic (36 concordant pairs)",
   "estimator": "least squares of the 36-pair MEAN SG31 cubic second derivative of absorbance (standard vs blurred high-res), one gain per SWIR detector (ratio of means: targets the average, immune to zero-mean spot differences); VNIR gain kept at the v0.1 value 0.6343 (not fitted; only the burnt-bone visible-edge check reads it)",
   "fit_range_nm": {
@@ -74,7 +74,7 @@
    ],
    "note": "fitted on one unit pair alone; the 5-8% spread between units is why the transfer is provisional and per-lab (serial-keyed) transfer files are allowed"
   },
-  "offsets": "continuity offsets: c_SWIR1 = 0.2312 + (g_VNIR - g_SWIR1) * A(1000), c_SWIR2 = c_SWIR1 + (g_SWIR1 - g_SWIR2) * A(1800), with the median blurred high-res absorbance A(1000) = 0.3380, A(1800) = 0.4798; display only",
+  "offsets": "continuity offsets: c_SWIR1 = 0.2312 + (g_VNIR - g_SWIR1) * A(1000), c_SWIR2 = c_SWIR1 + (g_SWIR1 - g_SWIR2) * A(1800), with the median blurred high-res absorbance A(1000) = 0.3380, A(1800) = 0.4798. Not display-only: the heat check reads the reflectance levels they set (derivative-based outputs ignore them)",
   "why_blur": "the blur reduces output noise (x0.55-0.87) and spectrum noise (4-10x); gain-only biased the collagen models (+0.9 points) and lowered sign agreement",
   "accepted_exception": {
    "output": "C-H 1689 nm evidence band",
@@ -87,6 +87,7 @@
    "the offsets guarantee nothing at joins other than 1000/1800 nm; consumers whose kernel crosses a join are not assessed (grid-eligibility rule)"
   ],
   "supersedes": "transfer.labspec4.hires_to_std 0.1.0 (one scalar gain 0.6343)",
+  "superseded_by": "transfer.labspec4.hires_to_std 0.3.0",
   "environment": {
    "python": "3.12.10",
    "numpy": "2.4.4"

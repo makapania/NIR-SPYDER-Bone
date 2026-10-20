@@ -2,7 +2,7 @@
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "https://spyder-bone.org/schemas/spyder-transfer.schema.json",
  "title": "SPYDER Bone instrument transfer file (format 1)",
- "description": "Maps a scan from source_class (optionally one source_serial) to target_class, before any model preprocessing. Selected automatically: scan instrument class -> model instrument.trained_on_class.",
+ "description": "Maps a scan from source_class (optionally one source_serial) to target_class, before any model preprocessing. Selected automatically: scan instrument class -> model instrument.trained_on_class; a file for one unit (source_serial) beats a class-wide one, and may map a unit to its own class (a lab's own standard-resolution unit). Versions are compared only within one id; between ids a bundled class-wide file comes before a user one.",
  "type": "object",
  "required": [
   "format",
@@ -63,7 +63,54 @@
    "description": "Ordered ops (a 'sequence'): gaussian_blur, affine_reflectance, pds_banded, resample, ... Large matrices go to .npy sidecars."
   },
   "provenance": {
-   "type": "object"
+   "type": "object",
+   "properties": {
+    "instrument_noise": {
+     "type": "object",
+     "description": "an instrument's own noise, measured on its scans; overrides the noise tables' defaults for outputs read through this correction",
+     "properties": {
+      "correlation_nm": {
+       "type": "number",
+       "minimum": 0
+      },
+      "ch_envelope_factors": {
+       "type": "object",
+       "additionalProperties": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       }
+      }
+     }
+    },
+    "visible_levels": {
+     "enum": [
+      "fitted",
+      "not_fitted"
+     ],
+     "description": "whether the correction's visible levels (VNIR gain and offset, the 1250-1300 nm level) were fitted from paired scans. They are not display-only: the heat check reads them. not_fitted: heat reads the scan as measured, with a note. Absent: fitted (every correction made before this field fitted them)."
+    },
+    "second_opinion_gap": {
+     "type": "object",
+     "required": [
+      "points",
+      "n_scans"
+     ],
+     "description": "the S1_R2 second-opinion gap estimated for this correction (95th percentile of |S1_R2 - CONS3|); used instead of the profile's default only when estimated from at least 20 scans",
+     "properties": {
+      "points": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "n_scans": {
+       "type": "integer",
+       "minimum": 20
+      },
+      "basis": {
+       "type": "string"
+      }
+     }
+    }
+   }
   },
   "validation": {
    "type": "object",
@@ -104,7 +151,8 @@
    "type": "string"
   },
   "source_class": {
-   "type": "string"
+   "type": "string",
+   "description": "equal to target_class only in a file for one unit (source_serial)"
   },
   "target_class": {
    "type": "string"
@@ -123,6 +171,15 @@
   },
   "licence": {
    "type": "string"
+  },
+  "reader_offsets": {
+   "type": "object",
+   "description": "per-reader additive offsets (wt%) added to the readings made through this correction: {model id: offset}; a consensus takes its components' offsets before the median. Each at most 5 wt% either way.",
+   "additionalProperties": {
+    "type": "number",
+    "minimum": -5,
+    "maximum": 5
+   }
   }
  }
 }

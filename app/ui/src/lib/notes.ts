@@ -97,6 +97,7 @@ export function noteIcon(k: NoteKey): NoteIcon {
     case 'c1_reduced':
     case 'signs_reduced':
     case 'no_model_reading':
+    case 'band_noise_unknown':
       return 'noise';
     case 'positive_signs_all_six':
     case 'positive_signs_clear':

@@ -1,35 +1,40 @@
 //! Shared-table plug-ins (PLAN section 4; spyder_ref `tables`): `bands.json`, `noise_gains.json` and the
 //! instrument registry.
 //!
-//! * bands: band reading r_b = mean over centre +/- half_width of E = scale x SG derivative of
-//!   log10(1/max(R, clip)) (kernel per band); readability SD_E = gain_E_per_N2[transfer key] x N2(noise window)
-//!   on the AS-MEASURED scan.
-//! * noise gains: implied SD (wt%) of a collagen reading = sqrt(sum (gain x N2(window))^2) per model and transfer
-//!   key; a consensus = factor x median of its component SDs.
-//! * Transfer key = `"none"` or the SHA-256 of the transfer FILE applied to the stream; a key with no entry is
-//!   "not assessed", never a guess.
+//! * bands (format_version 2): band reading r_b = mean over centre +/- half_width of E = scale x SG derivative of
+//!   log10(1/max(R, clip)) (kernel per band); readability SD_E = gain x envelope factor x N2(noise window) on the
+//!   AS-MEASURED scan, the gain COMPUTED ([`super::gains`]) from the band kernel, the correction applied to the
+//!   stream and the scan's own detector segments.
+//! * noise gains (format_version 2): the noise model, the N2 windows a model kernel's detector parts use, per-model
+//!   settings (B6 policy; a recorded gain for a non-linear model) and the consensus factor. Each model's implied SD
+//!   (wt%) = sqrt(sum (gain x N2(window))^2), the gains computed the same way; a consensus = factor x median of its
+//!   component SDs.
+//! * Nothing is keyed by a transfer file's SHA-256 (format 1 listed gains per transfer key). An output whose gain
+//!   cannot be computed is "not assessed" with the reason; a band's unknown SD is +infinity (unreadable unless
+//!   strong: fail safe), never a guess.
 //! * instruments: the classes and serial lists that PRESET the user's Standard / High-res switch (DECISIONS 50).
 
 use std::collections::BTreeMap;
 
 use serde::Serialize;
 
+use super::gains::{self, parse_instrument_noise, Correction, GainCache, InstrumentNoise};
 use super::golden::{cases, tolerance, GoldenRun, GoldenSpectra, Tolerance};
 use super::{
-    is_sha256_hex, parse_header, Header, Node, PResult, PluginError, ScanContext, BANDS_FORMAT,
-    INSTRUMENT_FORMAT, NOISE_GAINS_FORMAT,
+    parse_header, parse_header_v, Header, Node, PResult, PluginError, BANDS_FORMAT,
+    INSTRUMENT_FORMAT, NOISE_GAINS_FORMAT, TABLE_FORMAT_VERSION,
 };
+use crate::model::{Model, ModelKind};
 use crate::n2::n2;
 use crate::numsum::np_mean;
-use crate::preprocess::{self, SgMode, SgParams, Spectrum};
-use crate::transfer::Transfer;
+use crate::preprocess::{self, Op, SgMode, SgParams, Spectrum};
 
-/// The key of a stream: no transfer, or the SHA-256 of the transfer file applied.
+/// The key of a stream with no correction (the scan as measured).
 pub const NO_TRANSFER: &str = "none";
-
-fn transfer_key_ok(k: &str) -> bool {
-    k == NO_TRANSFER || is_sha256_hex(k)
-}
+/// Status of an output whose N2 is not finite.
+pub const NOISE_UNKNOWN: &str = "not assessed: noise unknown (N2 not finite)";
+/// B6 status of a reader the noise table exempts from B6 (`"b6": false`): its implied SD is still reported.
+pub const B6_NOT_APPLIED: &str = "not assessed: B6 not applied to this reader";
 
 /// A band kernel: E = scale x SG(log10(1/max(R, clip))).
 #[derive(Debug, Clone, PartialEq)]
@@ -70,11 +75,13 @@ impl Kernel {
     }
 }
 
-/// Readability of one band.
+/// Readability of one band: SD_E = gain x envelope factor x N2(noise window); the gain is computed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Readability {
     pub noise_window_nm: (f64, f64),
-    pub gain_e_per_n2: BTreeMap<String, f64>,
+    /// The within-detector noise envelope at the band (the C-H bands near the detector ends; 1.0 elsewhere). A
+    /// correction may carry its instrument's own factor (`provenance.instrument_noise.ch_envelope_factors`).
+    pub envelope_factor: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -137,10 +144,24 @@ pub struct Bands {
     pub kernels: BTreeMap<String, Kernel>,
     pub bands: BTreeMap<String, Band>,
     pub projections: BTreeMap<String, Projection>,
+    /// The noise model's correlation length (nm) for the readability gains (`noise_model.correlation_nm`).
+    pub correlation_nm: f64,
+}
+
+/// `noise_model.correlation_nm` of a table (finite, >= 0).
+fn correlation_nm(doc: &Node) -> PResult<f64> {
+    let nm = doc.req("noise_model")?;
+    let c = nm.req("correlation_nm")?;
+    let v = c.f64()?;
+    if !(v >= 0.0) {
+        return Err(c.error("correlation_nm must be a finite number >= 0"));
+    }
+    Ok(v)
 }
 
 pub fn parse_bands(doc: &Node) -> PResult<Bands> {
-    let header = parse_header(doc, BANDS_FORMAT)?;
+    let header = parse_header_v(doc, BANDS_FORMAT, TABLE_FORMAT_VERSION)?;
+    let correlation_nm = correlation_nm(doc)?;
     let mut kernels = BTreeMap::new();
     for (name, k) in doc.req("kernels")?.entries()? {
         let (savgol, mode_stated) = parse_sg(&k.req("savgol")?)?;
@@ -193,29 +214,27 @@ pub fn parse_bands(doc: &Node) -> PResult<Bands> {
         let readability = match b.opt("readability") {
             None => None,
             Some(r) => {
+                if r.has("gain_E_per_N2") {
+                    return Err(r.error(format!(
+                        "band {name}: per-transfer gains are format 1 (format 2 computes them)"
+                    )));
+                }
                 let w = r.req("noise_window_nm")?.range(false)?;
-                let mut g = BTreeMap::new();
-                let gn = r.req("gain_E_per_N2")?;
-                for (k, v) in gn.entries()? {
-                    if !transfer_key_ok(&k) {
-                        return Err(gn.error(format!(
-                            "transfer key {k:?} must be \"none\" or a file sha256"
-                        )));
+                let envelope_factor = match r.opt("envelope_factor") {
+                    None => 1.0,
+                    Some(f) => {
+                        let x = f.f64()?;
+                        if !(x > 0.0) {
+                            return Err(f.error(format!(
+                                "band {name}: envelope_factor must be a positive finite number"
+                            )));
+                        }
+                        x
                     }
-                    let x = v.f64()?;
-                    if !(x > 0.0) {
-                        return Err(v.error(format!(
-                            "band {name}: gain for {k} must be a positive finite number"
-                        )));
-                    }
-                    g.insert(k, x);
-                }
-                if g.is_empty() {
-                    return Err(gn.error("at least one gain required"));
-                }
+                };
                 Some(Readability {
                     noise_window_nm: w,
-                    gain_e_per_n2: g,
+                    envelope_factor,
                 })
             }
         };
@@ -281,6 +300,7 @@ pub fn parse_bands(doc: &Node) -> PResult<Bands> {
         kernels,
         bands,
         projections,
+        correlation_nm,
     })
 }
 
@@ -318,140 +338,214 @@ impl Bands {
         Ok(out)
     }
 
-    /// SD of a band reading from the as-measured scan, for the transfer key of the stream it is read on;
-    /// None = not assessed (no readability block or no gain for this key).
-    pub fn readability_sd(&self, band: &str, raw: &Spectrum, key: &str) -> Option<f64> {
-        let r = self.bands.get(band)?.readability.as_ref()?;
-        let g = r.gain_e_per_n2.get(key)?;
-        let (lo, hi) = r.noise_window_nm;
-        Some(g * n2(&raw.x, &raw.wl, lo, hi)?)
+    /// SD_E of a band read on a stream made with this correction (None = the scan as measured), N2 from the
+    /// AS-MEASURED scan: (SD_E, status). The status is "assessed" or why the noise is unknown; an unknown or
+    /// non-finite SD is +infinity (unreadable unless strong: fail safe). None for a band without a readability block.
+    pub fn readability_sd(
+        &self,
+        cache: Option<&GainCache>,
+        band: &str,
+        wl: &[f64],
+        joins: &[f64],
+        corr: Option<Correction>,
+        n2_of: &mut dyn FnMut(f64, f64) -> f64,
+    ) -> Option<(f64, String)> {
+        self.bands.get(band)?.readability.as_ref()?;
+        let g = match cache {
+            Some(c) => c.band_gain(self, band, wl, joins, corr),
+            None => gains::band_gain(self, band, wl, joins, corr),
+        };
+        Some(match g {
+            Err(e) => (f64::INFINITY, e.0),
+            Ok(((lo, hi), g)) => {
+                let v = g * n2_of(lo, hi);
+                if v.is_finite() {
+                    (v, "assessed".to_string())
+                } else {
+                    (f64::INFINITY, NOISE_UNKNOWN.to_string())
+                }
+            }
+        })
     }
 }
 
-/// One noise term: % collagen per unit N2 in a window.
+/// One recorded noise term: % collagen per unit N2 in a window (a non-linear model's gain).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Term {
     pub window_nm: (f64, f64),
     pub gain: f64,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConsensusGain {
-    pub factor: f64,
-    /// component name -> model id
-    pub components: BTreeMap<String, String>,
+/// Per-model settings of the noise table.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ModelNoise {
+    /// false: the implied SD is reported, but B6 is not applied to this reader.
+    pub b6: bool,
+    /// The recorded gain of a non-linear model (for the scan as measured only).
+    pub recorded: Option<Vec<Term>>,
 }
 
-/// `noise_gains.json`.
+/// `noise_gains.json` (format_version 2).
 #[derive(Debug, Clone)]
 pub struct NoiseGains {
     pub header: Header,
     pub provisional: bool,
-    /// model id -> transfer key -> terms
-    pub models: BTreeMap<String, BTreeMap<String, Vec<Term>>>,
-    pub consensus: BTreeMap<String, ConsensusGain>,
+    /// The noise model's correlation length (nm).
+    pub correlation_nm: f64,
+    /// One N2 window per detector segment a model kernel may read; a kernel part uses the window in its segment.
+    pub model_noise_windows_nm: Vec<(f64, f64)>,
+    /// model id -> settings (models not listed: B6 applies, gains computed).
+    pub models: BTreeMap<String, ModelNoise>,
+    /// consensus model id -> factor (SD = factor x median of the component SDs).
+    pub consensus: BTreeMap<String, f64>,
 }
 
 pub fn parse_noise_gains(doc: &Node) -> PResult<NoiseGains> {
-    let header = parse_header(doc, NOISE_GAINS_FORMAT)?;
+    let header = parse_header_v(doc, NOISE_GAINS_FORMAT, TABLE_FORMAT_VERSION)?;
     let provisional = doc.req("provisional")?.bool()?;
+    let correlation_nm = correlation_nm(doc)?;
+    let wn = doc.req("model_noise_windows_nm")?;
+    let mut model_noise_windows_nm = Vec::new();
+    for w in wn.arr()? {
+        model_noise_windows_nm.push(w.range(false)?);
+    }
+    if model_noise_windows_nm.is_empty() {
+        return Err(wn.error("at least one window"));
+    }
     let mut models = BTreeMap::new();
-    for (mid, m) in doc.req("models")?.entries()? {
-        let mut keyed = BTreeMap::new();
-        for (k, e) in m.entries()? {
-            if !transfer_key_ok(&k) {
-                return Err(m.error(format!(
-                    "transfer key {k:?} must be \"none\" or a file sha256"
-                )));
-            }
-            let terms = e.req("terms")?.arr()?;
-            if terms.is_empty() {
-                return Err(e.error("at least one term required"));
-            }
-            let mut out = Vec::new();
-            for t in &terms {
-                let gain = t.req("gain")?.f64()?;
-                let w = t.req("window_nm")?.range(false)?;
-                if !(gain > 0.0) {
-                    return Err(t.error(format!("{mid} [{k}]: gain must be > 0")));
+    if let Some(ms) = doc.opt("models") {
+        for (mid, m) in ms.entries()? {
+            let b6 = m.opt("b6").map(|b| b.bool()).transpose()?.unwrap_or(true);
+            let recorded = match m.opt("recorded") {
+                None => None,
+                Some(r) => {
+                    let terms = r.req("terms")?.arr()?;
+                    if terms.is_empty() {
+                        return Err(r.error("at least one term required"));
+                    }
+                    let mut out = Vec::new();
+                    for t in &terms {
+                        let gain = t.req("gain")?.f64()?;
+                        let w = t.req("window_nm")?.range(false)?;
+                        if !(gain > 0.0) {
+                            return Err(t.error(format!("{mid}: gain must be > 0")));
+                        }
+                        out.push(Term { window_nm: w, gain });
+                    }
+                    Some(out)
                 }
-                out.push(Term { window_nm: w, gain });
-            }
-            keyed.insert(k, out);
+            };
+            models.insert(mid, ModelNoise { b6, recorded });
         }
-        models.insert(mid, keyed);
     }
     let mut consensus = BTreeMap::new();
     if let Some(c) = doc.opt("consensus") {
         for (cid, e) in c.entries()? {
             let factor = e.req("factor")?.f64()?;
-            let comps: BTreeMap<String, String> = e
-                .req("components")?
-                .entries()?
-                .into_iter()
-                .map(|(k, v)| v.str().map(|s| (k, s.to_string())))
-                .collect::<PResult<_>>()?;
-            if !(factor > 0.0) || comps.len() < 3 || comps.len() % 2 != 1 {
-                return Err(e.error(format!("consensus {cid}: bad factor or component count")));
+            if !(factor > 0.0) {
+                return Err(e.error(format!("consensus {cid}: bad factor")));
             }
-            for mid in comps.values() {
-                // Codex Phase 2 HIGH 2: components resolve only to plain model entries (no consensus of
-                // consensuses, no cycles): every component must have its own gains and must not be a consensus
-                if !models.contains_key(mid) {
-                    return Err(e.error(format!("consensus {cid}: component {mid} has no gains")));
-                }
-                if mid == &cid || c.opt(mid).is_some() {
-                    return Err(e.error(format!(
-                        "consensus {cid}: component {mid} is itself a consensus (not allowed)"
-                    )));
-                }
-            }
-            consensus.insert(
-                cid,
-                ConsensusGain {
-                    factor,
-                    components: comps,
-                },
-            );
+            consensus.insert(cid, factor);
         }
     }
     Ok(NoiseGains {
         header,
         provisional,
+        correlation_nm,
+        model_noise_windows_nm,
         models,
         consensus,
     })
 }
 
-impl NoiseGains {
-    /// Implied SD (wt%) of a model on the as-measured scan for a transfer key; None = not assessed.
-    pub fn implied_sd(&self, model_id: &str, raw: &Spectrum, key: &str) -> Option<f64> {
-        if let Some(c) = self.consensus.get(model_id) {
-            // components are plain models (checked at parse time): no recursion
-            let mut sds = Vec::new();
-            for mid in c.components.values() {
-                sds.push(self.model_sd(mid, raw, key)?);
-            }
-            return Some(c.factor * crate::n2::median(&sds));
-        }
-        self.model_sd(model_id, raw, key)
-    }
-
-    fn model_sd(&self, model_id: &str, raw: &Spectrum, key: &str) -> Option<f64> {
-        let terms = self.models.get(model_id)?.get(key)?;
-        let mut s = 0.0;
-        for t in terms {
-            let v = t.gain * n2(&raw.x, &raw.wl, t.window_nm.0, t.window_nm.1)?;
-            s += v * v;
-        }
-        Some(s.sqrt())
-    }
+/// A model's implied SD on one scan through one correction.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImpliedSd {
+    /// wt%; None = not assessed (see `status`).
+    pub sd: Option<f64>,
+    /// A consensus: each component's SD by name, in file order (None for a regression model).
+    pub component_sd: Option<Vec<(String, Option<f64>)>>,
+    /// "assessed" or why not.
+    pub status: String,
+    /// false: B6 is not applied to this reader (the SD is still reported).
+    pub b6: bool,
 }
 
-impl ConsensusGain {
-    /// (component name, model id) pairs.
-    pub fn components_ordered(&self) -> impl Iterator<Item = (&String, &String)> {
-        self.components.iter()
+impl NoiseGains {
+    /// The implied SD (wt%) of a model reading through a correction (None = the scan as measured); N2 from the
+    /// AS-MEASURED scan (`n2_of` returns NaN when undefined).
+    pub fn implied_sd(
+        &self,
+        cache: Option<&GainCache>,
+        m: &Model,
+        wl: &[f64],
+        joins: &[f64],
+        corr: Option<Correction>,
+        n2_of: &mut dyn FnMut(f64, f64) -> f64,
+    ) -> ImpliedSd {
+        let id = m.header.id.as_str();
+        let b6 = self.models.get(id).is_none_or(|s| s.b6);
+        let names: Vec<String> = match &m.body {
+            crate::model::Body::Consensus { components } => {
+                components.iter().map(|c| c.name.clone()).collect()
+            }
+            _ => Vec::new(),
+        };
+        let cons = m.kind == ModelKind::Consensus;
+        let mut out = ImpliedSd {
+            sd: None,
+            component_sd: cons.then(|| names.iter().map(|n| (n.clone(), None)).collect()),
+            status: String::new(),
+            b6,
+        };
+        let terms = match cache {
+            Some(c) => c.model_terms(self, m, wl, joins, corr),
+            None => gains::model_terms(self, m, wl, joins, corr),
+        };
+        let terms = match terms {
+            Ok(t) => t,
+            Err(e) => {
+                out.status = e.0;
+                return out;
+            }
+        };
+        let sds: Vec<(Option<String>, Option<f64>)> = terms
+            .iter()
+            .map(|(n, t)| (n.clone(), gains::rss(t, n2_of)))
+            .collect();
+        if cons {
+            let comp: Vec<(String, Option<f64>)> = names
+                .iter()
+                .map(|n| {
+                    let v = sds
+                        .iter()
+                        .find(|(k, _)| k.as_deref() == Some(n.as_str()))
+                        .and_then(|(_, v)| *v);
+                    (n.clone(), v)
+                })
+                .collect();
+            match self.consensus.get(id) {
+                None => out.status = "not assessed: no noise factor for this consensus".into(),
+                Some(_) if comp.iter().any(|(_, v)| v.is_none()) => {
+                    out.status = NOISE_UNKNOWN.into()
+                }
+                Some(f) => {
+                    let v: Vec<f64> = comp.iter().filter_map(|(_, v)| *v).collect();
+                    out.sd = Some(f * crate::n2::median(&v));
+                    out.status = "assessed".into();
+                }
+            }
+            out.component_sd = Some(comp);
+            return out;
+        }
+        match sds.first().and_then(|(_, v)| *v) {
+            Some(v) => {
+                out.sd = Some(v);
+                out.status = "assessed".into();
+            }
+            None => out.status = NOISE_UNKNOWN.into(),
+        }
+        out
     }
 }
 
@@ -467,7 +561,25 @@ pub struct Instruments {
     /// class -> inclusive range of the header's SWIR1 and SWIR2 gains that suggests it (`header_hint.swir_gain`).
     /// A hint for an unlisted serial only: it presets the switch, never overrides it.
     pub swir_gain_hint: BTreeMap<String, (u64, u64)>,
+    /// file format ("as7", "legacy") -> the class of the instrument that writes it (`header_hint.file_format`), unless
+    /// the file's detector joins say otherwise (`header_hint.unless_joins_nm`): such a file is scored as that class
+    /// whatever the LabSpec switch says (DECISIONS 137). See [`Instruments::class_of_file`].
+    pub format_class: BTreeMap<String, FormatClass>,
 }
+
+/// The class a file format names (`header_hint.file_format`) and the detector joins that exclude a file of that format
+/// from it (`header_hint.unless_joins_nm`). A format is only ASD's file version: as7 is written by the Trek-type
+/// handheld and may be written by a LabSpec 4 on older ASD software, which the joins tell apart (1785 vs 1800 nm).
+#[derive(Debug, Clone, PartialEq)]
+pub struct FormatClass {
+    pub class: String,
+    /// A file whose joins, as found in it, are exactly these is not this class's (it is read as a LabSpec 4 file).
+    pub unless_joins_nm: Option<Vec<f64>>,
+}
+
+/// The file formats the reader names (`input.format`): as8, as7 and legacy v1 reflectance (ASD file versions, not
+/// instruments: [`Instruments::class_of_file`] also reads the detector joins).
+pub const FILE_FORMATS: [&str; 3] = ["as8", "as7", "legacy"];
 
 pub fn parse_instruments(doc: &Node) -> PResult<Instruments> {
     let header = parse_header(doc, INSTRUMENT_FORMAT)?;
@@ -475,8 +587,42 @@ pub fn parse_instruments(doc: &Node) -> PResult<Instruments> {
     let mut classes = BTreeMap::new();
     let mut seen: BTreeMap<u64, String> = BTreeMap::new();
     let mut swir_gain_hint: BTreeMap<String, (u64, u64)> = BTreeMap::new();
+    let mut format_class: BTreeMap<String, FormatClass> = BTreeMap::new();
     let cl = doc.req("classes")?;
     for (cls, v) in cl.entries()? {
+        if let Some(h) = v.opt("header_hint") {
+            let unless = h
+                .opt("unless_joins_nm")
+                .map(|u| {
+                    let j = u.vec_f64()?;
+                    if j.is_empty() {
+                        return Err(u.error("unless_joins_nm needs at least one join"));
+                    }
+                    Ok(j)
+                })
+                .transpose()?;
+            match h.opt("file_format") {
+                Some(f) => {
+                    for x in f.arr()? {
+                        let fmt = x.one_of(&FILE_FORMATS)?.to_string();
+                        let fc = FormatClass {
+                            class: cls.clone(),
+                            unless_joins_nm: unless.clone(),
+                        };
+                        if let Some(other) = format_class.insert(fmt.clone(), fc) {
+                            return Err(x.error(format!(
+                                "file format {fmt:?} named by two classes ({}, {cls})",
+                                other.class
+                            )));
+                        }
+                    }
+                }
+                None if unless.is_some() => {
+                    return Err(h.error("unless_joins_nm needs file_format"));
+                }
+                None => {}
+            }
+        }
         if let Some(g) = v.opt("header_hint").and_then(|h| h.opt("swir_gain")) {
             let r = g.arr()?;
             if r.len() != 2 {
@@ -524,6 +670,7 @@ pub fn parse_instruments(doc: &Node) -> PResult<Instruments> {
         classes,
         mismatch_note,
         swir_gain_hint,
+        format_class,
     })
 }
 
@@ -567,42 +714,93 @@ impl Instruments {
     pub fn display_name(&self, class: &str) -> Option<&str> {
         self.classes.get(class).map(|(d, _)| d.as_str())
     }
-}
 
-fn stream(raw: &Spectrum, key: &str, transfers: &BTreeMap<String, &Transfer>) -> PResult<Spectrum> {
-    if key == NO_TRANSFER {
-        return Ok(raw.clone());
+    /// The class of the instrument that wrote a file, from its format and the detector joins found in it (`None` when
+    /// the reader fell back to the default joins, [`crate::scan::Scan::found_joins`]): the class the format names
+    /// (`header_hint.file_format`) unless the joins are exactly that class's `header_hint.unless_joins_nm`. `None`: a
+    /// LabSpec 4 file, whose class the Standard / High-res switch decides. Never decided by the format alone: as7 is
+    /// ASD's file version 7, which a LabSpec 4 on older ASD software may write (joins 1000/1800, as on as8).
+    pub fn class_of_file(&self, format: &str, joins: Option<&[f64]>) -> Option<&str> {
+        let fc = self.format_class.get(format)?;
+        match (&fc.unless_joins_nm, joins) {
+            (Some(u), Some(j)) if u.as_slice() == j => None,
+            _ => Some(fc.class.as_str()),
+        }
     }
-    let t = transfers.get(key).ok_or_else(|| {
-        PluginError::golden(format!(
-            "transfer key {} has no transfer file in this folder",
-            super::short(key, 12)
-        ))
-    })?;
-    // spyder_ref tables.stream: joins 1000/1800, the transfer's source class
-    let ctx = ScanContext::new(vec![1000.0, 1800.0], &t.source_class, None);
-    t.apply(raw, &ctx)
-        .map_err(|e| PluginError::golden(format!("transfer {}: {e}", t.key())))
+
+    /// Whether the registry lists this class.
+    pub fn has_class(&self, class: &str) -> bool {
+        self.classes.contains_key(class)
+    }
 }
 
-/// Goldens of bands.json / noise_gains.json. Each case: spectrum_sha256, transfer_key, expected {name: value}
-/// with names `E:<band>`, `SD_E:<band>` (bands) or `N2:<lo>-<hi>`, `SD:<model id>` (noise gains).
-/// `transfers` = the transfer files of the same folder, keyed by file SHA-256.
+/// A correction named in a golden block: its operators and instrument noise.
+pub struct GoldenCorrection {
+    pub ops: Vec<Op>,
+    pub noise: InstrumentNoise,
+}
+
+/// The named corrections of a golden block (`corrections`: an operator list and optional instrument_noise per name).
+pub fn golden_corrections(golden: &Node) -> PResult<BTreeMap<String, GoldenCorrection>> {
+    let mut out = BTreeMap::new();
+    let Some(cs) = golden.opt("corrections") else {
+        return Ok(out);
+    };
+    for (name, c) in cs.entries()? {
+        if name == NO_TRANSFER {
+            return Err(c.error("a golden correction cannot be named \"none\""));
+        }
+        let op = c.req("operator")?;
+        if op.arr()?.is_empty() {
+            return Err(op.error("needs at least one operator"));
+        }
+        let ops = preprocess::parse_chain(op.v)?;
+        let noise = match c.opt("instrument_noise") {
+            None => InstrumentNoise::default(),
+            Some(n) => parse_instrument_noise(&n)?,
+        };
+        out.insert(name, GoldenCorrection { ops, noise });
+    }
+    Ok(out)
+}
+
+/// Goldens of bands.json / noise_gains.json. Each case: spectrum_sha256, correction ("none" or a name in the golden
+/// block's `corrections`: an operator list and optional instrument_noise), optional splices_nm (default 1000/1800),
+/// expected {name: value} with names `E:<band>`, `SD_E:<band>` (bands) or `N2:<lo>-<hi>`, `SD:<model id>` (noise
+/// gains; the models by file SHA-256 in the golden block's `models`, resolved in `models_by_sha`: every loaded model
+/// file, any folder).
 pub fn run_table_goldens(
     doc: &Node,
     table: TableRef,
     gs: &GoldenSpectra,
-    transfers: &BTreeMap<String, &Transfer>,
+    models_by_sha: &BTreeMap<String, &Model>,
 ) -> PResult<GoldenRun> {
     let golden = doc.req("golden")?;
     let tol: Tolerance = tolerance(&golden)?;
     let cs = cases(&golden)?;
-    let mut run = GoldenRun {
-        checks: 0,
-        failures: Vec::new(),
-        worst_ratio: 0.0,
-        tolerance: tol,
-    };
+    let corrections = golden_corrections(&golden)?;
+    let mut models: BTreeMap<String, &Model> = BTreeMap::new();
+    if let (TableRef::Noise(_), Some(ms)) = (table, golden.opt("models")) {
+        for (mid, sha) in ms.entries()? {
+            let sha = sha.str()?;
+            let m = models_by_sha.get(sha).ok_or_else(|| {
+                PluginError::golden(format!(
+                    "golden: model {mid} (sha256 {}) is not loaded",
+                    super::short(sha, 12)
+                ))
+            })?;
+            if m.header.id != mid {
+                return Err(PluginError::golden(format!(
+                    "golden: the file with sha256 {} is {}, not {mid}",
+                    super::short(sha, 12),
+                    m.header.id
+                )));
+            }
+            models.insert(mid, m);
+        }
+    }
+    let mut run = GoldenRun::empty(tol);
+    let mut covered: std::collections::BTreeSet<String> = Default::default();
     for (i, c) in cs.iter().enumerate() {
         let name = c
             .opt("name")
@@ -615,12 +813,26 @@ pub fn run_table_goldens(
             ))
         })?;
         let raw = Spectrum::new(g.wl.clone(), g.x.clone());
-        let key = c.req("transfer_key")?.str()?;
-        if !transfer_key_ok(key) {
-            return Err(PluginError::golden(format!(
-                "golden case {name}: transfer_key must be \"none\" or a file sha256"
-            )));
-        }
+        let joins = match c.opt("splices_nm") {
+            None => vec![1000.0, 1800.0],
+            Some(j) => j.vec_f64()?,
+        };
+        let cname = match c.opt("correction") {
+            None => NO_TRANSFER.to_string(),
+            Some(x) => x.str()?.to_string(),
+        };
+        let gc = if cname == NO_TRANSFER {
+            None
+        } else {
+            Some(corrections.get(&cname).ok_or_else(|| {
+                PluginError::golden(format!("golden case {name}: unknown correction {cname:?}"))
+            })?)
+        };
+        let corr = gc.map(|x| Correction {
+            ops: &x.ops,
+            noise: &x.noise,
+            key: &cname,
+        });
         let exp = match c.opt("expected") {
             Some(e) if e.v.is_object() => e.entries()?,
             _ => Vec::new(),
@@ -630,11 +842,20 @@ pub fn run_table_goldens(
                 "golden case {name}: empty expected block"
             )));
         }
+        let mut n2_of = |lo: f64, hi: f64| n2(&raw.x, &raw.wl, lo, hi).unwrap_or(f64::NAN);
         let readings = match table {
-            TableRef::Bands(b) => Some(
-                b.readings(&stream(&raw, key, transfers)?)
-                    .map_err(|e| PluginError::golden(format!("golden case {name}: {e}")))?,
-            ),
+            TableRef::Bands(b) => {
+                let stream = match gc {
+                    None => raw.clone(),
+                    Some(x) => preprocess::run_chain(&x.ops, &raw, &joins).map_err(|e| {
+                        PluginError::golden(format!("golden case {name}: correction {cname}: {e}"))
+                    })?,
+                };
+                Some(
+                    b.readings(&stream)
+                        .map_err(|e| PluginError::golden(format!("golden case {name}: {e}")))?,
+                )
+            }
             TableRef::Noise(_) => None,
         };
         for (k, w) in &exp {
@@ -651,7 +872,16 @@ pub fn run_table_goldens(
                     }
                     readings.as_ref().and_then(|r| r.get(what).copied())
                 }
-                (TableRef::Bands(b), "SD_E") => b.readability_sd(what, &raw, key),
+                (TableRef::Bands(b), "SD_E") => {
+                    if !b.bands.contains_key(what) {
+                        return Err(PluginError::golden(format!(
+                            "golden case {name}: unknown band {what}"
+                        )));
+                    }
+                    covered.insert(what.to_string());
+                    b.readability_sd(None, what, &raw.wl, &joins, corr, &mut n2_of)
+                        .map(|(v, _)| v)
+                }
                 (TableRef::Noise(_), "N2") => {
                     let (lo, hi) = what
                         .split_once('-')
@@ -661,7 +891,15 @@ pub fn run_table_goldens(
                         })?;
                     n2(&raw.x, &raw.wl, lo, hi)
                 }
-                (TableRef::Noise(ng), "SD") => ng.implied_sd(what, &raw, key),
+                (TableRef::Noise(ng), "SD") => {
+                    let m = models.get(what).ok_or_else(|| {
+                        PluginError::golden(format!(
+                            "golden case {name}: model {what} is not in the golden block's models"
+                        ))
+                    })?;
+                    covered.insert(what.to_string());
+                    ng.implied_sd(None, m, &raw.wl, &joins, corr, &mut n2_of).sd
+                }
                 _ => {
                     return Err(PluginError::golden(format!(
                         "golden case {name}: unknown expected output {k}"
@@ -674,62 +912,30 @@ pub fn run_table_goldens(
     if run.checks == 0 {
         return Err(PluginError::golden("golden: zero comparisons"));
     }
-    // Codex Phase 2 MEDIUM 6: the goldens must exercise every gain the table declares
-    let mut covered: std::collections::BTreeSet<(String, String)> = Default::default();
-    for c in &cs {
-        let key = c.req("transfer_key")?.str()?.to_string();
-        if let Some(e) = c.opt("expected") {
-            for (k, _) in e.entries()? {
-                if let Some(id) = k.strip_prefix("SD:").or_else(|| k.strip_prefix("SD_E:")) {
-                    covered.insert((id.to_string(), key.clone()));
-                }
-            }
-        }
-    }
-    let mut needed: Vec<(String, String)> = Vec::new();
-    match table {
-        TableRef::Noise(ng) => {
-            for (mid, keyed) in &ng.models {
-                for k in keyed.keys() {
-                    needed.push((mid.clone(), k.clone()));
-                }
-            }
-            for (cid, c) in &ng.consensus {
-                let mut keys: Option<std::collections::BTreeSet<&String>> = None;
-                for mid in c.components.values() {
-                    let ks: std::collections::BTreeSet<&String> = ng
-                        .models
-                        .get(mid)
-                        .map(|m| m.keys().collect())
-                        .unwrap_or_default();
-                    keys = Some(match keys {
-                        None => ks,
-                        Some(prev) => prev.intersection(&ks).copied().collect(),
-                    });
-                }
-                for k in keys.unwrap_or_default() {
-                    needed.push((cid.clone(), k.clone()));
-                }
-            }
-        }
-        TableRef::Bands(b) => {
-            for (bid, band) in &b.bands {
-                if let Some(r) = &band.readability {
-                    for k in r.gain_e_per_n2.keys() {
-                        needed.push((bid.clone(), k.clone()));
-                    }
-                }
-            }
-        }
-    }
-    let missing: Vec<String> = needed
-        .into_iter()
-        .filter(|n| !covered.contains(n))
-        .map(|(id, k)| format!("{id} [{}]", super::short(&k, 12)))
-        .collect();
+    // Codex Phase 2 MEDIUM 6: the goldens must exercise every computed output the table governs
+    let need: std::collections::BTreeSet<String> = match table {
+        TableRef::Bands(b) => b
+            .bands
+            .iter()
+            .filter(|(_, x)| x.readability.is_some())
+            .map(|(k, _)| k.clone())
+            .collect(),
+        TableRef::Noise(ng) => models
+            .keys()
+            .cloned()
+            .chain(ng.consensus.keys().cloned())
+            .chain(
+                ng.models
+                    .iter()
+                    .filter(|(_, s)| s.recorded.is_some())
+                    .map(|(k, _)| k.clone()),
+            )
+            .collect(),
+    };
+    let missing: Vec<String> = need.difference(&covered).cloned().collect();
     if !missing.is_empty() {
         return Err(PluginError::golden(format!(
-            "golden: no case tests the gains of {}",
+            "golden: no case tests {}",
             missing.join(", ")
         )));
     }

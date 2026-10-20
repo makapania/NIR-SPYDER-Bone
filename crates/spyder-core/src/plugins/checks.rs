@@ -9,6 +9,7 @@ use std::path::Path;
 
 use serde::Serialize;
 
+use super::gains::LinearStat;
 use super::golden::check_deferred_block;
 use super::json::load_sidecar;
 use super::npy::Array;
@@ -89,15 +90,64 @@ fn band_name_ok(n: &Node, b: &str) -> PResult<()> {
     }
 }
 
-/// One sign's B6b gate: the sign is gated when N2(window) on the as-measured scan exceeds the cut.
+/// A linear statistic from a check file: {"kernel": a kernel (or a name in `kernels`), "windows": [[lo, hi, weight],
+/// ...]} (DECISIONS 137 g2; the noise of the statistic is computed for the correction applied).
+fn linear_stat(n: &Node, kernels: &BTreeMap<String, Kernel>) -> PResult<LinearStat> {
+    let kn = n.req("kernel")?;
+    let k = if let Some(name) = kn.v.as_str() {
+        kernels
+            .get(name)
+            .cloned()
+            .ok_or_else(|| kn.error(format!("unknown kernel {name:?}")))?
+    } else {
+        kernel(&kn)?
+    };
+    let ws = n.req("windows")?;
+    let mut windows = Vec::new();
+    for w in ws.arr()? {
+        let v = w.vec_f64_len(3)?;
+        if !(v[0] <= v[1]) {
+            return Err(w.error("a window [lo, hi, weight] needs lo <= hi"));
+        }
+        windows.push((v[0], v[1], v[2]));
+    }
+    if windows.is_empty() {
+        return Err(ws.error("at least one window"));
+    }
+    Ok(LinearStat { kernel: k, windows })
+}
+
+fn correlation(n: &Node) -> PResult<f64> {
+    match n.opt("correlation_nm") {
+        None => Ok(super::gains::DEFAULT_CORRELATION_NM),
+        Some(c) => {
+            let v = c.f64()?;
+            if !(v >= 0.0) {
+                return Err(c.error("correlation_nm must be a finite number >= 0"));
+            }
+            Ok(v)
+        }
+    }
+}
+
+/// One sign's gate in the uncorrected table: gated when N2(window) on the as-measured scan exceeds the cut.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SignGate {
     pub n2_window_nm: (f64, f64),
     pub n2_above: f64,
 }
 
-/// The per-sign B6b gates (phase 0c), keyed by the stream's transfer key.
+/// One sign's gate through a correction: gated when the propagated noise SD of the named statistic's term in the
+/// detector segment of the N2 window exceeds `sd_above` (fixed once from the v0.2 cuts, in SD units).
 #[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SdGate {
+    pub statistic: String,
+    pub n2_window_nm: (f64, f64),
+    pub sd_above: f64,
+}
+
+/// The per-sign B6b gates (phase 0c; DECISIONS 137: for any correction, no lookup by transfer file).
+#[derive(Debug, Clone, PartialEq)]
 pub struct B6bGate {
     /// The window of the summary N2 in the record.
     pub n2_window_nm: (f64, f64),
@@ -105,35 +155,29 @@ pub struct B6bGate {
     pub signs: Vec<String>,
     /// The contaminant signs (the summary's `gated` = all of these gated).
     pub contaminant_signs: Vec<String>,
-    /// transfer key ("none" or a transfer file sha256) -> sign -> gate (a sign absent here is never gated).
-    pub by_transfer_key: BTreeMap<String, BTreeMap<String, SignGate>>,
-    /// The table used for a transfer key without an entry.
-    pub unknown_transfer_key_uses: String,
-    /// transfer key (a file sha256; exact match only) -> sign (plaster, C1) -> its reduced fallback (2026-10-13).
-    pub fallbacks_by_transfer_key: BTreeMap<String, BTreeMap<String, SignFallback>>,
+    /// A stream read as measured, or a near-uncorrected correction: sign -> gate (None = never gated).
+    pub uncorrected: BTreeMap<String, Option<SignGate>>,
+    /// A correction whose every noise-policy statistic (these gate and fallback statistics, check.longwave's tail
+    /// reading, check.signs' soft-tier statistic) has a noise gain within this fraction of its uncorrected gain is
+    /// near-uncorrected: every noise policy treats the stream as a native standard-resolution scan
+    /// ([`crate::pipeline::checks::standard_like`]).
+    pub std_like_within: f64,
+    /// Any other correction: sign -> gate (None = never gated: burnt).
+    pub corrected: BTreeMap<String, Option<SdGate>>,
+    /// A gated sign's reduced fallback (corrections only; plaster, C1).
+    pub fallbacks: BTreeMap<String, SignFallback>,
+    pub correlation_nm: f64,
+    pub statistics: BTreeMap<String, LinearStat>,
 }
 
-/// A gated sign's reduced fallback: it runs `variant` when N2(window) on the as-measured scan is at most the cut.
+/// A gated sign's reduced fallback: it runs `variant` when the reduced statistic's propagated SD is at most the cut.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SignFallback {
     /// "band_1446" (plaster) or "swir1" (C1).
     pub variant: String,
+    pub statistic: String,
     pub n2_window_nm: (f64, f64),
-    pub n2_at_most: f64,
-}
-
-impl B6bGate {
-    /// The gate table for a transfer key (a key without an entry uses `unknown_transfer_key_uses`).
-    pub fn table(&self, key: &str) -> &BTreeMap<String, SignGate> {
-        self.by_transfer_key
-            .get(key)
-            .unwrap_or_else(|| &self.by_transfer_key[&self.unknown_transfer_key_uses])
-    }
-
-    /// The fallbacks for a transfer key (exact key; none for "none" or an unknown key).
-    pub fn fallbacks(&self, key: &str) -> Option<&BTreeMap<String, SignFallback>> {
-        self.fallbacks_by_transfer_key.get(key)
-    }
+    pub sd_at_most: f64,
 }
 
 fn b6b_gate(n: &Node) -> PResult<B6bGate> {
@@ -148,83 +192,121 @@ fn b6b_gate(n: &Node) -> PResult<B6bGate> {
     if contaminant_signs.iter().any(|c| !signs.contains(c)) || signs.is_empty() {
         return Err(n.error("contaminant_signs must be gated signs"));
     }
-    let mut by_transfer_key = BTreeMap::new();
-    let bt = n.req("by_transfer_key")?;
-    for (k, t) in bt.entries()? {
-        if !(k == "none" || super::is_sha256_hex(&k)) {
-            return Err(bt.error(format!(
-                "transfer key {k:?} must be \"none\" or a file sha256"
-            )));
+    let mut kernels = BTreeMap::new();
+    if let Some(ks) = n.opt("kernels") {
+        for (name, k) in ks.entries()? {
+            kernels.insert(name, kernel(&k)?);
         }
-        let mut tab = BTreeMap::new();
-        for s in &signs {
-            if t.has(s) && t.opt(s).is_none() {
-                continue; // an explicit null gate: the sign is never gated (burnt on v0.2)
-            }
-            let g = t.req(s)?;
-            tab.insert(
-                s.clone(),
-                SignGate {
+    }
+    let mut statistics = BTreeMap::new();
+    let st = n.req("statistics")?;
+    for (name, x) in st.entries()? {
+        statistics.insert(name, linear_stat(&x, &kernels)?);
+    }
+    let known = |node: &Node, name: &str| -> PResult<String> {
+        if statistics.contains_key(name) {
+            Ok(name.to_string())
+        } else {
+            Err(node.error(format!("unknown statistic {name:?}")))
+        }
+    };
+    let positive = |node: Node| -> PResult<f64> {
+        let v = node.f64()?;
+        if v > 0.0 {
+            Ok(v)
+        } else {
+            Err(node.error("must be > 0"))
+        }
+    };
+    let un = n.req("uncorrected")?;
+    let co = n.req("corrected")?;
+    let mut uncorrected = BTreeMap::new();
+    let mut corrected = BTreeMap::new();
+    for s in &signs {
+        // an explicit null gate: the sign is never gated
+        uncorrected.insert(
+            s.clone(),
+            match un.opt(s) {
+                None if un.has(s) => None,
+                None => return Err(un.error(format!("missing sign {s:?}"))),
+                Some(g) => Some(SignGate {
                     n2_window_nm: g.req("n2_window_nm")?.range(false)?,
                     n2_above: g.req("n2_above")?.f64()?,
+                }),
+            },
+        );
+        corrected.insert(
+            s.clone(),
+            match co.opt(s) {
+                None if co.has(s) => None,
+                None => return Err(co.error(format!("missing sign {s:?}"))),
+                Some(g) => {
+                    let sn = g.req("statistic")?;
+                    Some(SdGate {
+                        statistic: known(&sn, sn.str()?)?,
+                        n2_window_nm: g.req("n2_window_nm")?.range(false)?,
+                        sd_above: positive(g.req("sd_above")?)?,
+                    })
+                }
+            },
+        );
+    }
+    let mut fallbacks = BTreeMap::new();
+    if let Some(fb) = n.opt("fallbacks") {
+        for (s, f) in fb.entries()? {
+            let want = match s.as_str() {
+                "plaster" => "band_1446",
+                "C1" => "swir1",
+                _ => return Err(fb.error(format!("no fallback is defined for sign {s:?}"))),
+            };
+            if !contaminant_signs.contains(&s) {
+                return Err(fb.error(format!("{s:?} is not a contaminant sign")));
+            }
+            let sn = f.req("statistic")?;
+            fallbacks.insert(
+                s,
+                SignFallback {
+                    variant: f.req("variant")?.one_of(&[want])?.to_string(),
+                    statistic: known(&sn, sn.str()?)?,
+                    n2_window_nm: f.req("n2_window_nm")?.range(false)?,
+                    sd_at_most: positive(f.req("sd_at_most")?)?,
                 },
             );
         }
-        by_transfer_key.insert(k, tab);
     }
-    let unknown = n.req("unknown_transfer_key_uses")?.str()?.to_string();
-    if !by_transfer_key.contains_key(&unknown) {
-        return Err(n.error("unknown_transfer_key_uses must name a table"));
-    }
-    let mut fallbacks_by_transfer_key = BTreeMap::new();
-    if let Some(fb) = n.opt("fallbacks_by_transfer_key") {
-        for (k, t) in fb.entries()? {
-            if !super::is_sha256_hex(&k) {
-                return Err(fb.error(format!("fallback key {k:?} must be a transfer file sha256")));
-            }
-            let mut tab = BTreeMap::new();
-            for (s, f) in t.entries()? {
-                let want = match s.as_str() {
-                    "plaster" => "band_1446",
-                    "C1" => "swir1",
-                    _ => return Err(t.error(format!("no fallback is defined for sign {s:?}"))),
-                };
-                if !contaminant_signs.contains(&s) {
-                    return Err(t.error(format!("{s:?} is not a contaminant sign")));
-                }
-                tab.insert(
-                    s,
-                    SignFallback {
-                        variant: f.req("variant")?.one_of(&[want])?.to_string(),
-                        n2_window_nm: f.req("n2_window_nm")?.range(false)?,
-                        n2_at_most: f.req("n2_at_most")?.f64()?,
-                    },
-                );
-            }
-            fallbacks_by_transfer_key.insert(k, tab);
-        }
+    let within = n.req("std_like_within")?;
+    let std_like_within = within.f64()?;
+    if !(std_like_within >= 0.0) {
+        return Err(within.error("must be >= 0"));
     }
     Ok(B6bGate {
         n2_window_nm: n.req("n2_window_nm")?.range(false)?,
         signs,
         contaminant_signs,
-        by_transfer_key,
-        unknown_transfer_key_uses: unknown,
-        fallbacks_by_transfer_key,
+        uncorrected,
+        std_like_within,
+        corrected,
+        fallbacks,
+        correlation_nm: correlation(n)?,
+        statistics,
     })
 }
 
 /// The soft "possible thin coating" tier of check.signs (phase 0c; a note only).
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SoftTier {
     pub ester_at_least: f64,
     pub plaster_joint_load_at_least: f64,
     /// It fires only when none of these fired.
     pub requires_no_hard_sign: Vec<String>,
-    /// Classes always eligible; others only when N2(otherwise_n2_window_nm) <= otherwise_n2_at_most.
-    pub always_classes: Vec<String>,
+    /// The native standard-resolution scan (also through a near-uncorrected correction) is always eligible.
+    pub native_always: bool,
+    /// Any other stream: eligible when the propagated SD of this statistic's term in the detector segment of the window
+    /// x N2(window) is at most `otherwise_sd_at_most` (DECISIONS 137).
+    pub otherwise_statistic: LinearStat,
     pub otherwise_n2_window_nm: (f64, f64),
-    pub otherwise_n2_at_most: f64,
+    pub otherwise_sd_at_most: f64,
+    pub correlation_nm: f64,
 }
 
 fn soft_tier(n: &Node) -> PResult<SoftTier> {
@@ -233,9 +315,14 @@ fn soft_tier(n: &Node) -> PResult<SoftTier> {
         ester_at_least: n.req("ester")?.req("at_least")?.f64()?,
         plaster_joint_load_at_least: n.req("plaster")?.req("joint_load_at_least")?.f64()?,
         requires_no_hard_sign: n.req("requires_no_hard_sign")?.vec_str()?,
-        always_classes: el.req("always_classes")?.vec_str()?,
+        native_always: match el.opt("native_always") {
+            None => true,
+            Some(b) => b.bool()?,
+        },
+        otherwise_statistic: linear_stat(&el.req("otherwise_statistic")?, &BTreeMap::new())?,
         otherwise_n2_window_nm: el.req("otherwise_n2_window_nm")?.range(false)?,
-        otherwise_n2_at_most: el.req("otherwise_n2_at_most")?.f64()?,
+        otherwise_sd_at_most: el.req("otherwise_sd_at_most")?.f64()?,
+        correlation_nm: correlation(&el)?,
     })
 }
 
@@ -467,11 +554,14 @@ pub enum CheckParams {
         kernel_ref: String,
     },
     Longwave {
-        applies_to_classes: Vec<String>,
+        /// The tail reading whose propagated noise decides (DECISIONS 137), on every stream that is not the native
+        /// standard-resolution scan as measured.
+        tail_statistic: LinearStat,
         n2_window_nm: (f64, f64),
-        tail_unreliable_if_n2_above: f64,
-        /// C1's own cut (phase 0c; the contaminant check only); defaults to tail_unreliable_if_n2_above.
-        c1_tail_unreliable_if_n2_above: f64,
+        correlation_nm: f64,
+        /// SD cuts (fixed once from the v0.2 cuts): B9, and C1's own (the contaminant check only).
+        b9_sd_above: f64,
+        c1_sd_above: f64,
         /// "truncated" or "not_assessed" per check (b9, c1)
         b9_mode: String,
         c1_mode: String,
@@ -728,16 +818,13 @@ pub fn parse_engine_check(doc: &Node, base: &Path) -> PResult<EngineCheck> {
                 }
             }
             let modes = ["truncated", "not_assessed"];
-            let cut = p.req("tail_unreliable_if_n2_above")?.f64()?;
+            p.req("applies_to")?.one_of(&["non_native"])?;
             CheckParams::Longwave {
-                applies_to_classes: p.req("applies_to_classes")?.vec_str()?,
+                tail_statistic: linear_stat(&p.req("tail_statistic")?, &BTreeMap::new())?,
                 n2_window_nm: p.req("n2_window_nm")?.range(false)?,
-                tail_unreliable_if_n2_above: cut,
-                c1_tail_unreliable_if_n2_above: p
-                    .opt("c1_tail_unreliable_if_n2_above")
-                    .map(|x| x.f64())
-                    .transpose()?
-                    .unwrap_or(cut),
+                correlation_nm: correlation(&p)?,
+                b9_sd_above: p.req("b9_sd_above")?.f64()?,
+                c1_sd_above: p.req("c1_sd_above")?.f64()?,
                 b9_mode: w.req("b9")?.one_of(&modes)?.to_string(),
                 c1_mode: w.req("c1")?.one_of(&modes)?.to_string(),
             }

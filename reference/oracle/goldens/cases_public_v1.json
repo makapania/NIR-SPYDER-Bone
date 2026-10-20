@@ -814,7 +814,7 @@
   },
   {
    "name": "asd_file_as7_detected_joins",
-   "purpose": "Step 1 reader: a Trek-type as7 file (u8 reference flag, dark flag 0) with blank header joins; the joins come from the white-reference DN steps (1000, 1785)",
+   "purpose": "Step 1 reader: a Trek-type as7 file (u8 reference flag, dark flag 0) with blank header joins; the joins come from the white-reference DN steps (1000, 1785) A Trek-type as7 file is scored as its own class, uncorrected and uncalibrated (DECISIONS 137): its joins are not the LabSpec joins 1000/1800 (instruments.json 2.1.0).",
    "base": "mmc2_Reference_Sample_44",
    "context": {
     "instrument_class": "asd.labspec4.std"
@@ -843,12 +843,16 @@
     "input.splices_nm.1": 1785.0,
     "checks.B1.outcome": "ok",
     "checks.B2.status": "assessed",
-    "radiocarbon.verdict": "Borderline"
+    "radiocarbon.verdict": "Borderline",
+    "instrument.class": "asd.trek",
+    "instrument.class_source": "file_format",
+    "instrument.notes.0.key": "instrument_uncalibrated",
+    "checks.longwave.status": "assessed"
    }
   },
   {
    "name": "asd_file_as7_bad_joins",
-   "purpose": "Step 1 matrix: an as7 file whose header joins are blank and whose white reference has no clear step -> default joins 1000/1800, recorded",
+   "purpose": "Step 1 matrix: an as7 file whose header joins are blank and whose white reference has no clear step -> default joins 1000/1800, recorded; still the Trek-type class (a fallback is no evidence of a LabSpec 4)",
    "base": "mmc2_Reference_Sample_44",
    "context": {
     "instrument_class": "asd.labspec4.std"
@@ -863,12 +867,62 @@
    "asserts": {
     "input.joins_source": "default",
     "input.splices_nm.1": 1800.0,
-    "checks.B1.outcome": "ok"
+    "checks.B1.outcome": "ok",
+    "instrument.class": "asd.trek",
+    "instrument.class_source": "file_format"
+   }
+  },
+  {
+   "name": "asd_file_as7_labspec_joins",
+   "purpose": "Instrument by format AND joins (instruments.json 2.1.0): an as7 file with header joins 1000/1800, as a LabSpec 4 on older ASD software may write, is a LabSpec 4 file scored on the switch's class like as8 (no uncalibrated note)",
+   "base": "mmc2_Reference_Sample_44",
+   "context": {
+    "instrument_class": "asd.labspec4.std",
+    "serial": "registry:std"
+   },
+   "asd": {
+    "format": "as7",
+    "joins": [
+     1000.0,
+     1800.0
+    ]
+   },
+   "asserts": {
+    "input.format": "as7",
+    "input.splices_nm.1": 1800.0,
+    "instrument.class": "asd.labspec4.std",
+    "instrument.class_source": "user",
+    "instrument.notes.n": 0,
+    "stream.transfer": "none",
+    "radiocarbon.verdict": "Borderline"
+   }
+  },
+  {
+   "name": "asd_file_as7_labspec_joins_hires",
+   "purpose": "Instrument by format AND joins (instruments.json 2.1.0): the same LabSpec-joins as7 file on the High-res switch is read through the high-res correction, as an as8 file is",
+   "base": "mmc2_Reference_Sample_44",
+   "context": {
+    "instrument_class": "asd.labspec4.hires",
+    "serial": "registry:hires"
+   },
+   "asd": {
+    "format": "as7",
+    "joins": [
+     1000.0,
+     1800.0
+    ]
+   },
+   "asserts": {
+    "input.format": "as7",
+    "instrument.class": "asd.labspec4.hires",
+    "instrument.class_source": "user",
+    "instrument.notes.n": 0,
+    "stream.transfer": "transfer.labspec4.hires_to_std@0.3.0"
    }
   },
   {
    "name": "asd_file_legacy",
-   "purpose": "Step 1 reader: a legacy v1 reflectance file (FieldSpec 3 .NNN): no raw DN, so B2 is not assessed; the rest as usual",
+   "purpose": "Step 1 reader: a legacy v1 reflectance file (FieldSpec 3 .NNN): no raw DN, so B2 is not assessed; the rest as usual A FieldSpec 3 legacy file is scored as its own class, uncorrected and uncalibrated (DECISIONS 137).",
    "base": "mmc2_Reference_Sample_44",
    "context": {
     "instrument_class": "asd.labspec4.std"
@@ -880,7 +934,10 @@
     "input.format": "legacy",
     "checks.B1.outcome": "ok",
     "checks.B2.status": "not assessed: the file stores reflectance only",
-    "radiocarbon.verdict": "Borderline"
+    "radiocarbon.verdict": "Borderline",
+    "instrument.class": "asd.fieldspec3",
+    "instrument.class_source": "file_format",
+    "instrument.notes.0.key": "instrument_uncalibrated"
    }
   },
   {
@@ -1426,7 +1483,8 @@
    "hires_longwave_not_assessed",
    "pair22_hires",
    "rc_good_positive_all_six",
-   "hires_longwave_300_c1_truncated"
+   "hires_longwave_300_c1_truncated",
+   "asd_file_as7_detected_joins"
   ],
   "b9": [
    "rc_good_positive_all_six",

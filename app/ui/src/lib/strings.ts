@@ -3,9 +3,18 @@
 // (strings.test.ts) keeps forbidden words out ("wet", "fail", "reject", exclamation marks).
 
 import { formatModel, formatReading } from './display';
+import { NOT_BUILT_IN, instrumentName } from './instrument';
 import type { Note, NoteKey, ScanResult, SignId } from './types';
 
 type P = Record<string, number | string | string[]>;
+
+/** Band ids (bands.ts) to their wavelengths, for notes that name bands; the seven readable bands in all. */
+const BAND_NM: Record<string, number> = { ch1689: 1689, ch1728: 1728, nh2044: 2044, amide2175: 2175, ch2262: 2262, ch2284: 2284, nh1545: 1545 };
+const ALL_BANDS = 7;
+const listNm = (v: number[]) => {
+  const s = [...v].sort((a, b) => a - b).map(String);
+  return s.length <= 1 ? s.join('') : `${s.slice(0, -1).join(', ')} and ${s[s.length - 1]}`;
+};
 const r = (p: P, k: string) => formatReading(typeof p[k] === 'number' ? (p[k] as number) : null);
 // a single model's own output (the components, the second opinion): one decimal, no cap
 const rm = (p: P, k: string) => formatModel(typeof p[k] === 'number' ? (p[k] as number) : null);
@@ -116,21 +125,41 @@ export const NOTE_TEXT: Record<NoteKey, (p: P) => string> = {
   bands_too_noisy: () =>
     'The bands are too noisy to judge at this spot; the verdict follows the collagen models. A rescan with 100–200 averages usually helps.',
   second_opinion_differs: (p) =>
-    `The 1545 nm model with no transfer needed reads ${rm(p, 's')}, which differs from the main reading; the high-res transfer is provisional.`,
-  no_transfer_available: () =>
-    'No high-res transfer is available for this instrument, so the models read the scan as measured. Readings may run high.',
+    `The 1545 nm model, which reads the scan as measured (no correction), reads ${rm(p, 's')}, more than usual away from the main reading.`,
+  instrument_uncalibrated: (p) =>
+    `Uncalibrated instrument: no correction for ${typeof p.name === 'string' ? p.name : 'this instrument'} is installed, so the models read the scan as measured and the readings may run high or low. The verdict follows the readings alone: band evidence (flat bands, lifts, the ZooMS band check) needs the instrument built in, and the contaminant and heat signs are provisional. ${NOT_BUILT_IN}`,
+  visible_levels_not_fitted: () =>
+    'The visible levels are not calibrated for this correction, so the heat sign reads the scan as measured.',
   no_model_reading: () =>
     'No collagen model could read this scan (a model window is unreadable), so the verdict cannot use a reading.',
+  band_noise_unknown: (p) => {
+    const ids = Array.isArray(p.bands) ? p.bands.map(String) : [];
+    const nm = ids.map((id) => BAND_NM[id]).filter((x): x is number => x !== undefined);
+    return nm.length && nm.length < ALL_BANDS
+      ? `Band noise could not be estimated at ${listNm(nm)} nm on this instrument, so a faint band there is not read; only a strong band counts.`
+      : 'Band noise could not be estimated for this correction, so faint bands are not read; only strong bands count.';
+  },
   serial_class_mismatch: (p) =>
-    `This file's serial (${p.serial}) is a known ${p.known === 'hires' ? 'high-res' : 'standard'} instrument, but the switch says ${p.set === 'hires' ? 'High-res' : 'Standard'}. The switch is yours; flip it if that was a slip.`,
+    `This file's serial (${p.serial}) is a known ${instrumentName(String(p.known)).toLowerCase()} instrument, but the switch says ${instrumentName(String(p.set))}. The switch is yours; flip it if that was a slip.`,
   header_class_mismatch: (p) =>
-    `This file's detector settings look like a ${p.known === 'hires' ? 'high-res' : 'standard'} instrument, but the switch says ${p.set === 'hires' ? 'High-res' : 'Standard'}. This is only a hint; the switch is yours.`,
+    `This file's detector settings look like a ${instrumentName(String(p.known)).toLowerCase()} instrument, but the switch says ${instrumentName(String(p.set))}. This is only a hint; the switch is yours.`,
 };
 
-/** A note's text. With the scan, "Collagen estimates disagree strongly" names what actually disagreed (disagreeParts). */
+/** The notes that report a contaminant sign (the soft tier): provisional, as the flags are, on an instrument with no
+ *  built-in correction (DECISIONS 137; the core marks them provisional there too). */
+export const PROVISIONAL_NOTES: readonly NoteKey[] = ['possible_thin_coating'];
+
+/** Whether this note is shown provisional on this scan (an instrument not built in). */
+export function isProvisionalNote(key: NoteKey, scan?: Pick<ScanResult, 'uncalibrated'>): boolean {
+  return !!scan?.uncalibrated && PROVISIONAL_NOTES.includes(key);
+}
+
+/** A note's text. With the scan, "Collagen estimates disagree strongly" names what actually disagreed (disagreeParts),
+ *  and a contaminant note on an instrument not built in opens with the provisional qualification. */
 export function noteText(n: Note, scan?: ScanResult): string {
   const d = scan && n.key === 'readers_disagree_strongly' ? disagreeParts(scan) : null;
-  return d ? d.lead + d.rest : NOTE_TEXT[n.key](n.params);
+  const t = d ? d.lead + d.rest : NOTE_TEXT[n.key](n.params);
+  return isProvisionalNote(n.key, scan) ? `${PROVISIONAL}${t}` : t;
 }
 
 /** The readers-disagree-strongly note in words that name the comparison that fired, with both readings (Matt, 2026-10-18:
@@ -167,6 +196,9 @@ export function disagreeParts(scan: ScanResult): { lead: string; rest: string } 
   return null;
 }
 
+/** Opens a flag's (or a contaminant note's) text on an instrument with no built-in correction (DECISIONS 137). */
+export const PROVISIONAL = 'Provisional on this instrument: it is not built in, so these checks are not calibrated for it. ';
+
 /** Flag texts for fired signs (DECISIONS 53). Calm and informative; they never change the verdict. */
 export function flagText(id: SignId, heatKind?: 'charred' | 'calcined'): string {
   if (id === 'burnt') {
@@ -183,6 +215,17 @@ export function flagText(id: SignId, heatKind?: 'charred' | 'calcined'): string 
 /** Short badge label for a fired sign. */
 export function flagLabel(id: SignId): string {
   return { wax: 'Lipid sign', ester: 'Consolidant sign', plaster: 'Plaster sign', c1: 'Foreign-organic sign', burnt: 'Heat sign' }[id];
+}
+
+/** A fired sign's label and text as every view shows them (card, details, scan list, readable export): marked
+ *  provisional on an instrument with no built-in correction (DECISIONS 137). */
+export function shownFlag(
+  scan: Pick<ScanResult, 'uncalibrated'>,
+  id: SignId,
+  heatKind?: 'charred' | 'calcined',
+): { label: string; text: string } {
+  const p = !!scan.uncalibrated;
+  return { label: `${flagLabel(id)}${p ? ' (provisional)' : ''}`, text: `${p ? PROVISIONAL : ''}${flagText(id, heatKind)}` };
 }
 
 export const UNUSABLE_TEXT: Record<string, string> = {
@@ -230,8 +273,10 @@ export const NOTE_SHORT: Record<NoteKey, string> = {
   positive_signs_clear: 'Positive signs',
   bands_too_noisy: 'Bands too noisy',
   second_opinion_differs: 'Second opinion differs',
-  no_transfer_available: 'No high-res transfer',
+  instrument_uncalibrated: 'Uncalibrated instrument',
+  visible_levels_not_fitted: 'Heat sign read as measured',
   no_model_reading: 'No model reading',
+  band_noise_unknown: 'Band noise unknown',
   serial_class_mismatch: 'Serial and switch differ',
   header_class_mismatch: 'Detector and switch differ',
 };
@@ -257,7 +302,7 @@ export const NOT_BONE_TEXT = 'Check the target: the probe may be on plaster, a l
 
 /** Every user-facing string, for the lint test. */
 export function allStrings(): string[] {
-  const p = { m: 1.4, a: 0.4, b: 0.9, c: 4.1, s: 1.2, r: 0.44, at_least: 0.34, strength: 'strong', sign: 'ester', reason: 'sign', serial: 28313, known: 'hires', set: 'standard' };
+  const p = { m: 1.4, a: 0.4, b: 0.9, c: 4.1, s: 1.2, r: 0.44, at_least: 0.34, strength: 'strong', sign: 'ester', reason: 'sign', serial: 28313, known: 'hires', set: 'standard', name: 'FieldSpec 3', class: 'asd.fieldspec3' };
   const ids: SignId[] = ['wax', 'ester', 'plaster', 'c1', 'burnt'];
   return [
     ...Object.values(NOTE_TEXT).map((f) => f(p)),

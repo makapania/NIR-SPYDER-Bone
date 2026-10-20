@@ -9,9 +9,13 @@
   interface Props {
     open: boolean;
     version: string | null;
+    /** Registry notes: a user plug-in that is not used (and why), a correction a bundled one shadows, ... */
+    pluginNotes?: string[];
+    /** The user's plug-in folder, if any. */
+    userPlugins?: string | null;
     onClose: () => void;
   }
-  let { open, version, onClose }: Props = $props();
+  let { open, version, pluginNotes = [], userPlugins = null, onClose }: Props = $props();
 
   const html = keepRanges(renderMarkdown(guide.replace(/^﻿?# [^\r\n]*(\r?\n)+/, ''))); // the dialog's own header names it
   let dlg: HTMLDialogElement | undefined = $state();
@@ -47,6 +51,13 @@
       for collagen quantification in archaeological bone. <i>Journal of Archaeological Science</i> 185:106448.
       doi:10.1016/j.jas.2025.106448</p>
     <p><b>Licences:</b> application code MIT; bundled model, transfer, reference and parameter files CC-BY-4.0.</p>
+    {#if userPlugins || pluginNotes.length}
+      <p data-testid="plugin-info"><b>Plug-ins:</b>{userPlugins ? ` your plug-in folder is ${userPlugins}.` : ''}
+        {pluginNotes.length ? '' : 'Every plug-in loaded.'}</p>
+      {#if pluginNotes.length}
+        <ul class="plugin-notes" data-testid="plugin-notes">{#each pluginNotes as n (n)}<li>{n}</li>{/each}</ul>
+      {/if}
+    {/if}
   </section>
   <article class="guide">
     {@html html}

@@ -414,20 +414,48 @@ fn load_two(b: &Path, u: &Path, pins: &Pins) -> Registry {
 }
 
 #[test]
-fn same_id_and_version_with_different_bytes_are_both_rejected() {
+fn a_user_file_reusing_a_bundled_id_and_version_loses() {
+    // DECISIONS 137: an id + version clash between a user file and a bundled file never disables the bundled file;
+    // the user file loses, with a registry note (before: both rejected, a startup error)
     let (b, u) = bundled_and_user("conflict");
     let mut m = read(RYDER);
     m["description"] = json!("edited text only");
     write(&u, "copy.json", &m);
     let reg = load_two(&b, &u, &Pins::new());
+    assert_eq!(outcome(&reg, RYDER).0, State::Loaded);
+    assert_rejected(outcome(&reg, "copy.json"), ErrorKind::Conflict);
+    assert!(outcome(&reg, "copy.json")
+        .2
+        .contains("the bundled file is used"));
+    assert!(reg.model("collagen.ryder2026.2045").is_some());
+    // (this test folder holds no profile, so "no verdict model" is expected; the clash itself is no startup error)
+    assert!(
+        !reg.startup_errors
+            .iter()
+            .any(|e| e.contains("collagen.ryder2026.2045")),
+        "{:?}",
+        reg.startup_errors
+    );
+    assert!(
+        reg.notes
+            .iter()
+            .any(|n| n.starts_with("user plug-in copy.json") && n.contains("not used")),
+        "{:?}",
+        reg.notes
+    );
+}
+
+#[test]
+fn same_id_and_version_with_different_bytes_in_one_folder_are_both_rejected() {
+    let d = folder("conflict1");
+    std::fs::copy(plugins().join(RYDER), d.join(RYDER)).unwrap();
+    let mut m = read(RYDER);
+    m["description"] = json!("edited text only");
+    write(&d, "copy.json", &m);
+    let reg = load_one(&d, Origin::User);
     assert_rejected(outcome(&reg, RYDER), ErrorKind::Conflict);
     assert_rejected(outcome(&reg, "copy.json"), ErrorKind::Conflict);
     assert!(reg.model("collagen.ryder2026.2045").is_none());
-    // the bundled active file failed: startup-error state
-    assert!(reg
-        .startup_errors
-        .iter()
-        .any(|e| e.contains("collagen.ryder2026.2045")));
 }
 
 #[test]
@@ -536,26 +564,41 @@ fn consensus_components_must_match_loaded_files() {
     );
 }
 
+/// Format 2 (DECISIONS 137): the noise and band tables hold no per-transfer gains, so they load whatever transfer files
+/// sit beside them (none, or changed ones); the noise table's goldens pin their model files by sha256 instead.
 #[test]
-fn noise_gain_transfer_keys_must_match_transfer_files() {
+fn noise_tables_need_no_transfer_file_and_pin_their_golden_models() {
     let d = folder("keys");
-    for f in [
-        "noise_gains.json",
-        T02,
-        "hires_to_std_v0_1.spyder-transfer.json",
-    ] {
-        std::fs::copy(plugins().join(f), d.join(f)).unwrap();
+    std::fs::copy(
+        plugins().join("noise_gains.json"),
+        d.join("noise_gains.json"),
+    )
+    .unwrap();
+    std::fs::copy(plugins().join("bands.json"), d.join("bands.json")).unwrap();
+    for e in std::fs::read_dir(plugins()).unwrap().filter_map(Result::ok) {
+        let n = e.file_name().to_string_lossy().to_string();
+        if n.ends_with(".spyder-model.json") {
+            std::fs::copy(e.path(), d.join(&n)).unwrap();
+        }
     }
-    assert_eq!(
-        outcome(&load_one(&d, Origin::User), "noise_gains.json").0,
-        State::Loaded
-    );
-    // the transfer file changed (CRLF line endings): its file sha256 changes, the keys no longer match
-    let p = d.join(T02);
-    let text = String::from_utf8(std::fs::read(&p).unwrap()).unwrap();
-    std::fs::write(&p, text.replace('\n', "\r\n")).unwrap();
-    let o = outcome(&load_one(&d, Origin::User), "noise_gains.json");
-    assert_eq!(o.0, State::Disabled, "{o:?}");
+    let reg = load_one(&d, Origin::User);
+    assert_eq!(outcome(&reg, "noise_gains.json").0, State::Loaded);
+    assert_eq!(outcome(&reg, "bands.json").0, State::Loaded);
+    // a transfer file beside them, changed (one more line end, so a new file sha256): nothing to match any more
+    let mut t = std::fs::read(plugins().join(T02)).unwrap();
+    t.extend_from_slice(b"\r\n");
+    std::fs::write(d.join(T02), t).unwrap();
+    let reg = load_one(&d, Origin::User);
+    assert_eq!(outcome(&reg, "noise_gains.json").0, State::Loaded);
+    assert_eq!(outcome(&reg, "bands.json").0, State::Loaded);
+    // a golden model file whose bytes changed: the noise goldens no longer find it
+    let p = d.join(RYDER);
+    let mut b = std::fs::read(&p).unwrap();
+    b.push(b'\n');
+    std::fs::write(&p, b).unwrap();
+    let reg = load_one(&d, Origin::User);
+    assert_rejected(outcome(&reg, "noise_gains.json"), ErrorKind::GoldenInvalid);
+    assert_eq!(outcome(&reg, "bands.json").0, State::Loaded);
 }
 
 #[test]
@@ -636,14 +679,8 @@ fn transfer_selection_rule() {
     ] {
         assert_eq!(outcome(&reg, f).0, State::Loaded, "{f}");
     }
-    let all: Vec<&spyder_core::transfer::Transfer> = reg
-        .entries
-        .iter()
-        .filter_map(|e| match &e.item {
-            Some(spyder_core::plugins::registry::Item::Transfer(t)) => Some(t.as_ref()),
-            _ => None,
-        })
-        .collect();
+    // the registry's selection: one version per id, active only, in precedence order (bundled first, then by id)
+    let all = reg.transfers();
     let ryder = reg.model("collagen.ryder2026.2045").unwrap();
     let s1 = reg.model("collagen.spyder.1500_snv_transfer_free").unwrap();
     let ctx = |class: &str, serial: Option<&str>| {
@@ -664,9 +701,10 @@ fn transfer_selection_rule() {
         Selection::Apply(t) => assert_eq!(t.header.id, "transfer.test.serial"),
         other => panic!("{other:?}"),
     }
-    // another serial: the highest ACTIVE class-wide version (experimental and withdrawn never selected)
+    // another serial: the first class-wide file in precedence order; versions are never compared across ids (a newer
+    // version under another id does not win), experimental and withdrawn files are never selected
     match select(ryder, &ctx(CLASS_HIRES, Some("28247")), &all) {
-        Selection::Apply(t) => assert_eq!(t.header.id, "transfer.test.class_newer"),
+        Selection::Apply(t) => assert_eq!(t.header.id, "transfer.test.class"),
         other => panic!("{other:?}"),
     }
     // no transfer from this class: the model still runs (Missing -> gentle note)

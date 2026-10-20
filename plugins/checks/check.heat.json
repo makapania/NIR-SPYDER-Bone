@@ -3,11 +3,11 @@
  "format_version": 1,
  "check": "heat",
  "id": "check.heat",
- "version": "1.0.0",
+ "version": "1.1.0",
  "engine_min": "1.1",
  "status": "active",
  "title": "Heat (burnt) check: charred by the visible edge alone; calcined",
- "description": "edge50 = first wavelength from 450 nm up where R / mean R(1250-1300) >= 0.5 (none -> not charred). Charred: edge50 >= the cut (visible edge alone; scale-free). Calcined: not charred AND OH1433 sharp, OH979 sharp and mean R(450-700) at or above their cuts (sharp on the signs kernel). The only VNIR use in v1. Burnt adds a flag only.",
+ "description": "edge50 = first wavelength from 450 nm up where R / mean R(1250-1300) >= 0.5 (none -> not charred). Charred: edge50 >= the cut (visible edge alone; scale-free). Calcined: not charred AND OH1433 sharp, OH979 sharp and mean R(450-700) at or above their cuts (sharp on the signs kernel). The only VNIR use in v1. Burnt adds a flag only. It reads the standard-resolution stream when the correction applied fitted its visible levels (VNIR gain and offset, the 1250-1300 nm level; provenance.visible_levels, DECISIONS 137: these levels are not display-only), else the scan as measured, with a note. It reads 450-1446 nm: a scan whose grid does not hold that range gets 'not available on this instrument'.",
  "licence": "CC-BY-4.0",
  "created": "2026-10-03",
  "provenance": {

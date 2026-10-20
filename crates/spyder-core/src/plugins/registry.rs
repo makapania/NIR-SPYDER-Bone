@@ -7,13 +7,19 @@
 //!   consensus files, transfers, bands, noise gains). Engine-check and profile goldens are checked for content
 //!   (>= 3 cases) and run in Phase 3. A failing file is disabled with a plain reason.
 //! * **Identity:** a file is identified by the SHA-256 of its bytes as read from disk (never normalised). The same
-//!   id and version with different contents: both rejected. The same bytes twice: the first copy is used.
-//! * **Cross-file:** consensus components must match a loaded model by id, version and file SHA-256; transfer
-//!   keys in `bands.json` / `noise_gains.json` must match a transfer file in the same folder; engine checks must
-//!   name bands of the loaded band table; profiles must name loaded models; catalog entries must match.
-//! * **Precedence:** per (format, id) the highest `active` version across locations wins. A pin beats that (and
-//!   may select a non-active, non-withdrawn version); a pinned version that is withdrawn, failed or absent falls
-//!   back to the highest passing active version with a visible note. Nothing in the user folder is ever pruned.
+//!   id and version with different contents: a user file loses to the bundled file (it is disabled with a note; the
+//!   bundled file stays in use); within one origin all copies are rejected. The same bytes twice: the first copy is
+//!   used.
+//! * **Cross-file:** consensus components must match a loaded model by id, version and file SHA-256; the noise table's
+//!   goldens name their models by file SHA-256 (any loaded model file); engine checks must name bands of the loaded
+//!   band table; profiles must name loaded models; catalog entries must match. Since format 2 the band and noise
+//!   tables hold no per-transfer gains (they are computed for whatever correction applies), so they no longer
+//!   depend on which transfer files sit in their folder.
+//! * **Precedence:** per (format, id) the highest `active` version across locations wins (versions are compared only
+//!   within one id). A pin beats that (and may select a non-active, non-withdrawn version); a pinned version that is
+//!   withdrawn, failed or absent falls back to the highest passing active version with a visible note. Nothing in the
+//!   user folder is ever pruned. Transfers of different ids: bundled before user, then by id ([`Registry::transfers`]);
+//!   a user class-wide file that a bundled one shadows gets a note. A user file that fails to load gets a note too.
 //! * **Startup error:** a failing bundled `active` file (or a failing bundled catalog, or no usable verdict model)
 //!   puts the app in the startup-error state ("no verdict model available"), listed in `startup_errors`.
 
@@ -24,6 +30,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use super::checks::{parse_engine_check, EngineCheck};
+use super::gains::GainCache;
 use super::golden::{
     load_golden_spectra, parse_golden_spectra, run_model_goldens, run_transfer_goldens, GoldenRun,
     GoldenSpectra,
@@ -33,7 +40,7 @@ use super::profiles::{parse_profile, AnalysisProfile};
 use super::refset::{parse_reference_set, ReferenceSet};
 use super::tables::{
     parse_bands, parse_instruments, parse_noise_gains, run_table_goldens, Bands, Instruments,
-    NoiseGains, TableRef, NO_TRANSFER,
+    NoiseGains, TableRef,
 };
 use super::{
     is_sha256_hex, ErrorKind, PluginError, PluginStatus, Version, BANDS_FORMAT, CATALOG_FORMAT,
@@ -142,6 +149,8 @@ pub struct Registry {
     pub startup_errors: Vec<String>,
     /// (format, id) whose selection is an accepted explicit pin (may be a non-active, non-withdrawn version).
     pub pinned: BTreeSet<(String, String)>,
+    /// Noise and band-readability gains computed so far, per output x correction x scan layout.
+    pub gain_cache: GainCache,
 }
 
 const KNOWN_FORMATS: [&str; 10] = [
@@ -376,7 +385,10 @@ impl Registry {
         reg.resolve(pins);
         reg.run_check_and_profile_goldens();
         reg.resolve(pins);
+        reg.check_reader_offsets();
+        reg.resolve(pins);
         reg.startup_state();
+        reg.user_notes();
         for e in &mut reg.entries {
             e.doc = None;
         }
@@ -400,13 +412,13 @@ impl Registry {
                 Item::Transfer(t) => golden_spectra(&e.path, doc, &mut cache)
                     .and_then(|gs| run_transfer_goldens(t, &node, gs)),
                 Item::Bands(_) | Item::NoiseGains(_) => {
-                    let folder = e.path.parent();
-                    let transfers: BTreeMap<String, &Transfer> = self
+                    // the noise table's goldens name their models by file SHA-256: any loaded model file
+                    let models: BTreeMap<String, &Model> = self
                         .entries
                         .iter()
-                        .filter(|o| o.path.parent() == folder)
+                        .filter(|o| o.state == State::Loaded)
                         .filter_map(|o| match &o.item {
-                            Some(Item::Transfer(t)) => Some((o.sha256.clone(), t.as_ref())),
+                            Some(Item::Model(m)) => Some((o.sha256.clone(), m.as_ref())),
                             _ => None,
                         })
                         .collect();
@@ -416,7 +428,7 @@ impl Registry {
                         _ => continue,
                     };
                     golden_spectra(&e.path, doc, &mut cache)
-                        .and_then(|gs| run_table_goldens(&node, table, gs, &transfers))
+                        .and_then(|gs| run_table_goldens(&node, table, gs, &models))
                 }
                 _ => continue,
             };
@@ -467,6 +479,51 @@ impl Registry {
                 .iter()
                 .map(|&i| self.entries[i].sha256.as_str())
                 .collect();
+            // a user file reusing a bundled file's id and version never disables the bundled file: the user file loses
+            let bundled: BTreeSet<&str> = idx
+                .iter()
+                .filter(|&&i| self.entries[i].origin == Origin::Bundled)
+                .map(|&i| self.entries[i].sha256.as_str())
+                .collect();
+            if shas.len() > 1 && bundled.len() == 1 {
+                let bp = idx
+                    .iter()
+                    .find(|&&i| self.entries[i].origin == Origin::Bundled)
+                    .map(|&i| self.entries[i].path.display().to_string())
+                    .unwrap_or_default();
+                let losers: Vec<usize> = idx
+                    .iter()
+                    .copied()
+                    .filter(|&i| {
+                        self.entries[i].origin == Origin::User
+                            && !bundled.contains(self.entries[i].sha256.as_str())
+                    })
+                    .collect();
+                for i in losers {
+                    self.entries[i].disable(PluginError::new(
+                        ErrorKind::Conflict,
+                        format!(
+                            "{id}@{v} is also a bundled file ({bp}) with different contents; the bundled file is used \
+                             (give the user file another id or a higher version)"
+                        ),
+                    ));
+                }
+                // byte-identical copies of the bundled file in the user folder: duplicates, as below
+                let first = idx
+                    .iter()
+                    .copied()
+                    .find(|&i| self.entries[i].origin == Origin::Bundled)
+                    .unwrap_or(idx[0]);
+                for &i in &idx {
+                    if i != first && self.entries[i].sha256 == self.entries[first].sha256 {
+                        let e = &mut self.entries[i];
+                        e.state = State::Ignored;
+                        e.item = None;
+                        e.notes.push(format!("byte-identical duplicate of {bp}"));
+                    }
+                }
+                continue;
+            }
             if shas.len() > 1 {
                 let files: Vec<String> = idx
                     .iter()
@@ -533,43 +590,6 @@ impl Registry {
                                 c.id,
                                 c.version,
                                 super::short(&c.sha256, 12)
-                            ),
-                        ),
-                    ));
-                    break;
-                }
-            }
-        }
-        // transfer keys of bands / noise gains: transfer files in the same folder (by file sha256)
-        for (i, e) in self.entries.iter().enumerate() {
-            let keys: Vec<&String> = match &e.item {
-                Some(Item::NoiseGains(n)) => n.models.values().flat_map(|m| m.keys()).collect(),
-                Some(Item::Bands(b)) => b
-                    .bands
-                    .values()
-                    .filter_map(|x| x.readability.as_ref())
-                    .flat_map(|r| r.gain_e_per_n2.keys())
-                    .collect(),
-                _ => continue,
-            };
-            let folder = e.path.parent();
-            for k in keys {
-                if k == NO_TRANSFER {
-                    continue;
-                }
-                let found = self.entries.iter().any(|o| {
-                    o.path.parent() == folder
-                        && o.sha256 == *k
-                        && o.format.as_deref() == Some(TRANSFER_FORMAT)
-                });
-                if !found {
-                    disable.push((
-                        i,
-                        PluginError::new(
-                            ErrorKind::CrossFile,
-                            format!(
-                                "transfer key {} matches no transfer file in this folder (was a transfer file changed?)",
-                                super::short(k, 12)
                             ),
                         ),
                     ));
@@ -682,6 +702,7 @@ impl Registry {
                 .into_iter()
                 .map(|c| (c.check.clone(), &c.params))
                 .collect(),
+            golden: None,
         };
         let mut cache = BTreeMap::new();
         let mut results: Vec<(usize, Result<GoldenRun, PluginError>)> = Vec::new();
@@ -795,6 +816,95 @@ impl Registry {
         }
     }
 
+    /// Visible notes: every user plug-in that failed to load (with the reason), and every user class-wide transfer that
+    /// a bundled class-wide transfer for the same instrument classes shadows.
+    fn user_notes(&mut self) {
+        for e in &self.entries {
+            if e.origin == Origin::User && e.state == State::Disabled {
+                let name = e
+                    .path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                self.notes.push(format!(
+                    "user plug-in {name} ({}) is not used: {}",
+                    e.label(),
+                    e.error
+                        .as_ref()
+                        .map(|x| x.message.as_str())
+                        .unwrap_or("disabled")
+                ));
+            }
+        }
+        let selected: Vec<(Origin, &Transfer)> = self
+            .selected_items(TRANSFER_FORMAT)
+            .filter_map(|e| match &e.item {
+                Some(Item::Transfer(t)) => Some((e.origin, t.as_ref())),
+                _ => None,
+            })
+            .collect();
+        let mut notes = Vec::new();
+        for (o, t) in &selected {
+            if *o != Origin::User || t.source_serial.is_some() {
+                continue;
+            }
+            if let Some((_, b)) = selected.iter().find(|(ob, b)| {
+                *ob == Origin::Bundled
+                    && b.source_serial.is_none()
+                    && b.source_class == t.source_class
+                    && b.target_class == t.target_class
+            }) {
+                notes.push(format!(
+                    "user correction {} is not used for {} scans: the bundled {} covers the same instrument class (a file \
+                     for one unit, with source_serial, is used for that unit)",
+                    t.key(),
+                    t.source_class,
+                    b.key()
+                ));
+            }
+        }
+        self.notes.extend(notes);
+    }
+
+    /// A correction's reader offsets must name loaded models that are not consensus models (a consensus takes its
+    /// components' offsets before the median).
+    fn check_reader_offsets(&mut self) {
+        let models: BTreeMap<String, bool> = self
+            .models()
+            .iter()
+            .map(|m| {
+                (
+                    m.header.id.clone(),
+                    matches!(m.body, Body::Consensus { .. }),
+                )
+            })
+            .collect();
+        let mut disable = Vec::new();
+        for (i, e) in self.entries.iter().enumerate() {
+            let Some(Item::Transfer(t)) = &e.item else {
+                continue;
+            };
+            for mid in t.reader_offsets.keys() {
+                let why = match models.get(mid) {
+                    None => Some(format!("reader_offsets names {mid}, which is not a loaded model")),
+                    Some(true) => Some(format!(
+                        "reader_offsets names the consensus {mid}: give its components' offsets instead"
+                    )),
+                    Some(false) => None,
+                };
+                if let Some(w) = why {
+                    disable.push((i, PluginError::new(ErrorKind::CrossFile, w)));
+                    break;
+                }
+            }
+        }
+        for (i, err) in disable {
+            if self.entries[i].state == State::Loaded {
+                self.entries[i].disable(err);
+            }
+        }
+    }
+
     fn startup_state(&mut self) {
         for e in &self.entries {
             let bundled_failure = e.origin == Origin::Bundled
@@ -847,6 +957,17 @@ impl Registry {
         self.models().into_iter().find(|m| m.header.id == id)
     }
 
+    /// Whether a selected analysis profile lists this model as reading the scan as measured (`reads: "as_measured"`;
+    /// S1_R2 is transfer-free): the per-reader stream policy that `spyder predict` shares with the pipeline
+    /// ([`crate::transfer::select_for_reader`]).
+    pub fn reads_as_measured(&self, model_id: &str) -> bool {
+        self.profiles().iter().any(|p| {
+            p.models
+                .iter()
+                .any(|s| s.model_id == model_id && s.reads_as_measured)
+        })
+    }
+
     /// The entry (file) a selected item came from, by format and id.
     pub fn selected_entry(&self, format: &str, id: &str) -> Option<&Entry> {
         self.selected
@@ -863,14 +984,18 @@ impl Registry {
             .collect()
     }
 
-    /// Selected transfers (one per id).
+    /// Selected transfers (one per id), in precedence order: bundled files before user files, then by id (selection
+    /// takes the first match, so versions are never compared across ids).
     pub fn transfers(&self) -> Vec<&Transfer> {
-        self.selected_items(TRANSFER_FORMAT)
+        let mut v: Vec<(bool, &Transfer)> = self
+            .selected_items(TRANSFER_FORMAT)
             .filter_map(|e| match &e.item {
-                Some(Item::Transfer(t)) => Some(t.as_ref()),
+                Some(Item::Transfer(t)) => Some((e.origin != Origin::Bundled, t.as_ref())),
                 _ => None,
             })
-            .collect()
+            .collect();
+        v.sort_by(|a, b| (a.0, &a.1.header.id).cmp(&(b.0, &b.1.header.id)));
+        v.into_iter().map(|(_, t)| t).collect()
     }
 
     pub fn bands(&self) -> Option<&Bands> {

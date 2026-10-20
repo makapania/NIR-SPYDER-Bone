@@ -22,7 +22,7 @@ pub const USAGE: &str =
 
   Loads plug-in files as the app does: schema-level validation, sidecars (.npy,
   SHA-256, 16 MiB cap), goldens run on load (>= 3 cases, tolerance <= 1e-9),
-  cross-file rules (consensus components, transfer keys, catalog), precedence
+  cross-file rules (consensus components, golden models, catalog), precedence
   and pins. Prints each file as loaded or disabled, with the reason.
 
   --json        one JSON document (schema spyder-bone/validate v1)

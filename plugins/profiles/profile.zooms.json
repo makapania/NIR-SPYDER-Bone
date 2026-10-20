@@ -3,7 +3,7 @@
  "format_version": 1,
  "analysis": "zooms",
  "id": "profile.zooms",
- "version": "1.0.0",
+ "version": "1.1.0",
  "engine_min": "1.1",
  "status": "active",
  "title": "ZooMS: verdict profile",
@@ -26,27 +26,20 @@
      "wc1500",
      "F05"
     ],
-    "shown_for_classes": [
-     "asd.labspec4.std",
-     "asd.labspec4.hires"
-    ]
+    "shown_for": "every_scan"
    },
    {
     "key": "ryder2045",
     "model_id": "collagen.ryder2026.2045",
     "role": "published",
-    "shown_for_classes": [
-     "asd.labspec4.std",
-     "asd.labspec4.hires"
-    ]
+    "shown_for": "every_scan"
    },
    {
     "key": "s1_r2",
     "model_id": "collagen.spyder.1500_snv_transfer_free",
     "role": "second_opinion",
-    "shown_for_classes": [
-     "asd.labspec4.hires"
-    ]
+    "shown_for": "non_native",
+    "reads": "as_measured"
    }
   ],
   "support_model_key": "cons3",
@@ -101,12 +94,12 @@
    "unrounded": true
   },
   "second_opinion": {
-   "classes": [
-    "asd.labspec4.hires"
-   ],
-   "gap_points": 4.1
+   "streams": "non_native",
+   "gap_points": 4.1,
+   "gap_note": "the default gap on every stream that is not the native standard-resolution scan (a correction applied, unless near-uncorrected (check.acquisition std_like_within), or another instrument's scan as measured; DECISIONS 137); a correction file may carry its own (provenance.second_opinion_gap, estimated from at least 20 scans), which then replaces it"
   },
-  "domain_note_ratio_above": 3.0
+  "domain_note_ratio_above": 3.0,
+  "models_note": "shown_for: every_scan, or non_native (only when the stream is not the native standard-resolution scan: a correction applied, unless near-uncorrected (check.acquisition std_like_within), or another instrument's scan as measured); reads as_measured: the model runs on the scan as measured for any instrument (S1_R2 is transfer-free; DECISIONS 98, 137)"
  },
  "golden": {
   "tolerance": {

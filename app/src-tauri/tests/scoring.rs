@@ -1,6 +1,6 @@
 //! The app's scoring path (session -> spyder-core -> `ScanResult`) against `spyder analyse`.
 //!
-//! Public (always): the 61 end-to-end oracle golden scans are put through
+//! Public (always): every end-to-end oracle golden scan is put through
 //! the app's session for both instrument classes and all three analysis types; every mapped verdict, rule step,
 //! shown note, flag, evidence level and ZooMS pattern equals the record `spyder analyse` produces (the same
 //! `Engine` call), which the core's own gate holds equal to the frozen oracle. The display arrays are checked
@@ -234,7 +234,12 @@ fn compare(r: &ScanResult, rec: &Obj, a: &str, label: &str) -> Vec<String> {
         .notes
         .iter()
         .map(|n| n.key.clone())
-        .filter(|k| k != "serial_class_mismatch" && k != "no_transfer_available")
+        .filter(|k| {
+            !matches!(
+                k.as_str(),
+                "serial_class_mismatch" | "instrument_uncalibrated" | "visible_levels_not_fitted"
+            )
+        })
         .collect();
     if got != all {
         bad.push(format!("{label}: notes {got:?} != {all:?}"));
@@ -290,10 +295,10 @@ fn compare(r: &ScanResult, rec: &Obj, a: &str, label: &str) -> Vec<String> {
 fn app_scoring_equals_spyder_analyse_on_the_public_goldens() {
     let core = core();
     let cases = golden_cases();
-    assert_eq!(cases.len(), 64);
+    assert_eq!(cases.len(), 66);
     let (mut bad, mut n) = (Vec::new(), 0usize);
     for class in [CLASS_STD, CLASS_HIRES] {
-        let mut s = Session::new(1, Some("goldens".into()), false, Some(class));
+        let mut s = Session::new(1, Some("goldens".into()), false, Some(class.into()));
         for c in &cases {
             s.add(
                 &core,
@@ -334,7 +339,7 @@ fn app_scoring_equals_spyder_analyse_on_the_public_goldens() {
     );
     // one verdict for every analysis (DECISIONS 80 amended): the app's results carry each of the three ZooMS lines on
     // the public goldens, and never on a Good verdict
-    let mut s = Session::new(1, None, false, Some(CLASS_STD));
+    let mut s = Session::new(1, None, false, Some(CLASS_STD.into()));
     for c in &cases {
         s.add(
             &core,
@@ -387,11 +392,14 @@ fn app_scoring_equals_spyder_analyse_on_the_public_goldens() {
             1,
             None,
             false,
-            Some(if class == CLASS_HIRES {
-                CLASS_HIRES
-            } else {
-                CLASS_STD
-            }),
+            Some(
+                if class == CLASS_HIRES {
+                    CLASS_HIRES
+                } else {
+                    CLASS_STD
+                }
+                .to_string(),
+            ),
         );
         s.add(
             &core,
@@ -426,7 +434,7 @@ fn display_arrays_match_what_the_rules_and_models_read() {
     let n = 2151;
     let (mut checked, mut ohc) = (0, 0);
     for class in [CLASS_STD, CLASS_HIRES] {
-        let mut s = Session::new(1, None, false, Some(class));
+        let mut s = Session::new(1, None, false, Some(class.into()));
         for c in golden_cases() {
             s.add(
                 &core,
@@ -526,9 +534,17 @@ fn display_arrays_match_what_the_rules_and_models_read() {
                 assert!(view("D2_31_ohc")[(1700.0 - 350.0) as usize].is_nan());
                 ohc += 1;
             }
-            // standard-res: the as-measured views equal the stream; high-res: they differ (the transfer)
+            // read as measured (standard-res, or another instrument's file with no correction): the as-measured views
+            // equal the stream; through a correction (high-res): they differ
             let same = view("R") == view("R_meas");
-            assert_eq!(same, class == CLASS_STD, "{} {class}", e.id);
+            let corrected = gs(rec, &["stream", "transfer"]).is_some_and(|t| t != "none");
+            assert_eq!(same, !corrected, "{} {class}", e.id);
+            assert_eq!(
+                corrected,
+                e.class() == Some(CLASS_HIRES),
+                "{} {class}",
+                e.id
+            );
         }
     }
     eprintln!("display: {checked} band readings and {ohc} OH-corrected windows checked against the records");
@@ -624,7 +640,7 @@ fn shipped_oh_direction_is_recoverable_from_public_data() {
 
 /// The private high-res folder (40 scans), named by `SPYDER_PRIVATE_HR40`; the test is skipped without it.
 /// The Ryder 2045 ZooMS line (Matt; phase 0d REPORT_zooms_models) through the app: its params are the published model's
-/// reading the details panel shows (same value, same transfer: as measured on Standard, transfer v0.2 on High-res) and the
+/// reading the details panel shows (same value, same transfer: as measured on Standard, transfer v0.3 on High-res) and the
 /// profile's cut; and it clears when the scan is rescored with an input it no longer applies to.
 #[test]
 fn ryder_line_maps_the_displayed_reading_and_clears_on_rescore() {
@@ -642,7 +658,7 @@ fn ryder_line_maps_the_displayed_reading_and_clears_on_rescore() {
         log_meta: None,
     };
     for class in [CLASS_STD, CLASS_HIRES] {
-        let mut s = Session::new(1, None, false, Some(class));
+        let mut s = Session::new(1, None, false, Some(class.into()));
         s.add(&core, new(ryder, 1));
         let r = &scoring::results(&core, &s, "radiocarbon")[0];
         let rec = direct(&core, ryder, class);
@@ -671,7 +687,7 @@ fn ryder_line_maps_the_displayed_reading_and_clears_on_rescore() {
         );
         if class == CLASS_HIRES {
             assert!(
-                shown.transfer.as_deref().unwrap_or("").contains("@0.2"),
+                shown.transfer.as_deref().unwrap_or("").contains("@0.3"),
                 "{:?}",
                 shown.transfer
             );
@@ -763,7 +779,7 @@ fn private_high_res_40_session() {
     let files = scoring::folder_files(&folder).unwrap();
     assert_eq!(files.len(), 40);
     let mut s = Session::new(1, Some(folder.to_string_lossy().into_owned()), false, None);
-    s.set_class(&core, CLASS_HIRES);
+    s.set_class(&core, CLASS_HIRES.into());
     scoring::add_files(&core, &mut s, &files);
     let check = |s: &Session, cls: &str, cli: &str| {
         for a in ANALYSES {
@@ -786,15 +802,236 @@ fn private_high_res_40_session() {
     };
     check(&s, CLASS_HIRES, "hires");
     let rc = counts(&scoring::results(&core, &s, "radiocarbon"));
+    // through the 0.3.0 correction (DECISIONS 137; v0.2 gave 32 / 7 / 1): one known discordant pair moves from
+    // Borderline to Unlikely (REPORT_b1_builder section 9)
     assert_eq!(
         (rc.get("good"), rc.get("borderline"), rc.get("unlikely")),
-        (Some(&32), Some(&7), Some(&1))
+        (Some(&32), Some(&6), Some(&2))
     );
-    s.set_class(&core, CLASS_STD);
+    s.set_class(&core, CLASS_STD.into());
     check(&s, CLASS_STD, "std");
-    s.set_class(&core, CLASS_HIRES);
+    s.set_class(&core, CLASS_HIRES.into());
     let back = counts(&scoring::results(&core, &s, "radiocarbon"));
     assert_eq!(back, rc, "flipping back restores the High-res verdicts");
     let mean_ms = s.entries.iter().map(|e| e.score_ms).sum::<f64>() / s.entries.len() as f64;
     eprintln!("analysis time per scan (this build): mean {mean_ms:.1} ms");
+}
+
+/// DECISIONS 137: a file another instrument wrote (here the public goldens' Trek-type as7 and FieldSpec 3 legacy files)
+/// is scored as that instrument's class whatever the switch says, shown read-only by its registry name, uncorrected
+/// and with the uncalibrated note; S1_R2 (read as measured) shows; the session log records the class it was scored as.
+#[test]
+fn other_instruments_keep_their_class_in_the_app() {
+    use spyder_watch::session::{read_records, SessionLog};
+    let core = core();
+    let log = std::env::temp_dir().join(format!("spyder-app-other-{}.jsonl", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let cases: Vec<Case> = golden_cases()
+        .into_iter()
+        .filter(|c| c.name == "asd_file_as7_detected_joins" || c.name == "asd_file_legacy")
+        .collect();
+    assert_eq!(cases.len(), 2);
+    let want = |name: &str| {
+        if name.contains("as7") {
+            ("asd.trek", "Trek-type handheld")
+        } else {
+            ("asd.fieldspec3", "FieldSpec 3 (older ASD file format)")
+        }
+    };
+    for class in [CLASS_HIRES, CLASS_STD] {
+        let mut s = Session::new(1, Some("O".into()), true, Some(class.to_string()))
+            .with_log(Some(SessionLog::open(&log).unwrap()));
+        for c in &cases {
+            let Input::Asd(b) = &c.input else { panic!() };
+            s.add(
+                &core,
+                NewScan {
+                    path: format!("O/{}.asd", c.name),
+                    file: format!("{}.asd", c.name),
+                    input: c.input.clone(),
+                    arrived_seq: Some(1),
+                    revision: 1,
+                    modified_ms: None,
+                    log_meta: Some(serde_json::json!({
+                        "path": format!("O/{}.asd", c.name),
+                        "sha256": spyder_core::plugins::sha256_hex(b),
+                    })),
+                },
+            );
+        }
+        for (e, c) in s.entries.iter().zip(&cases) {
+            let (cls, name) = want(&c.name);
+            let r = spyder_bone_app_lib::mapping::scan_result(
+                &core,
+                e,
+                "radiocarbon",
+                &s.class,
+                s.source,
+            );
+            assert_eq!(r.instrument_class, cls, "{}", c.name);
+            assert_eq!(r.instrument_name.as_deref(), Some(name));
+            assert_eq!(r.class_source, "file_format");
+            assert!(r.transfer.is_none());
+            let n = r
+                .notes
+                .iter()
+                .find(|n| n.key == "instrument_uncalibrated")
+                .expect("the uncalibrated note");
+            assert_eq!(n.params["class"], cls);
+            assert_eq!(n.params["name"], name);
+            assert!(
+                r.models.s1r2.is_some(),
+                "S1_R2 shows on another instrument's scan"
+            );
+            // their header gains are no LabSpec hint: no "detector settings" note
+            assert!(r.notes.iter().all(|n| n.key != "header_class_mismatch"));
+            // the display stream is the scan as measured (no correction)
+            let v = scoring::scan_views(&core, &s, &e.id, 31).unwrap();
+            let n2151 = 2151;
+            assert_eq!(v[..n2151], v[5 * n2151..6 * n2151]);
+        }
+    }
+    // a new folder of such files: the switch is not preset from their header gains
+    let mut s = Session::new(2, Some("P".into()), false, None);
+    for c in &cases {
+        s.add(
+            &core,
+            NewScan {
+                path: format!("P/{}.asd", c.name),
+                file: format!("{}.asd", c.name),
+                input: c.input.clone(),
+                arrived_seq: None,
+                revision: 1,
+                modified_ms: None,
+                log_meta: None,
+            },
+        );
+    }
+    assert_eq!(
+        (s.class.as_str(), s.source),
+        (
+            CLASS_STD,
+            spyder_bone_app_lib::session::ClassSource::Default
+        )
+    );
+    let recs = read_records(&log).unwrap();
+    let scans: Vec<&Value> = recs.iter().filter(|r| r["kind"] == "scan").collect();
+    assert!(!scans.is_empty());
+    for r in scans {
+        let name = r["path"].as_str().unwrap();
+        assert_eq!(r["resultClass"], want(name).0, "{name}");
+        assert_eq!(r["classSource"], "file_format");
+    }
+    let _ = std::fs::remove_file(&log);
+}
+
+/// A public LabSpec 4 test scan (as8) rewritten in the as7 layout (u8 reference flag, the two OLE dates at +1/+9, the
+/// description length at +17, one reserved byte, then the description, the white reference and the trailer), with
+/// the header untouched but its magic (joins 1000/1800) and, if given, its serial.
+fn as7_of(rel: &str, serial: Option<u16>) -> Vec<u8> {
+    let b = std::fs::read(repo().join(rel)).unwrap();
+    assert_eq!(&b[0..3], b"as8");
+    let n = 2151;
+    let refhdr = 484 + 8 * n;
+    let desc_len = usize::from(u16::from_le_bytes([b[refhdr + 18], b[refhdr + 19]]));
+    let mut out = b[..refhdr].to_vec();
+    out[0..3].copy_from_slice(b"as7");
+    if let Some(s) = serial {
+        out[400..402].copy_from_slice(&s.to_le_bytes());
+    }
+    out.push(1);
+    out.extend_from_slice(&b[refhdr + 2..refhdr + 18]);
+    out.extend_from_slice(&(desc_len as u16).to_le_bytes());
+    out.push(0);
+    out.extend_from_slice(&b[refhdr + 20..]);
+    out
+}
+
+/// instruments.json 2.1.0: an as7 file is the Trek-type handheld's only when its detector joins are not the LabSpec
+/// joins 1000/1800. A LabSpec 4 scan written as as7 (as older ASD software may) stays a LabSpec file in the app: its
+/// serial or its header's detector settings preset the switch, the switch decides its class, it gets the high-res
+/// correction on High-res and the "detector settings" note when the switch disagrees, and no uncalibrated note: the
+/// same result as the as8 file. (The Trek-type golden file keeps its class: other_instruments_keep_their_class_in_the_app.)
+#[test]
+fn a_labspec_scan_in_as7_is_a_labspec_scan_in_the_app() {
+    use spyder_bone_app_lib::mapping::scan_result;
+    use spyder_bone_app_lib::session::ClassSource;
+    let core = core();
+    let scan = |path: &str, bytes: Vec<u8>| NewScan {
+        path: path.into(),
+        file: path.rsplit('/').next().unwrap().into(),
+        input: Input::Asd(bytes.into()),
+        arrived_seq: None,
+        revision: 1,
+        modified_ms: None,
+        log_meta: None,
+    };
+    let hi = "testdata/scans/high_res/high_res_01.asd";
+    let st = "testdata/scans/standard_res/standard_res_01.asd";
+    let keys = |r: &ScanResult| r.notes.iter().map(|n| n.key.clone()).collect::<Vec<_>>();
+    // (file, serial rewrite, the preset expected in a new folder)
+    let cases = [
+        (hi, None, CLASS_HIRES, ClassSource::Preset), // a listed high-res serial
+        (hi, Some(40001), CLASS_HIRES, ClassSource::Header), // unlisted: high-res detector gains
+        (st, Some(40002), CLASS_STD, ClassSource::Header), // unlisted: standard detector gains
+    ];
+    for (k, (rel, serial, class, source)) in cases.into_iter().enumerate() {
+        let b7 = as7_of(rel, serial);
+        let mut b8 = std::fs::read(repo().join(rel)).unwrap();
+        if let Some(s) = serial {
+            b8[400..402].copy_from_slice(&s.to_le_bytes());
+        }
+        let mut s7 = Session::new(10 + k as u64, Some("A7".into()), false, None);
+        s7.add(&core, scan("A7/x.asd", b7.clone()));
+        let mut s8 = Session::new(20 + k as u64, Some("A8".into()), false, None);
+        s8.add(&core, scan("A8/x.asd", b8));
+        assert_eq!(
+            (s7.class.as_str(), s7.source),
+            (class, source),
+            "{rel} {serial:?}"
+        );
+        assert_eq!((s8.class.as_str(), s8.source), (class, source));
+        assert!(!s7.entries[0].class_from_file_format());
+        let r7 = scan_result(&core, &s7.entries[0], "radiocarbon", &s7.class, s7.source);
+        let r8 = scan_result(&core, &s8.entries[0], "radiocarbon", &s8.class, s8.source);
+        assert_eq!(
+            r7.instrument_class,
+            if class == CLASS_HIRES {
+                "hires"
+            } else {
+                "standard"
+            }
+        );
+        assert_eq!(r7.instrument_name, None);
+        assert_eq!(r7.class_source, source.ui_str());
+        assert!(!keys(&r7).contains(&"instrument_uncalibrated".to_string()));
+        assert_eq!(r7.transfer.is_some(), class == CLASS_HIRES);
+        // the same result as the as8 file
+        assert_eq!(
+            (r7.verdict, r7.verdict_rule, keys(&r7)),
+            (r8.verdict, r8.verdict_rule, keys(&r8))
+        );
+        let (rec7, rec8) = (
+            s7.entries[0].record.as_deref().unwrap(),
+            s8.entries[0].record.as_deref().unwrap(),
+        );
+        for key in [
+            "instrument",
+            "checks",
+            "models",
+            "radiocarbon",
+            "zooms",
+            "stream",
+        ] {
+            assert_eq!(rec7.get(key), rec8.get(key), "{rel}: {key}");
+        }
+    }
+    // the user's Standard switch over a high-res unit's as7 file: Standard, with the gentle "detector settings" note
+    let mut s = Session::new(30, Some("U".into()), false, Some(CLASS_STD.into()));
+    s.add(&core, scan("U/x.asd", as7_of(hi, Some(40001))));
+    assert_eq!((s.class.as_str(), s.source), (CLASS_STD, ClassSource::User));
+    let r = scan_result(&core, &s.entries[0], "radiocarbon", &s.class, s.source);
+    assert_eq!(r.instrument_class, "standard");
+    assert!(keys(&r).contains(&"header_class_mismatch".to_string()));
+    assert!(!keys(&r).contains(&"instrument_uncalibrated".to_string()));
 }

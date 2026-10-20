@@ -10,7 +10,7 @@ use std::io::Write as _;
 use std::path::PathBuf;
 
 use spyder_core::model::Body;
-use spyder_core::plugins::registry::{Item, Location, Origin, Pins, Registry, State};
+use spyder_core::plugins::registry::{Location, Origin, Pins, Registry, State};
 use spyder_core::plugins::sha256_hex;
 
 fn plugins_dir() -> PathBuf {
@@ -80,7 +80,7 @@ fn every_bundled_plugin_loads_and_passes_its_goldens() {
 
 #[test]
 fn identities_match_the_bytes_on_disk() {
-    // consensus component sha256, noise-gain and band transfer keys, and catalog entries must equal the
+    // consensus component sha256, the noise table's golden model hashes, and catalog entries must equal the
     // SHA-256 of the files as read from disk (never normalised)
     let dir = plugins_dir();
     let reg = load();
@@ -110,36 +110,19 @@ fn identities_match_the_bytes_on_disk() {
         }
     }
     assert!(n >= 3, "no consensus components checked");
-    let transfer_shas: Vec<String> = reg
-        .entries
-        .iter()
-        .filter(|e| matches!(e.item, Some(Item::Transfer(_))))
-        .map(|e| e.sha256.clone())
-        .collect();
-    let ng = reg.noise_gains().expect("noise gains");
+    // the noise table's goldens name their models by file sha256: each must be a model file on disk (format 2 has
+    // no per-transfer keys any more)
+    let ng: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(dir.join("noise_gains.json")).unwrap()).unwrap();
     let mut keys = 0;
-    for (mid, keyed) in &ng.models {
-        for k in keyed.keys() {
-            if k != "none" {
-                assert!(
-                    transfer_shas.contains(k),
-                    "noise_gains {mid}: key {k} is no transfer file"
-                );
-                keys += 1;
-            }
-        }
+    for (mid, sha) in ng["golden"]["models"].as_object().expect("golden models") {
+        let p = disk
+            .get(sha.as_str().unwrap())
+            .unwrap_or_else(|| panic!("noise_gains golden model {mid}: sha256 matches no file"));
+        assert!(p.to_string_lossy().ends_with(".spyder-model.json"), "{mid}");
+        keys += 1;
     }
-    for (b, band) in &reg.bands().unwrap().bands {
-        if let Some(r) = &band.readability {
-            for k in r.gain_e_per_n2.keys() {
-                assert!(
-                    k == "none" || transfer_shas.contains(k),
-                    "bands {b}: key {k}"
-                );
-            }
-        }
-    }
-    assert!(keys > 0, "no transfer keys checked");
+    assert!(keys >= 5, "no golden models checked");
     // the catalog matches the folder
     let cat = std::fs::read(dir.join("catalog.json")).unwrap();
     let cat: serde_json::Value = serde_json::from_slice(&cat).unwrap();

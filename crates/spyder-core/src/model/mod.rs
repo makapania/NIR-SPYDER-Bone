@@ -620,6 +620,44 @@ impl Model {
         }
     }
 
+    /// Add a correction's per-reader offsets (wt%, by model id; DECISIONS 137) to a prediction of this model: a
+    /// regression reader takes its own; a consensus takes its components' (by component model id) before the median.
+    /// Returns (the reader's own offset, the components' offsets by component name), both empty when none applied.
+    pub fn add_reader_offsets(
+        &self,
+        p: &mut Prediction,
+        offsets: &std::collections::BTreeMap<String, f64>,
+    ) -> (Option<f64>, Vec<(String, f64)>) {
+        match &self.body {
+            Body::Consensus { components } => {
+                let mut applied = Vec::new();
+                for (c, (_, v)) in components.iter().zip(p.components.iter_mut()) {
+                    if let Some(off) = offsets.get(&c.id) {
+                        *v += off;
+                        applied.push((c.name.clone(), *off));
+                    }
+                }
+                if !applied.is_empty() {
+                    let vals: Vec<f64> = p.components.iter().map(|(_, v)| *v).collect();
+                    // np.median propagates NaN
+                    p.value = if vals.iter().any(|v| v.is_nan()) {
+                        f64::NAN
+                    } else {
+                        crate::n2::median(&vals)
+                    };
+                }
+                (None, applied)
+            }
+            Body::Regression { .. } => match offsets.get(&self.header.id) {
+                Some(off) => {
+                    p.value += off;
+                    (Some(*off), Vec::new())
+                }
+                None => (None, Vec::new()),
+            },
+        }
+    }
+
     /// Predict on one spectrum (already on the model's stream: transferred if a transfer applies).
     pub fn predict(&self, s: &Spectrum, ctx: &ScanContext) -> Result<Prediction, OpError> {
         let z = self.processed(s, ctx)?;

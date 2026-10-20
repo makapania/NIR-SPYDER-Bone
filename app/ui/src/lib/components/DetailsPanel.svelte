@@ -1,12 +1,13 @@
 <script lang="ts">
   // Details column: the standard suite's readings (CONS3 and its three components, then right under them how this
-  // verdict was made; the published Ryder 2045 model, the additional estimates, and on high-res the transfer-free 1545 nm
-  // model), every note that did not make the two under the verdict, and the checks (their standing caveats one click
+  // verdict was made; the published Ryder 2045 model, the additional estimates, and on any stream that is not the native
+  // standard-resolution scan the 1545 nm model read as measured), every note that did not make the two under the verdict, and the checks (their standing caveats one click
   // away). The bands, the evidence level and the ZooMS band check live in the band close-ups (Matt, 2026-10-18).
   import FlagMark from './FlagMark.svelte';
   import Icon from './Icon.svelte';
   import { MODEL_NAME, formatModel, formatReading, keepRanges, ordinal, timeLong, trackPos } from '../display';
   import { checkRows, modelAnnotations, verdictNumbers } from '../details';
+  import { isLabSpec, scanInstrument } from '../instrument';
   import { noteIcon, pickNotes } from '../notes';
   import { LOWRANGE_EXPLAIN, noteText } from '../strings';
   import { toneForReading, verdictMeta, type Tone } from '../verdict';
@@ -19,7 +20,6 @@
   }
   let { scan, rank, total }: Props = $props();
 
-  const hires = $derived(scan.instrumentClass === 'hires');
   const numbers = $derived(verdictNumbers(scan));
   const details = $derived(pickNotes(scan.notes, scan.notesShown).details);
   const verdictTone = $derived(verdictMeta(scan.verdict).tone);
@@ -149,7 +149,7 @@
             <div class="ht">This result</div>
             <div class="hn mono">{scan.profileId}{scan.ruleStep ? ` · rule ${scan.ruleStep}` : ''}{scan.transfer
                 ? ` · ${scan.transfer.id}@${scan.transfer.version}`
-                : ''} · {scan.engineVersion}{scan.scoreMs != null ? ` · analysed in ${scan.scoreMs.toFixed(1)} ms` : ''}</div>
+                : ''}{isLabSpec(scan.instrumentClass) ? '' : ` · ${scanInstrument(scan)}`} · {scan.engineVersion}{scan.scoreMs != null ? ` · analysed in ${scan.scoreMs.toFixed(1)} ms` : ''}</div>
           </div>
           <details class="rules">
             <summary>How the rules work</summary>
@@ -176,9 +176,9 @@
             note: 'The C–H band at 1728 nm. Lipids, waxes and many consolidants raise it; the app compares it with the consensus for the C–H note.',
           })}
         {/if}
-        {#if hires && scan.models.s1r2}
-          <div class="mdiv">Second opinion · high-res scans only</div>
-          {@render mrow('s1r2', { neutral: true, note: 'Reads the scan as measured, with no transfer. Not part of the verdict.' })}
+        {#if scan.models.s1r2}
+          <div class="mdiv">Second opinion · read as measured</div>
+          {@render mrow('s1r2', { neutral: true, note: 'Reads the scan as measured, with no correction. Not part of the verdict.' })}
         {/if}
       </div>
     </section>

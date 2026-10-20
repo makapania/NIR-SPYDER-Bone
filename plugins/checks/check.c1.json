@@ -3,7 +3,7 @@
  "format_version": 1,
  "check": "c1",
  "id": "check.c1",
- "version": "3.0.0",
+ "version": "3.0.1",
  "engine_min": "1.1",
  "status": "active",
  "title": "C1: generic foreign organic (C-H excess over the collagen line, or an organic film)",
@@ -171,7 +171,7 @@
    },
    {
     "name": "hires_longwave_not_assessed",
-    "spectrum_sha256": "4b41f6f40c740d17d3e5d796fae5babb1d0a8c01c6e9da38552f25ad4924636f",
+    "spectrum_sha256": "56c8e3dd2b0ab8c31c8fce1bdd3ab62234072b1eca780a5e23a7c957c23dedac",
     "inputs": {
      "gate": null,
      "specific_fired": false,
@@ -180,8 +180,8 @@
     },
     "expected": {
      "status": "assessed",
-     "excess": -0.12237444653969831,
-     "film": 5.6878292479803445,
+     "excess": 0.2018070058636532,
+     "film": 5.34517798136351,
      "film_fired": false,
      "fired": false,
      "gated": false
@@ -189,7 +189,7 @@
    },
    {
     "name": "hires_c1_gated_plaster_checked",
-    "spectrum_sha256": "24b1fdcec600663ff8541248474fe1d9286163065d42b7a6adaecc74601d1f06",
+    "spectrum_sha256": "c0a63b6beb83a81e7f5984e3a1f6098c123fa4d25c0235a865ceac8febc080bc",
     "inputs": {
      "gate": "noise in 2000-2100 nm",
      "specific_fired": false,
@@ -207,7 +207,7 @@
    },
    {
     "name": "hires_longwave_300_c1_truncated",
-    "spectrum_sha256": "27fafdc3918d78f06150f70f55453f722ca25d4590a9b62ff400b54b742fd3dd",
+    "spectrum_sha256": "1ac98c845c5ab843695b97f94f663d18b6b666db9c3eac732ed7dda932e59928",
     "inputs": {
      "gate": null,
      "specific_fired": false,
@@ -216,7 +216,7 @@
     },
     "expected": {
      "status": "assessed: truncated (long-wave region too noisy)",
-     "excess": 0.9183681871140905,
+     "excess": 1.0740242498939594,
      "film": null,
      "film_fired": null,
      "fired": false,
@@ -225,7 +225,7 @@
    },
    {
     "name": "hires_longwave_300_c1_truncated [longwave mode not_assessed]",
-    "spectrum_sha256": "27fafdc3918d78f06150f70f55453f722ca25d4590a9b62ff400b54b742fd3dd",
+    "spectrum_sha256": "1ac98c845c5ab843695b97f94f663d18b6b666db9c3eac732ed7dda932e59928",
     "inputs": {
      "gate": null,
      "specific_fired": false,
@@ -243,7 +243,7 @@
    },
    {
     "name": "hires_fallback_reduced_clean",
-    "spectrum_sha256": "d70d8796e1413b32d814633b1f90fe21ae9f21c49c57a60f863e14dbae2974fb",
+    "spectrum_sha256": "6475251e181f9bdb6f20caff0282a53f6b6d95e482a53413a2d0dc6d6f54aeaf",
     "inputs": {
      "gate": "noise in 2000-2100 nm",
      "specific_fired": false,
@@ -253,7 +253,7 @@
     },
     "expected": {
      "status": "assessed: reduced (below 1800 nm only; noise in 2000-2100 nm)",
-     "excess": 5.214924158223172,
+     "excess": 5.131020609686103,
      "film": null,
      "film_fired": null,
      "fired": false,
@@ -262,7 +262,7 @@
    },
    {
     "name": "hires_fallback_c1_fires",
-    "spectrum_sha256": "cf771f82c60995828ff1aa8fd775c8c020f3d09f765b33e2775ddddc7413d371",
+    "spectrum_sha256": "c044d1589ad0b91399a45af01bd1ec4a63bdacff0e069df72c860c84e5335a8a",
     "inputs": {
      "gate": "noise in 2000-2100 nm",
      "specific_fired": false,
@@ -272,7 +272,7 @@
     },
     "expected": {
      "status": "assessed: reduced (below 1800 nm only; noise in 2000-2100 nm)",
-     "excess": 14.072798238322203,
+     "excess": 13.904713475123394,
      "film": null,
      "film_fired": null,
      "fired": true,
@@ -281,7 +281,7 @@
    },
    {
     "name": "hires_fallback_plaster_fires",
-    "spectrum_sha256": "b17cae8be0b58d8014fc6b67c6a923bafd8ab8bf52b884967f77c434007e0706",
+    "spectrum_sha256": "02439ed695cbef891287f3710a6bdfda5caa5889fa2f9600f8cc20f5a4a4b418",
     "inputs": {
      "gate": null,
      "specific_fired": true,

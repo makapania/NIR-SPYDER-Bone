@@ -3,10 +3,16 @@
 //! oracle's structure exactly, so that the end-to-end goldens and the private parity compare field by field.
 //!
 //!  1. read the file; raw acquisition statistics (N2 per window, R range, splice steps) on the AS-MEASURED scan;
-//!  2. the instrument class is an INPUT (the user's Standard / High-res switch); a known serial adds a gentle
-//!     note when it disagrees; then the models, the stream transfer and the analysis profiles;
-//!  3. noise parameters keyed by model and by the transfer actually applied;
-//!  4. B6, long-wave eligibility, band readability;
+//!  2. the instrument class is an INPUT (the user's Standard / High-res switch for LabSpec files; a file another
+//!     instrument wrote, named by its format in the instrument registry, is scored as that instrument's class); a
+//!     known serial adds a gentle note when it disagrees; then the models, the stream correction and the profiles. The
+//!     noise policies (per-sign gates, long-wave, soft tier, second opinion, S1_R2 shown) key on the correction applied
+//!     and on whether the stream is the native standard-resolution scan (as measured, or through a near-uncorrected
+//!     correction such as a standard-resolution unit's own file), never on class names (DECISIONS 137);
+//!  3. noise propagation computed for each model and band from the correction actually applied and the scan's own
+//!     detector segments (no lookup by transfer file);
+//!  4. B6, long-wave eligibility, band readability (an unknown band noise is +infinity: the band is unreadable unless
+//!     strong, with a "band noise unknown" note);
 //!  5. on the standard-resolution-equivalent stream: B9, models, CONS3, evidence, ZooMS pattern, signs, C1;
 //!  6. the verdict per analysis type; the CSV row and the analysis manifest ([`export`]).
 
@@ -22,7 +28,7 @@ use std::collections::BTreeMap;
 use crate::plugins::checks::{CheckParams, EngineCheck};
 use crate::plugins::profiles::AnalysisProfile;
 use crate::plugins::registry::Registry;
-use crate::plugins::tables::{Bands, Instruments, NoiseGains, NO_TRANSFER};
+use crate::plugins::tables::{Bands, Instruments, NoiseGains, B6_NOT_APPLIED, NO_TRANSFER};
 use crate::plugins::{
     sha256_hex, spectrum_sha256, ScanContext, BANDS_FORMAT, ENGINE_CHECK_FORMAT, INSTRUMENT_FORMAT,
     MODEL_FORMAT, NOISE_GAINS_FORMAT, PROFILE_FORMAT, TRANSFER_FORMAT,
@@ -30,6 +36,7 @@ use crate::plugins::{
 use crate::preprocess::Spectrum;
 use crate::transfer::{select_target, Selection, Transfer};
 use checks::N2Cache;
+use checks::Route;
 use val::{fin, Obj, V};
 use verdict::VerdictInputs;
 
@@ -145,6 +152,13 @@ impl<'r> Engine<'r> {
         if let Some(reason) = self.acceptance(&scan) {
             return self.rejected(&reason, meta, deps);
         }
+        // a file another instrument wrote (named in the instrument registry by its format and detector joins) is scored
+        // as that instrument's class: the Standard / High-res switch chooses between the LabSpec classes only
+        // (DECISIONS 137). An as7 file with the LabSpec joins 1000/1800 is a LabSpec 4 file, like as8.
+        let (class, class_source) = match self.file_class(&scan) {
+            Some(c) if c != class => (c, "file_format"),
+            _ => (class, class_source),
+        };
         let ctx = Context {
             instrument_class: class.to_string(),
             class_source: class_source.to_string(),
@@ -158,6 +172,13 @@ impl<'r> Engine<'r> {
             scan.sample_dn.as_deref(),
             meta,
         )
+    }
+
+    /// The class of the instrument that wrote this file, from its format and the detector joins found in it, if the
+    /// instrument registry names one ([`crate::plugins::tables::Instruments::class_of_file`]); `None`: a LabSpec 4 file.
+    fn file_class(&self, scan: &crate::scan::Scan) -> Option<&'r str> {
+        self.instruments
+            .and_then(|i| i.class_of_file(scan.format.as_str(), scan.found_joins()))
     }
 
     /// The record of a file that could not be read from disk (B1, "Rescan").
@@ -199,12 +220,7 @@ impl<'r> Engine<'r> {
             &transfers,
             &pinned,
         ) {
-            Selection::Apply(t) => (
-                t.apply(&Spectrum::new(wl.to_vec(), r_meas.to_vec()), &sctx)
-                    .map(|s| s.x)
-                    .unwrap_or_else(|_| vec![f64::NAN; wl.len()]),
-                Some(t.key()),
-            ),
+            Selection::Apply(t) => (transferred(t, wl, r_meas, &sctx), Some(t.key())),
             Selection::NotNeeded | Selection::Missing => (r_meas.to_vec(), None),
         }
     }
@@ -426,11 +442,30 @@ impl<'r> Engine<'r> {
             &transfers,
             &pinned,
         );
-        let gate_key = match &selection {
-            Selection::Apply(t) => t.file_sha256.clone(),
-            _ => NO_TRANSFER.to_string(),
+        // the noise policies follow the correction applied (DECISIONS 137). native: the standard-resolution scan as
+        // measured, or through a near-uncorrected correction (every noise-policy gain within check.acquisition's
+        // std_like_within of uncorrected, e.g. a standard-resolution unit's own file): every noise policy then treats
+        // the stream exactly like a native standard-resolution scan (Matt, 2026-10-19: LabSpec 4 standard never changes)
+        let scorr = match &selection {
+            Selection::Apply(t) => Some(t.correction()),
+            _ => None,
         };
-        let (b6b, gates, gated, reduced) = checks::b6b(acqp, &mut n2c, &gate_key);
+        let route = Route {
+            wl,
+            joins,
+            corr: scorr,
+            cache: Some(&self.reg.gain_cache),
+        };
+        let near = checks::standard_like(acqp, self.cp("longwave"), self.cp("signs"), &route);
+        let native_why = if near {
+            Some(checks::NEAR_UNCORRECTED)
+        } else if cls == crate::plugins::CLASS_STD && matches!(selection, Selection::NotNeeded) {
+            Some(checks::NATIVE_SCAN)
+        } else {
+            None
+        };
+        let native = native_why.is_some();
+        let (b6b, gates, gated, reduced) = checks::b6b(acqp, &mut n2c, &route, near);
         acq.set("B6b", b6b);
         let bad: Vec<&str> = ["B1", "B2", "B3", "B4"]
             .into_iter()
@@ -490,18 +525,21 @@ impl<'r> Engine<'r> {
             }
             stream_cache
                 .entry(t.header.id.clone())
-                .or_insert_with(|| {
-                    t.apply(&Spectrum::new(wl.to_vec(), r_meas.to_vec()), &sctx)
-                        .map(|s| s.x)
-                        .unwrap_or_else(|_| vec![f64::NAN; wl.len()])
-                })
+                .or_insert_with(|| transferred(t, wl, r_meas, &sctx))
                 .clone()
         };
+        // no correction for this instrument is installed: uncalibrated (the band calls are off below)
+        let uncal = matches!(selection, Selection::Missing);
         let (r_std, skey, stream_t): (Vec<f64>, String, Option<&Transfer>) = match selection {
             Selection::Missing => {
+                // no correction for this instrument is installed: every result is uncalibrated for it
                 if let Some(V::Map(o)) = rec.get_mut("instrument") {
                     if let Some(V::List(n)) = o.get_mut("notes") {
-                        n.push(V::Map(Obj::new().with("key", "no_transfer_available")));
+                        n.push(V::Map(
+                            Obj::new()
+                                .with("key", "instrument_uncalibrated")
+                                .with("class", cls),
+                        ));
                     }
                 }
                 (r_meas.to_vec(), NO_TRANSFER.into(), None)
@@ -516,10 +554,11 @@ impl<'r> Engine<'r> {
                 .with("transfer_sha256", stream_t.map(|t| t.file_sha256.clone()))
                 .with("provisional", stream_t.is_some_and(|t| t.provisional)),
         );
-        // ---- Step 4: long-wave eligibility, band readability (keyed gains)
+        // ---- Step 4: long-wave eligibility, band readability (gains computed for the stream's correction)
         let lwp = self.cp("longwave");
         self.check_dep("longwave", &mut deps);
-        let (lw, tail_unreliable, tail_unreliable_c1) = checks::longwave(lwp, cls, &mut n2c);
+        let (lw, tail_unreliable, tail_unreliable_c1) =
+            checks::longwave(lwp, native_why, &mut n2c, &route);
         if let Some(V::Map(c)) = rec.get_mut("checks") {
             c.set("longwave", lw);
         }
@@ -529,25 +568,47 @@ impl<'r> Engine<'r> {
         if let Some((k, v)) = dep(self.reg, NOISE_GAINS_FORMAT, &self.gains.header.id) {
             deps.insert(k, v);
         }
+        // A band whose noise cannot be estimated (a non-linear correction, a kernel or noise window not inside one
+        // detector segment, a non-finite N2) has SD +infinity: unreadable unless strong, never readable by default
         let mut sd_e: BTreeMap<String, f64> = BTreeMap::new();
-        for (b, bd) in &self.bands.bands {
-            let Some(rd) = &bd.readability else { continue };
-            let Some(g) = rd.gain_e_per_n2.get(&skey) else {
+        let mut unknown = Obj::new();
+        for b in self.bands.bands.keys() {
+            let Some((sd, st)) = self.bands.readability_sd(
+                Some(&self.reg.gain_cache),
+                b,
+                wl,
+                joins,
+                scorr,
+                &mut |lo, hi| n2c.get(lo, hi),
+            ) else {
                 continue;
             };
-            let (lo, hi) = rd.noise_window_nm;
-            sd_e.insert(b.clone(), g * n2c.get(lo, hi));
+            if st != "assessed" {
+                unknown.set(b, st);
+            }
+            sd_e.insert(b.clone(), sd);
         }
         let mut sdo = Obj::new();
         for (b, v) in &sd_e {
             sdo.set(b, fin(*v));
         }
-        rec.set(
-            "band_noise",
-            Obj::new()
-                .with("transfer_key", skey.as_str())
-                .with("sd_E", sdo),
-        );
+        let mut bn = Obj::new()
+            .with("transfer_key", skey.as_str())
+            .with("sd_E", sdo);
+        if !unknown.0.is_empty() {
+            let ids: Vec<V> = unknown.0.iter().map(|(k, _)| V::from(k.as_str())).collect();
+            bn.set("noise_unknown", unknown);
+            if let Some(V::Map(o)) = rec.get_mut("instrument") {
+                if let Some(V::List(n)) = o.get_mut("notes") {
+                    n.push(V::Map(
+                        Obj::new()
+                            .with("key", "band_noise_unknown")
+                            .with("bands", V::List(ids)),
+                    ));
+                }
+            }
+        }
+        rec.set("band_noise", bn);
         // ---- Step 5: spectral consumers on the standard-resolution-equivalent stream
         let evp = self.cp("evidence_levels");
         self.check_dep("evidence_levels", &mut deps);
@@ -595,25 +656,41 @@ impl<'r> Engine<'r> {
         }
         // models: the union of the profiles' lists; each profile reads its OWN verdict input and second
         // opinion (Codex Phase 3 review 1)
-        let (models, per_profile) =
-            self.models(wl, r_meas, &sctx, &mut n2c, cls, &mut apply, &mut deps);
+        let (models, per_profile, noise) = self.models(
+            wl, r_meas, &sctx, &mut n2c, cls, native, &mut apply, &mut deps,
+        );
         let mut mo = models;
-        for (_, mr) in mo.0.iter_mut() {
+        for (k, mr) in mo.0.iter_mut() {
             if let V::Map(mr) = mr {
                 let sd = mr.get("implied_sd").and_then(V::as_f64);
                 let value = mr.get("value").and_then(V::as_f64);
+                let (status, applies) = noise
+                    .get(k)
+                    .map(|(s, a)| (s.as_str(), *a))
+                    .unwrap_or((NO_GAIN, true));
                 mr.set(
                     "B6",
-                    b6_noise(value, sd, b6_cuts, *b6_check_if_cut_within_sd),
+                    b6_noise(
+                        value,
+                        sd,
+                        status,
+                        applies,
+                        b6_cuts,
+                        *b6_check_if_cut_within_sd,
+                    ),
                 );
             }
         }
         rec.set("models", mo);
         // evidence and ZooMS
-        let (ev, level, s_val) = checks::evidence(wl, &e, evp, self.bands, &sd_e);
+        let (mut ev, level, s_val) = checks::evidence(wl, &e, evp, self.bands, &sd_e);
         self.check_dep("zooms_patterns", &mut deps);
-        let (zo, zv_shown, zv, zp) =
+        let (mut zo, zv_shown, zv, zp) =
             checks::zooms(wl, &e, self.cp("zooms_patterns"), self.bands, &sd_e);
+        // an uncalibrated instrument: the band calls are off (DECISIONS 137, amended 2026-10-19)
+        if uncal {
+            checks::band_evidence_off(&mut ev, &mut zo);
+        }
         rec.set("evidence", ev);
         let zo_rec = zo.clone();
         rec.set("zooms_pattern", zo);
@@ -621,6 +698,16 @@ impl<'r> Engine<'r> {
         self.check_dep("signs", &mut deps);
         self.check_dep("heat", &mut deps);
         self.check_dep("c1", &mut deps);
+        // heat reads the corrected stream when the correction's visible levels were fitted (or none applies), else the
+        // scan as measured, with a note (DECISIONS 137: the levels are not display-only)
+        let fitted = stream_t.is_none_or(|t| t.visible_levels_fitted);
+        if !fitted {
+            if let Some(V::Map(o)) = rec.get_mut("instrument") {
+                if let Some(V::List(n)) = o.get_mut("notes") {
+                    n.push(V::Map(Obj::new().with("key", "visible_levels_not_fitted")));
+                }
+            }
+        }
         let mut sg = checks::signs(
             wl,
             &r_std,
@@ -628,6 +715,7 @@ impl<'r> Engine<'r> {
             self.cp("heat"),
             &gates,
             &reduced,
+            (!fitted).then_some(r_meas),
         );
         let c1p = self.cp("c1");
         let spec = match c1p {
@@ -652,7 +740,7 @@ impl<'r> Engine<'r> {
             c1_mode,
             reduced.get("C1").map(String::as_str),
         );
-        let soft = checks::soft_tier(self.cp("signs"), c1p, cls, &mut n2c, &sg, &c1r);
+        let soft = checks::soft_tier(self.cp("signs"), c1p, native, &mut n2c, &sg, &c1r, &route);
         sg.set("soft", soft);
         // ---- Step 9: verdicts
         let mut verdicts = Vec::new();
@@ -672,10 +760,16 @@ impl<'r> Engine<'r> {
                 zooms_rec: &zo_rec,
                 models: &models_rec,
                 gated,
+                uncalibrated: uncal,
             };
             for (ai, a) in ANALYSES.into_iter().enumerate() {
                 let p = self.profiles[a];
                 let (m, comps, s1) = per_profile[ai].clone();
+                // B9 ("Doesn't look like bone") replaces the verdict on every instrument, also one not built in, where
+                // the readings otherwise set it (DECISIONS 137): a deliberate exception. B9 is an input screen, not band
+                // evidence: the highest Pearson correlation of the scan's D2 profile with bone prototypes, a shape
+                // test that a uniform band-depth (calibration) change does not move; it is about rock and other
+                // targets, not bone quality (DECISIONS 118). On the 61 real FieldSpec 3 / Trek scans it passed on all.
                 let mut v = if notfit {
                     Obj::new()
                         .with("verdict", "Doesn't look like bone")
@@ -688,7 +782,13 @@ impl<'r> Engine<'r> {
                 };
                 if !notfit {
                     if let (Some(so), Some(s1), Some(mm)) = (&p.second_opinion, s1, m) {
-                        if so.classes.iter().any(|c| c == cls) && (s1 - mm).abs() > so.gap_points {
+                        // the correction's own gap when it carries one (from >= 20 scans), else the profile's default
+                        let gap = stream_t
+                            .and_then(|t| t.second_opinion_gap)
+                            .unwrap_or(so.gap_points);
+                        // S1_R2 stays shown on an uncalibrated instrument, but its second-opinion note is not
+                        // added: the instrument note already says the readings are uncalibrated (DECISIONS 137)
+                        if !uncal && so.streams.applies(native, cls) && (s1 - mm).abs() > gap {
                             if let Some(V::List(n)) = v.get_mut("notes_all") {
                                 n.push(V::Map(
                                     Obj::new()
@@ -724,9 +824,11 @@ impl<'r> Engine<'r> {
         rec
     }
 
-    /// The profiles' models (union, first profile first): transfer per model (Step 4 rule), prediction, noise
-    /// SD (keyed by model and the transfer applied), domain note. Returns (record, per profile in ANALYSES
-    /// order: (m = its verdict input, that model's components, its second opinion)).
+    /// The profiles' models (union, first profile first): transfer per model (Step 4 rule; a model whose spec reads
+    /// `as_measured` runs on the scan as measured for any class), prediction (plus the correction's reader offset, a
+    /// consensus's on its components before the median), noise SD (computed for the model and the transfer applied),
+    /// domain note. Returns (record, per profile in ANALYSES order: (m = its verdict input, that model's components,
+    /// its second opinion), per model key: (noise status, whether B6 applies)).
     #[allow(clippy::type_complexity, clippy::too_many_arguments)]
     fn models(
         &self,
@@ -735,9 +837,11 @@ impl<'r> Engine<'r> {
         sctx: &ScanContext,
         n2c: &mut N2Cache,
         cls: &str,
+        native: bool,
         apply: &mut impl FnMut(&Transfer, &mut BTreeMap<String, String>) -> Vec<f64>,
         deps: &mut BTreeMap<String, String>,
-    ) -> (Obj, Vec<PerProfile>) {
+    ) -> (Obj, Vec<PerProfile>, BTreeMap<String, (String, bool)>) {
+        let mut noise: BTreeMap<String, (String, bool)> = BTreeMap::new();
         let pps: Vec<&AnalysisProfile> = ANALYSES.iter().map(|a| self.profiles[*a]).collect();
         let transfers = self.reg.transfers();
         let pinned = self.reg.pinned_transfer_ids();
@@ -755,8 +859,7 @@ impl<'r> Engine<'r> {
             let shown = pps.iter().any(|pp| {
                 pp.models.iter().any(|x| {
                     x.key == spec.key
-                        && (x.shown_for_classes.iter().any(|c| c == cls)
-                            || x.role == "verdict_input")
+                        && (x.shown_for.applies(native, cls) || x.role == "verdict_input")
                 })
             });
             if !shown {
@@ -776,22 +879,39 @@ impl<'r> Engine<'r> {
             if let Some(e) = entry {
                 deps.insert(e.label(), e.sha256.clone());
             }
-            let (x, tkey, tref) =
-                match crate::transfer::select_pinned(md, sctx, &transfers, &pinned) {
-                    Selection::Missing => (
-                        r_meas.to_vec(),
-                        NO_TRANSFER.to_string(),
-                        "none (no transfer available)".to_string(),
-                    ),
-                    Selection::NotNeeded => {
-                        (r_meas.to_vec(), NO_TRANSFER.to_string(), "none".to_string())
-                    }
-                    Selection::Apply(t) => (apply(t, deps), t.file_sha256.clone(), t.key()),
-                };
-            let (pred, status) = match md.predict(&Spectrum::new(wl.to_vec(), x), sctx) {
+            let sel = crate::transfer::select_for_reader(
+                spec.reads_as_measured,
+                md,
+                sctx,
+                &transfers,
+                &pinned,
+            );
+            let (x, corr, tref, tsel) = match sel {
+                Selection::Missing => (
+                    r_meas.to_vec(),
+                    None,
+                    "none (no transfer available)".to_string(),
+                    None,
+                ),
+                Selection::NotNeeded => (r_meas.to_vec(), None, "none".to_string(), None),
+                Selection::Apply(t) => (apply(t, deps), Some(t.correction()), t.key(), Some(t)),
+            };
+            let (mut pred, status) = match md.predict(&Spectrum::new(wl.to_vec(), x), sctx) {
                 Ok(p) => (Some(p), "assessed".to_string()),
                 Err(e) => (None, format!("not assessed: {e}")),
             };
+            // the correction's per-reader offsets (DECISIONS 137): on a consensus, its components before the median
+            let mut reader_offset = None;
+            let mut component_offsets = Obj::new();
+            if let (Some(t), Some(p)) = (tsel, pred.as_mut()) {
+                if !t.reader_offsets.is_empty() {
+                    let (own, comps) = md.add_reader_offsets(p, &t.reader_offsets);
+                    reader_offset = own;
+                    for (c, off) in comps {
+                        component_offsets.set(&c, off);
+                    }
+                }
+            }
             let value = pred.as_ref().map(|p| p.value).filter(|v| v.is_finite());
             let dratio = pred
                 .as_ref()
@@ -805,6 +925,14 @@ impl<'r> Engine<'r> {
                 .with("status", status)
                 .with("value", value)
                 .with("domain_ratio", dratio);
+            let isd = self.gains.implied_sd(
+                Some(&self.reg.gain_cache),
+                md,
+                wl,
+                &sctx.splices_nm,
+                corr,
+                &mut |lo, hi| n2c.get(lo, hi),
+            );
             if spec.role == "verdict_input" {
                 let feats: BTreeMap<String, f64> = pred
                     .as_ref()
@@ -815,28 +943,22 @@ impl<'r> Engine<'r> {
                     co.set(c, feats.get(c).copied().filter(|v| v.is_finite()));
                 }
                 r.set("components", co);
-                if let Some(cs) = self.gains.consensus.get(&md.header.id) {
+                if let Some(cs) = &isd.component_sd {
                     let mut csd = Obj::new();
-                    let mut sds = Vec::new();
-                    for (c, mk) in cs.components_ordered() {
-                        let sd = self.rss(mk, &tkey, n2c);
-                        csd.set(c, sd);
-                        sds.push(sd);
+                    for (c, sd) in cs {
+                        csd.set(c, *sd);
                     }
                     r.set("component_sd", csd);
-                    r.set(
-                        "implied_sd",
-                        if sds.iter().any(Option::is_none) {
-                            None
-                        } else {
-                            let v: Vec<f64> = sds.into_iter().flatten().collect();
-                            Some(cs.factor * crate::n2::median(&v))
-                        },
-                    );
                 }
-            } else {
-                r.set("implied_sd", self.rss(&md.header.id, &tkey, n2c));
             }
+            r.set("implied_sd", isd.sd);
+            if let Some(off) = reader_offset {
+                r.set("reader_offset", off);
+            }
+            if !component_offsets.0.is_empty() {
+                r.set("component_offsets", component_offsets);
+            }
+            noise.insert(spec.key.clone(), (isd.status, isd.b6));
             r.set(
                 "domain_note",
                 matches!((dn, dratio), (Some(d), Some(x)) if x > d),
@@ -866,18 +988,17 @@ impl<'r> Engine<'r> {
                 (m, comps, s1)
             })
             .collect();
-        (out, per)
+        (out, per, noise)
     }
+}
 
-    /// sqrt(sum (gain x N2(window))^2) for a model id and transfer key; None = no gain (not assessed).
-    fn rss(&self, model_id: &str, key: &str, n2c: &mut N2Cache) -> Option<f64> {
-        let terms = self.gains.models.get(model_id)?.get(key)?;
-        let mut s = 0.0;
-        for t in terms {
-            let v = t.gain * n2c.get(t.window_nm.0, t.window_nm.1);
-            s += v * v;
-        }
-        Some(s.sqrt())
+/// The transferred stream on the scan's grid. A transfer that fails, or whose output is not on the scan's grid (a
+/// block-SNV correction keeps only its block's points), gives a NaN stream: its consumers are not assessed, never
+/// read off the wrong channels.
+fn transferred(t: &Transfer, wl: &[f64], r: &[f64], ctx: &ScanContext) -> Vec<f64> {
+    match t.apply(&Spectrum::new(wl.to_vec(), r.to_vec()), ctx) {
+        Ok(s) if s.wl == wl => s.x,
+        _ => vec![f64::NAN; wl.len()],
     }
 }
 
@@ -894,15 +1015,35 @@ fn empty_verdict(verdict: &str, step: &str) -> Obj {
         .with("flags", V::List(vec![]))
 }
 
+/// B6 status of a model with no noise record at all (not loaded, not computed).
+const NO_GAIN: &str = "not assessed: no noise gain for this model and transfer";
+
 /// B6 (DECISIONS 109; oracle `pipeline.b6_noise`): Check when a verdict cut lies within `within_sd` x the implied SD
-/// of the reading, i.e. when noise alone could carry the reading across a cut. No SD: not assessed; no finite
-/// reading: no outcome.
-fn b6_noise(value: Option<f64>, sd: Option<f64>, cuts: &[f64], within_sd: f64) -> Obj {
-    let Some(sd) = sd else {
+/// of the reading, i.e. when noise alone could carry the reading across a cut. Not applied to an exempt reader; no
+/// SD: not assessed, with the noise status (a non-linear correction, not available on this instrument, ...); no
+/// finite reading: no outcome.
+fn b6_noise(
+    value: Option<f64>,
+    sd: Option<f64>,
+    status: &str,
+    applies: bool,
+    cuts: &[f64],
+    within_sd: f64,
+) -> Obj {
+    if !applies {
+        return Obj::new()
+            .with("status", B6_NOT_APPLIED)
+            .with("outcome", None::<&str>);
+    }
+    let Some(sd) = sd.filter(|s| s.is_finite()) else {
         return Obj::new()
             .with(
                 "status",
-                "not assessed: no noise gain for this model and transfer",
+                if status == "assessed" {
+                    NO_GAIN
+                } else {
+                    status
+                },
             )
             .with("outcome", None::<&str>);
     };
@@ -1030,7 +1171,7 @@ mod tests {
     fn b6_is_cut_aware() {
         let cuts = [0.5, 3.0];
         let out = |v: Option<f64>, sd: Option<f64>| {
-            b6_noise(v, sd, &cuts, 2.6)
+            b6_noise(v, sd, "assessed", true, &cuts, 2.6)
                 .get("outcome")
                 .and_then(V::as_str)
                 .map(str::to_string)
@@ -1044,11 +1185,30 @@ mod tests {
         assert_eq!(out(Some(12.0), Some(4.0)), check); // 9 <= 10.4
         assert_eq!(out(None, Some(0.3)), None);
         assert_eq!(out(Some(f64::NAN), Some(0.3)), None);
-        let na = b6_noise(Some(2.0), None, &cuts, 2.6);
+        let na = b6_noise(Some(2.0), None, NO_GAIN, true, &cuts, 2.6);
         assert_eq!(
             na.get("status").and_then(V::as_str),
             Some("not assessed: no noise gain for this model and transfer")
         );
         assert_eq!(na.get("outcome").and_then(V::as_str), None);
+        // the noise status says why: a non-linear correction; a reader B6 does not apply to
+        let nl = b6_noise(
+            Some(2.0),
+            None,
+            "not assessed: non-linear correction",
+            true,
+            &cuts,
+            2.6,
+        );
+        assert_eq!(
+            nl.get("status").and_then(V::as_str),
+            Some("not assessed: non-linear correction")
+        );
+        let ex = b6_noise(Some(3.1), Some(0.5), "assessed", false, &cuts, 2.6);
+        assert_eq!(ex.get("status").and_then(V::as_str), Some(B6_NOT_APPLIED));
+        assert_eq!(ex.get("outcome").and_then(V::as_str), None);
+        // a non-finite SD is never "ok"
+        let inf = b6_noise(Some(8.0), Some(f64::NAN), "assessed", true, &cuts, 2.6);
+        assert_eq!(inf.get("outcome").and_then(V::as_str), None);
     }
 }

@@ -7,11 +7,11 @@
  "entries": [
   {
    "file": "bands.json",
-   "sha256": "69f072df8184e190e4d67add8c5a60dc0ff3f9334bcae2a461d768d9e8dd3aa3",
-   "bytes": 38389,
+   "sha256": "77a0c65e6643a3163a75358be89993977ec19c2a5e5cbb215c2639f47d5ff1d0",
+   "bytes": 42617,
    "format": "spyder-bone/bands",
    "id": "bands.core",
-   "version": "1.0.0",
+   "version": "2.0.0",
    "status": "active"
   },
   {
@@ -28,80 +28,80 @@
   },
   {
    "file": "checks/check.acquisition.json",
-   "sha256": "6171ba20b0648de442f21d0fa336b37e5434cc5c05d5d0cce57662244e0b7c20",
-   "bytes": 21134,
+   "sha256": "6803ee0a902d7db8e8cf68ce4f938cada9129bce3fe3aacaaa88b597bd489bbf",
+   "bytes": 27385,
    "format": "spyder-bone/engine_check",
    "id": "check.acquisition",
-   "version": "4.0.0",
+   "version": "5.0.0",
    "status": "active"
   },
   {
    "file": "checks/check.b9.json",
-   "sha256": "ce175c36753068949a7b9d55923cbf8639ae66128ea27d548131f57f8a268927",
-   "bytes": 5015,
+   "sha256": "fbc91e4f3045834bbcd90316f9d92c27f5919c5582e3e1d451a6ee769e692c82",
+   "bytes": 5011,
    "format": "spyder-bone/engine_check",
    "id": "check.b9",
-   "version": "1.0.0",
+   "version": "1.0.1",
    "status": "active"
   },
   {
    "file": "checks/check.c1.json",
-   "sha256": "9bcbb5323137e893dfe99b19ed038d6f035a4badb823f4b56ff3dde9e9105177",
-   "bytes": 10461,
+   "sha256": "dfbfb39f4f60dbdbea0cfdde483b1bd3665e6da56dded31a42081d0882ff79e5",
+   "bytes": 10457,
    "format": "spyder-bone/engine_check",
    "id": "check.c1",
-   "version": "3.0.0",
+   "version": "3.0.1",
    "status": "active"
   },
   {
    "file": "checks/check.evidence_levels.json",
-   "sha256": "4d96ce43939d0d1a257140cb066144a1094097112a5810353a1ac170ac6ee2a1",
-   "bytes": 17144,
+   "sha256": "54275d3a2da7d4aec292f30fbf13cfe1297047b594c663bba022b358c3e94794",
+   "bytes": 17135,
    "format": "spyder-bone/engine_check",
    "id": "check.evidence_levels",
-   "version": "1.0.0",
+   "version": "1.0.1",
    "status": "active"
   },
   {
    "file": "checks/check.heat.json",
-   "sha256": "f793298154d17c162f48ecd3511c8a222c77eddc02c3f0bc38081bb80cc35c00",
-   "bytes": 2832,
+   "sha256": "4047e82e3486b112d37d428dde5c67dd0e23f19daf7ae1a3347152593fd2d6cc",
+   "bytes": 3197,
    "format": "spyder-bone/engine_check",
    "id": "check.heat",
-   "version": "1.0.0",
+   "version": "1.1.0",
    "status": "active"
   },
   {
    "file": "checks/check.longwave.json",
-   "sha256": "4552de2191aad03002517c0494b675a143c4a73ffe38855a60817f97b6046c94",
-   "bytes": 3977,
+   "sha256": "f753c9a13667ebbb975a7728c8f77bdcfe2809b50d1e84f0d69c40a31e6cdc0f",
+   "bytes": 6379,
    "format": "spyder-bone/engine_check",
    "id": "check.longwave",
-   "version": "1.0.0",
-   "status": "active"
-  },
-  {
-   "file": "checks/check.signs.json",
-   "sha256": "c216a10662aaf764939e059669e31389d33c90372aa3b62af9f1ae2320ee88b0",
-   "bytes": 16952,
-   "format": "spyder-bone/engine_check",
-   "id": "check.signs",
    "version": "2.0.0",
    "status": "active"
   },
   {
-   "file": "checks/check.zooms_patterns.json",
-   "sha256": "9e79f48579a62e98199ceec84f0fca9a5a965a3fa103a87e95a62cff239f0d8f",
-   "bytes": 19484,
+   "file": "checks/check.signs.json",
+   "sha256": "4cf9bdc3f831b47127b483900bb4b2aad0b16da8d9e98ecf66ad0e854f497af1",
+   "bytes": 18481,
    "format": "spyder-bone/engine_check",
-   "id": "check.zooms_patterns",
+   "id": "check.signs",
    "version": "3.0.0",
    "status": "active"
   },
   {
+   "file": "checks/check.zooms_patterns.json",
+   "sha256": "5224483124b1185005d0dfdac5351efeedd004fd220b9aa418a1ee73f81183c8",
+   "bytes": 19482,
+   "format": "spyder-bone/engine_check",
+   "id": "check.zooms_patterns",
+   "version": "3.0.1",
+   "status": "active"
+  },
+  {
    "file": "checks/golden_spectra_checks_v1.json",
-   "sha256": "301a2ee5a67f59bdf0a8d383b162854b1d7e9fa51ddac28b5cbf6430575ab0e1",
-   "bytes": 1604982,
+   "sha256": "7650e3e8db0bea9ed84bb9d8bcd85072773ee19f5d6330bef5da57b37c096205",
+   "bytes": 1653030,
    "format": "spyder-bone/golden_spectra",
    "id": "spyder.checks.spectra.public.v1"
   },
@@ -224,8 +224,8 @@
   },
   {
    "file": "hires_to_std_v0_1.spyder-transfer.json",
-   "sha256": "62c47c6a32d4971a4a6894c447994d44300bb3bc70411ad54767463aabeec6ff",
-   "bytes": 521233,
+   "sha256": "671a08407b1fd4737f7d358db8648703b92ac2ef212ad9dbcdbf3de0b788b27e",
+   "bytes": 521408,
    "format": "spyder-bone/transfer",
    "id": "transfer.labspec4.hires_to_std",
    "version": "0.1.0",
@@ -234,8 +234,8 @@
   },
   {
    "file": "hires_to_std_v0_2.spyder-transfer.json",
-   "sha256": "3a6808210b44e7fad349b484646db5a4c66c6c054b4db8b04a4827d3cce2226f",
-   "bytes": 524607,
+   "sha256": "c5b9a96824556215fe06318057e58621b78e33c0252032a9097f6ad77a45f687",
+   "bytes": 524981,
    "format": "spyder-bone/transfer",
    "id": "transfer.labspec4.hires_to_std",
    "version": "0.2.0",
@@ -243,49 +243,59 @@
    "provisional": true
   },
   {
+   "file": "hires_to_std_v0_3.spyder-transfer.json",
+   "sha256": "594ee6a6a598ce77c0a4bcbdcb57dabef77f46b7567a3893e153b9c7feef972b",
+   "bytes": 225343,
+   "format": "spyder-bone/transfer",
+   "id": "transfer.labspec4.hires_to_std",
+   "version": "0.3.0",
+   "status": "active",
+   "provisional": true
+  },
+  {
    "file": "instruments.json",
-   "sha256": "58621dcfc1a0fb566b87746b2bc8a1552ea9e4e9ae923edd85b6f9d7fa88a8a1",
-   "bytes": 2601,
+   "sha256": "0a862fbe5c4d679de38285a3a504c04e21c7f72ada958472d576b1a3fe19c59a",
+   "bytes": 4872,
    "format": "spyder-bone/instrument",
    "id": "instruments.asd.labspec4",
-   "version": "1.1.0",
+   "version": "2.1.0",
    "status": "active"
   },
   {
    "file": "noise_gains.json",
-   "sha256": "817dde3e8245bbb42f2cb2eeb74869bdd7ff7427418e5da20e025bc42c9175ee",
-   "bytes": 24666,
+   "sha256": "d09625482d24569d6d0cc0cfd8c98d09cf2f4ff40caf910ca625c5ccc265bc53",
+   "bytes": 34114,
    "format": "spyder-bone/noise_gains",
    "id": "noise_gains.core",
-   "version": "1.0.0",
+   "version": "2.0.0",
    "status": "active",
    "provisional": true
   },
   {
    "file": "profiles/profile.isotopes.json",
-   "sha256": "c4d3a4b380062cd48e118e08e8206a5fd4f3ebc413491db051356e15de19e652",
-   "bytes": 77315,
+   "sha256": "3c75324171a2780f6cae3f220987208a656ad3b4fbc14393ff07610760f4d9f1",
+   "bytes": 77745,
    "format": "spyder-bone/analysis_profile",
    "id": "profile.isotopes",
-   "version": "2.2.0",
+   "version": "2.3.0",
    "status": "active"
   },
   {
    "file": "profiles/profile.radiocarbon.json",
-   "sha256": "41a7dd89aea6c413b164af7a22657b642760fdff2e25d675cf2480998af33fcd",
-   "bytes": 77324,
+   "sha256": "7b1300e42b512226112f0d7436cd8e202fcb4fd09b59374f9d8d0d5a3aec7e3e",
+   "bytes": 77754,
    "format": "spyder-bone/analysis_profile",
    "id": "profile.radiocarbon",
-   "version": "2.2.0",
+   "version": "2.3.0",
    "status": "active"
   },
   {
    "file": "profiles/profile.zooms.json",
-   "sha256": "f0eeaf939d9f1df0a1e8cd400d46c207fbc644177c9aa6e10e52a4a03b3cd170",
-   "bytes": 6151,
+   "sha256": "33d164b9c054ffb85477be4d77d182e023356347ff80c0203786d06ebd32377e",
+   "bytes": 6752,
    "format": "spyder-bone/analysis_profile",
    "id": "profile.zooms",
-   "version": "1.0.0",
+   "version": "1.1.0",
    "status": "active"
   },
   {

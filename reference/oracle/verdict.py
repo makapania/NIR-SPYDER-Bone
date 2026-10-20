@@ -44,6 +44,11 @@ the same fired signs.
 Panel notes (DECISIONS 111, 115, 119; notes.panel; see panel_notes): ch_above_nh_possible / ch_above_nh_strong (the C-H 1728 nm
 reader above CONS3, two levels) and readers_disagree_strongly (any of six reader contrasts far beyond clean bone; when it
 fires, models_disagree is not added). Notes only: they never change the verdict, the lift or the sort.
+Uncalibrated instruments (DECISIONS 137, amended 2026-10-19: no correction for the scan's instrument is installed,
+uncalibrated=True): the band calls are off. The model verdict stands (no flat bands lead, no +D, no lift, no blocked
+lift); no ZooMS band line and no faint protein note (the Ryder line, a model reading, stays); no positive-signs line
+and no bands-too-noisy note (both read the bands); the flags still show, each marked provisional (they still set the
+sort penalty), and so does the soft contaminant note (possible_thin_coating, marked provisional); the ZooMS profile says Can't tell (rule step band_evidence_not_built_in, no pattern).
 The oracle emits note KEYS and their parameters; the UI holds the strings.
 """
 from __future__ import annotations
@@ -81,13 +86,17 @@ def _signs_state(sg, c1r, flag_sets):
     return contam, burnt
 
 
-def flags_for(prof, sg, c1r):
+def flags_for(prof, sg, c1r, provisional=False):
+    """provisional: the instrument has no built-in correction, so its contaminant and heat signs are provisional."""
     contam, burnt = _signs_state(sg, c1r, prof["flags"])
     out = []
     if contam:
         out.append({"key": "flag_contaminant", "signs": contam})
     if burnt:
         out.append({"key": "flag_burnt", "signs": burnt})
+    if provisional:
+        for f in out:
+            f["provisional"] = True
     return out
 
 
@@ -105,8 +114,10 @@ def _contaminant_check_state(prof, sg, c1r):
     return skipped, checked
 
 
-def _common_notes(nt, m, sg, c1r):
-    """(above_bone_range, possible_thin_coating) notes and the c1_reduced / signs_reduced notes, for every analysis."""
+def _common_notes(nt, m, sg, c1r, provisional=False):
+    """(above_bone_range, possible_thin_coating) notes and the c1_reduced / signs_reduced notes, for every analysis.
+    provisional: the instrument has no built-in correction, so the soft contaminant note (possible_thin_coating) is
+    marked provisional, as the flags are."""
     first, last = [], []
     ab = nt.get("above_bone_range_m_above")
     if ab is not None and m is not None and m > ab:
@@ -114,6 +125,8 @@ def _common_notes(nt, m, sg, c1r):
     soft = sg.get("soft") or {}
     if soft.get("fired"):
         first.append({"key": "possible_thin_coating", "components": list(soft.get("components", []))})
+        if provisional:
+            first[-1]["provisional"] = True
     if str(c1r.get("status", "")).startswith("assessed: truncated"):
         last.append({"key": "c1_reduced"})
     red = [n for n in ("plaster", "C1") if _status(sg, c1r, n).startswith("assessed: reduced")]
@@ -153,11 +166,13 @@ def _band_line(zb, verdict, zo, step, m):
     return {"key": "zooms_faint_protein", "lit": lit, "m": m}
 
 
-def zooms_better(nt, verdict, zo, step="model_verdict", fired=(), m=None, models=None, notes_fired=()):
+def zooms_better(nt, verdict, zo, step="model_verdict", fired=(), m=None, models=None, notes_fired=(),
+                 bands=True):
     """The ZooMS notes (0, 1 or 2): the band line, or the Ryder 2045 line on an Unlikely verdict that has no band line
     (a faint protein note then follows it, for the details). models: the scan's models record (Ryder 2045's reading).
     notes_fired: base keys of the panel notes that fired; one in zooms_better.suppressed_by_notes (the C-H note,
-    DECISIONS 120) suppresses the line as a fired sign does."""
+    DECISIONS 120) suppresses the line as a fired sign does. bands=False (an uncalibrated instrument): no band line and
+    no faint protein note; only the Ryder line (a model reading) can show."""
     zb = nt.get("zooms_better")
     if not zb or not zb.get("enabled"):
         return []
@@ -165,7 +180,7 @@ def zooms_better(nt, verdict, zo, step="model_verdict", fired=(), m=None, models
         return []
     if any(n in zb.get("suppressed_by_notes", []) for n in notes_fired):
         return []
-    band = _band_line(zb, verdict, zo, step, m)
+    band = _band_line(zb, verdict, zo, step, m) if bands else None
     if band and band["key"] != "zooms_faint_protein":
         return [band]
     cut = zb.get("ryder_2045_at_least")
@@ -247,14 +262,15 @@ def panel_notes(nt, m, comps, models):
     return out, bool(fired), rec
 
 
-def collagen_verdict(prof, m, comps, ev, zo, sg, c1r, gated, models=None):
+def collagen_verdict(prof, m, comps, ev, zo, sg, c1r, gated, models=None, uncalibrated=False):
     """prof: the profile 'parameters' block. m: CONS3 (None if not available). comps: {name: value}. models: the
     scan's models record (the Ryder 2045 ZooMS line reads the published model there).
     ev: evidence result; zo: ZooMS pattern result; sg: signs (incl. 'soft'); c1r: C1 result; gated: every contaminant
-    sign gated (the B6b summary; per-sign gating is read from the sign statuses)."""
+    sign gated (the B6b summary; per-sign gating is read from the sign statuses). uncalibrated: no correction for the
+    scan's instrument is installed: the band calls are off (module notes)."""
     cuts = prof["cuts"]
     V = model_verdict(m, cuts)
-    out = {"model_verdict": V, "notes_all": [], "flags": flags_for(prof, sg, c1r)}
+    out = {"model_verdict": V, "notes_all": [], "flags": flags_for(prof, sg, c1r, provisional=uncalibrated)}
     if V is None:
         out.update(verdict="Can't tell", rule_step="no_model_reading", notes_shown=[], primary_note=None)
         out["notes_all"].append({"key": "no_model_reading"})
@@ -271,7 +287,9 @@ def collagen_verdict(prof, m, comps, ev, zo, sg, c1r, gated, models=None):
     v, step, primary = V, "model_verdict", None
     notes = []
     fl = prof["flat_bands_lead"]; pdp = prof["plus_d"]; lf = prof["lift"]
-    if fl["enabled"] and level == fl["evidence_level"]:
+    if uncalibrated:
+        pass                                     # the band calls are off: the model verdict stands
+    elif fl["enabled"] and level == fl["evidence_level"]:
         v, step = fl["verdict"], "flat_bands_lead"
         notes.append({"key": "flat_bands_lead", "m": m})
     elif pdp["enabled"] and zv == pdp["zooms_verdict"] and m >= pdp["m_at_least"]:
@@ -300,8 +318,9 @@ def collagen_verdict(prof, m, comps, ev, zo, sg, c1r, gated, models=None):
     nt = prof["notes"]
     # the panel notes first: a fired C-H note can suppress the ZooMS line (DECISIONS 120); listed after the common notes
     pnotes, strong_disagree, panel_rec = panel_notes(nt, m, comps, models)
-    notes += zooms_better(nt, v, zo, step, contam, m, models, [_base_key(n["key"]) for n in pnotes])
-    first, last = _common_notes(nt, m, sg, c1r)
+    notes += zooms_better(nt, v, zo, step, contam, m, models, [_base_key(n["key"]) for n in pnotes],
+                          bands=not uncalibrated)
+    first, last = _common_notes(nt, m, sg, c1r, provisional=uncalibrated)
     soft_fired = any(n["key"] == "possible_thin_coating" for n in first)
     notes += first
     notes += pnotes
@@ -312,12 +331,12 @@ def collagen_verdict(prof, m, comps, ev, zo, sg, c1r, gated, models=None):
     ps = nt["positive_signs"]
     # no encouraging line when a panel note says the evidence conflicts (DECISIONS 128)
     panel_suppresses = any(_base_key(n["key"]) in ps.get("suppressed_by_notes", []) for n in pnotes)
-    if promising and not contam and not unchecked and not soft_fired and not panel_suppresses:
+    if promising and not contam and not unchecked and not soft_fired and not panel_suppresses and not uncalibrated:
         if zv == ps["all_six_zooms_verdict"]:
             notes.append({"key": "positive_signs_all_six"})
         elif level in ps["clear_levels"] and m >= ps["clear_min_m"]:
             notes.append({"key": "positive_signs_clear"})
-    if level == nt["bands_too_noisy_level"]:
+    if level == nt["bands_too_noisy_level"] and not uncalibrated:
         notes.append({"key": "bands_too_noisy"})
     notes += last
     out["notes_all"] = notes
@@ -370,14 +389,19 @@ def shown_notes(notes, nt, lifted=False):
     return shown[: nt["max_shown"]] + [w for w in warnings if w in keys]
 
 
-def zooms_verdict(prof, zo, sg, c1r, m=None):
+def zooms_verdict(prof, zo, sg, c1r, m=None, uncalibrated=False):
     """The band-pattern verdict (incl. its 1545 nm vote). With a 'notes' block: above_bone_range and
-    possible_thin_coating (one shown, profile order), c1_reduced and signs_reduced details-only."""
-    out = {"verdict": zo["verdict"], "rule_step": "zooms_pattern", "pattern": zo["pattern"],
-           "flags": flags_for(prof, sg, c1r), "notes_all": [], "notes_shown": []}
+    possible_thin_coating (one shown, profile order), c1_reduced and signs_reduced details-only. uncalibrated: no
+    band pattern on this instrument: Can't tell, rule step band_evidence_not_built_in, no pattern."""
+    if uncalibrated:
+        out = {"verdict": "Can't tell", "rule_step": "band_evidence_not_built_in", "pattern": None,
+               "flags": flags_for(prof, sg, c1r, provisional=True), "notes_all": [], "notes_shown": []}
+    else:
+        out = {"verdict": zo["verdict"], "rule_step": "zooms_pattern", "pattern": zo["pattern"],
+               "flags": flags_for(prof, sg, c1r), "notes_all": [], "notes_shown": []}
     nt = prof.get("notes")
     if nt:
-        first, last = _common_notes(nt, m, sg, c1r)
+        first, last = _common_notes(nt, m, sg, c1r, provisional=uncalibrated)
         out["notes_all"] = first + last
         out["notes_shown"] = shown_notes(out["notes_all"], nt)
     return out

@@ -7,7 +7,6 @@ use serde::Serialize;
 use spyder_core::model::Body;
 use spyder_core::pipeline::val::{Obj, V};
 use spyder_core::plugins::checks::CheckParams;
-use spyder_core::plugins::CLASS_HIRES;
 
 use crate::engine::Core;
 use crate::session::{ui_class, ClassSource, Entry, Input};
@@ -137,6 +136,9 @@ pub struct Zooms {
     pub verdict: &'static str,
     /// The OH-corrected 1545 nm band voted Unlikely up to Borderline (DECISIONS 75).
     pub vote1545: bool,
+    /// "not assessed: band evidence needs this instrument built in" on an instrument with no built-in correction
+    /// (DECISIONS 137): no band pattern, though the band readings still show.
+    pub status: Assessment,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -173,6 +175,8 @@ pub struct CheckResult {
 pub struct Flag {
     pub key: String,
     pub signs: Vec<&'static str>,
+    /// On an instrument with no built-in correction the contaminant and heat signs are provisional (DECISIONS 137).
+    pub provisional: bool,
 }
 
 /// One reader comparison of the panel record (DECISIONS 119, 121): its value, the value at which the readers-disagree note
@@ -206,7 +210,12 @@ pub struct ScanResult {
     pub path: String,
     pub acquired_at: String,
     pub serial: Option<u64>,
-    pub instrument_class: &'static str,
+    /// "standard" / "hires" (the LabSpec 4 switch) or another instrument's registry class id (DECISIONS 137).
+    pub instrument_class: String,
+    /// The registry's display name of another instrument's class ("Trek-type handheld"); None for the LabSpec classes.
+    pub instrument_name: Option<String>,
+    /// Who set the class; "file_format" when the file was identified as another instrument's (by its file format and,
+    /// for as7, its detector joins).
     pub class_source: &'static str,
     pub transfer: Option<TransferInfo>,
     pub analysis: String,
@@ -245,6 +254,9 @@ pub struct ScanResult {
     pub kind_detail: Option<String>,
     /// Milliseconds the analysis took.
     pub score_ms: f64,
+    /// No correction for this scan's instrument is installed (the core's instrument_uncalibrated note): the band calls
+    /// are off and the contaminant and heat signs provisional (DECISIONS 137).
+    pub uncalibrated: bool,
     /// The panel record (radiocarbon / isotopes; none for ZooMS or an unscored scan).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub panel: Option<PanelInfo>,
@@ -334,7 +346,12 @@ pub fn ui_note_key(k: &str) -> String {
     }
 }
 
-fn note(n: &Obj, set_class: &str, serial: Option<u64>) -> Note {
+fn note(
+    n: &Obj,
+    set_class: &str,
+    serial: Option<u64>,
+    name_of: &dyn Fn(&str) -> Option<String>,
+) -> Note {
     let key = n.get("key").and_then(V::as_str).unwrap_or("").to_string();
     let mut p = serde_json::Map::new();
     let num = |k: &str| n.get(k).and_then(V::as_f64);
@@ -429,12 +446,31 @@ fn note(n: &Obj, set_class: &str, serial: Option<u64>) -> Note {
                 put("ch", x.into());
             }
         }
+        "band_noise_unknown" => {
+            // the bands whose noise could not be estimated, as UI band ids (DECISIONS 137)
+            if let Some(V::List(l)) = n.get("bands") {
+                let ids: Vec<serde_json::Value> = l
+                    .iter()
+                    .filter_map(V::as_str)
+                    .map(|b| ui_band_id(b).into())
+                    .collect();
+                put("bands", serde_json::Value::Array(ids));
+            }
+        }
         "readers_disagree_strongly" => {
             // which reader comparisons went beyond what clean bone shows (details only)
             if let Some(V::List(l)) = n.get("contrasts") {
                 let c: Vec<serde_json::Value> =
                     l.iter().filter_map(V::as_str).map(|x| x.into()).collect();
                 put("contrasts", serde_json::Value::Array(c));
+            }
+        }
+        "instrument_uncalibrated" => {
+            // no correction for this instrument is installed (DECISIONS 137): its class and display name
+            let c = n.get("class").and_then(V::as_str).unwrap_or(set_class);
+            put("class", ui_class(c).into());
+            if let Some(name) = name_of(c) {
+                put("name", name.into());
             }
         }
         "serial_class_mismatch" => {
@@ -498,15 +534,21 @@ fn checks(rec: &Obj, cons3: Option<&ModelReading>) -> Vec<CheckResult> {
         });
     }
     if let Some(m) = cons3 {
+        // the core's B6 status says why the noise was not assessed (a non-linear correction, not available on this
+        // instrument, ...); "assessed" only with a finite implied SD
+        let core_status = s(
+            obj_or_none(obj_or_none(obj(rec, "models"), "cons3"), "B6"),
+            "status",
+        );
         out.push(CheckResult {
             id: "b6",
             outcome: if m.noise_check { "check" } else { "ok" },
-            status: if m.implied_sd.is_some() {
-                assessment(Some("assessed"))
-            } else {
-                assessment(Some(
+            status: match (core_status, m.implied_sd) {
+                (Some(st), _) if st != "assessed" => assessment(Some(st)),
+                (_, Some(_)) => assessment(Some("assessed")),
+                _ => assessment(Some(
                     "not assessed: no noise gain for this model and transfer",
-                ))
+                )),
             },
             value: m.implied_sd,
             detail: None,
@@ -604,6 +646,18 @@ fn models(core: &Core, rec: &Obj) -> Models {
         out.ch1728 = Some(model_reading("ch1728", m));
     }
     out
+}
+
+/// A core band id as the UI names it (bands.ts): the six bands and the OH-corrected 1545 nm trough.
+fn ui_band_id(b: &str) -> String {
+    BANDS
+        .iter()
+        .find(|(core, _, _)| *core == b)
+        .map(|(_, ui, _)| ui.to_string())
+        .unwrap_or_else(|| match b {
+            "NH1545c" => "nh1545".to_string(),
+            other => other.to_ascii_lowercase(),
+        })
 }
 
 /// The six bands in the UI's order (bands.ts) with their weights.
@@ -735,6 +789,7 @@ fn evidence(core: &Core, rec: &Obj) -> (Evidence, Zooms) {
         readable_count: zcount("readable"),
         verdict: ui_verdict(s(zo, "verdict").unwrap_or("Can't tell")),
         vote1545: zo.and_then(|z| z.get("vote_1545")).is_some_and(V::truthy),
+        status: assessment(s(zo, "status").or(Some("not assessed: scan not analysed"))),
     };
     (evd, zv)
 }
@@ -839,6 +894,7 @@ pub fn scan_result(
         acquired_at: modified_iso(e.modified_ms),
         serial: None,
         instrument_class: ui_class(class),
+        instrument_name: None,
         class_source: source.ui_str(),
         transfer: None,
         analysis: analysis.to_string(),
@@ -865,6 +921,7 @@ pub fn scan_result(
             readable_count: 0,
             verdict: "cant_tell",
             vote1545: false,
+            status: assessment(Some("not assessed: scan not analysed")),
         },
         signs: Vec::new(),
         checks: Vec::new(),
@@ -883,6 +940,7 @@ pub fn scan_result(
         scan_kind: "sample",
         kind_detail: None,
         score_ms: e.score_ms,
+        uncalibrated: false,
         panel: None,
     };
     let Some(rec) = e.record.as_deref() else {
@@ -949,25 +1007,34 @@ pub fn scan_result(
         r.unusable_reason = why;
         r.unusable_detail = detail;
     }
+    // the class the scan was scored as: the switch's, or another instrument's (identified from the file)
     let set_class = s(ins, "class").unwrap_or(class);
+    r.instrument_class = ui_class(set_class);
+    if r.instrument_class != "standard" && r.instrument_class != "hires" {
+        r.instrument_name = core.display_name(set_class);
+    }
+    if s(ins, "class_source") == Some("file_format") {
+        r.class_source = "file_format";
+    }
+    let name_of = |c: &str| core.display_name(c);
     if let Some(V::List(l)) = a.and_then(|a| a.get("notes_all")) {
         r.notes = l
             .iter()
             .filter_map(V::as_obj)
-            .map(|n| note(n, set_class, r.serial))
+            .map(|n| note(n, set_class, r.serial, &name_of))
             .collect();
     }
     if let Some(V::List(l)) = ins.and_then(|i| i.get("notes")) {
         r.notes.extend(
             l.iter()
                 .filter_map(V::as_obj)
-                .map(|n| note(n, set_class, r.serial)),
+                .map(|n| note(n, set_class, r.serial, &name_of)),
         );
     }
     // An unlisted serial whose header SWIR gains suggest the other class: a gentle details note (a heuristic;
     // a listed serial has the core's serial note instead).
     let listed = r.serial.and_then(|sr| core.class_of_serial(sr)).is_some();
-    if let Some(h) = e.hint.filter(|h| !listed && *h != set_class) {
+    if let Some(h) = e.hint.as_deref().filter(|h| !listed && *h != set_class) {
         let mut p = serde_json::Map::new();
         p.insert("known".into(), ui_class(h).into());
         p.insert("set".into(), ui_class(set_class).into());
@@ -989,14 +1056,14 @@ pub fn scan_result(
                     Some(V::List(sg)) => sg.iter().filter_map(V::as_str).map(ui_sign).collect(),
                     _ => Vec::new(),
                 },
+                provisional: fl.get("provisional").is_some_and(V::truthy),
             })
             .collect();
     }
+    r.uncalibrated = r.notes.iter().any(|n| n.key == "instrument_uncalibrated");
+    // S1_R2 (the transfer-free 1545 nm model) is in the record only on a stream that is not the native
+    // standard-resolution scan (a correction applied, or another instrument's scan; the profiles say so, DECISIONS 137)
     r.models = models(core, rec);
-    // S1_R2 (the transfer-free 1500 model) is a high-res second opinion only (PLAN Step 6)
-    if class != CLASS_HIRES {
-        r.models.s1r2 = None;
-    }
     let (ev, zo) = evidence(core, rec);
     r.evidence = ev;
     r.zooms = zo;
